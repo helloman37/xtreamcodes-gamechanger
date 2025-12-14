@@ -81,28 +81,33 @@ $where = [];
 $params = [];
 
 if ($q !== '') {
-  $where[] = "(name LIKE ? OR tvg_name LIKE ? OR tvg_id LIKE ? OR group_title LIKE ?)";
+  $where[] = "(c.name LIKE ? OR c.tvg_name LIKE ? OR c.tvg_id LIKE ? OR c.group_title LIKE ?)";
   for ($i=0;$i<4;$i++) $params[] = "%$q%";
 }
 if ($group !== '') {
-  $where[] = "IFNULL(group_title,'') = ?";
+  $where[] = "IFNULL(c.group_title,'') = ?";
   $params[] = $group;
 }
 if ($direct !== '') {
-  $where[] = "direct_play = ?";
+  $where[] = "c.direct_play = ?";
   $params[] = (int)$direct;
 }
 
-$sql = "SELECT * FROM channels";
+$sql = "SELECT c.*, IFNULL(cat.sort_order, 999999) AS cat_sort, IFNULL(c.sort_order, c.id) AS ch_sort
+        FROM channels c
+        LEFT JOIN categories cat ON cat.id=c.category_id";
 if ($where) $sql .= " WHERE " . implode(" AND ", $where);
-$sql .= " ORDER BY group_title, name";
+$sql .= " ORDER BY cat_sort, ch_sort, c.id";
 
 $st = $pdo->prepare($sql);
 $st->execute($params);
 $channels = $st->fetchAll();
 
 /* group list for dropdown */
-$groups = $pdo->query("SELECT DISTINCT IFNULL(group_title,'') AS grp FROM channels ORDER BY grp")->fetchAll();
+$groups = $pdo->query("SELECT DISTINCT IFNULL(c.group_title,'') AS grp, IFNULL(cat.sort_order, 999999) AS s
+  FROM channels c
+  LEFT JOIN categories cat ON cat.id=c.category_id
+  ORDER BY s, grp")->fetchAll();
 
 $topbar = file_get_contents(__DIR__ . '/topbar.html');
 ?>

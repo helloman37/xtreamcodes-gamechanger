@@ -134,13 +134,14 @@ if ($action === 'get_live_categories') {
   [$pkg_sql, $pkg_params] = package_filter_sql($pkg_ids, 'c');
 
   $sql = "
-    SELECT DISTINCT cat.id, cat.name
+    SELECT cat.id, cat.name
     FROM categories cat
     JOIN channels c ON c.category_id=cat.id
     WHERE 1=1
       ".($adult_ok ? "" : " AND IFNULL(c.is_adult,0)=0 ")."
       $pkg_sql
-    ORDER BY cat.name
+    GROUP BY cat.id, cat.name, cat.sort_order
+    ORDER BY cat.sort_order, cat.id
   ";
   $st = $pdo->prepare($sql);
   $st->execute($pkg_params);
@@ -177,7 +178,7 @@ if ($action === 'get_live_streams') {
       ".($adult_ok ? "" : " AND IFNULL(c.is_adult,0)=0 ")."
       $pkg_sql
       $where_cat
-    ORDER BY c.group_title, c.name
+    ORDER BY IFNULL(c.sort_order, c.id), c.id
   ";
   $st = $pdo->prepare($sql);
   $st->execute($params);

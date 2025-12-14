@@ -155,12 +155,15 @@ $pkg_ids  = user_package_ids($pdo, (int)$user['id']);
 
 /* channels */
 $sql = "
-  SELECT c.id,c.name,c.group_title,c.tvg_id,c.tvg_name,c.tvg_logo,c.stream_url,c.direct_play,c.container_ext
+  SELECT c.id,c.name,c.group_title,c.tvg_id,c.tvg_name,c.tvg_logo,c.stream_url,c.direct_play,c.container_ext,
+         IFNULL(cat.sort_order, 999999) AS cat_sort,
+         IFNULL(c.sort_order, c.id) AS ch_sort
   FROM channels c
+  LEFT JOIN categories cat ON cat.id=c.category_id
   WHERE 1=1
     ".($adult_ok ? "" : " AND IFNULL(c.is_adult,0)=0 ")."
     $pkg_sql
-  ORDER BY c.group_title,c.name
+  ORDER BY cat_sort, ch_sort, c.id
 ";
 $st = $pdo->prepare($sql);
 $st->execute($pkg_params);

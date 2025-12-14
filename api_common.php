@@ -7,14 +7,16 @@ require_once __DIR__ . '/helpers.php';
  * and backfill channels.category_id. Stable IDs going forward.
  */
 function ensure_categories(PDO $pdo): void {
-  $cnt = (int)($pdo->query("SELECT COUNT(*) AS c FROM categories")->fetch(PDO::FETCH_ASSOC)['c'] ?? 0);
-  if ($cnt === 0) {
-    $groups = $pdo->query("SELECT DISTINCT IFNULL(group_title,'Uncategorized') AS grp FROM channels ORDER BY grp")->fetchAll(PDO::FETCH_ASSOC);
-    $ins = $pdo->prepare("INSERT IGNORE INTO categories (name) VALUES (?)");
-    foreach ($groups as $g) {
-      $ins->execute([$g['grp']]);
-    }
+  // Keep categories in sync with group_title values. This is idempotent.
+  $groups = $pdo->query("SELECT DISTINCT IFNULL(group_title,'Uncategorized') AS grp FROM channels ORDER BY grp")
+    ->fetchAll(PDO::FETCH_ASSOC);
+  $ins = $pdo->prepare("INSERT IGNORE INTO categories (name) VALUES (?)");
+  foreach ($groups as $g) {
+    $ins->execute([$g['grp']]);
   }
+
+  // Ensure we always have an Uncategorized bucket.
+  $ins->execute(['Uncategorized']);
 
   // Backfill channels.category_id where NULL
   $map = [];

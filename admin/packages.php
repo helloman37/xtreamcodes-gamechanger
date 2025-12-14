@@ -118,7 +118,11 @@ if ($package_id > 0) {
   }
 }
 
-$channels = $pdo->query("SELECT id,name,IFNULL(group_title,'Uncategorized') AS grp, IFNULL(is_adult,0) AS is_adult FROM channels ORDER BY grp,name")->fetchAll();
+$channels = $pdo->query("SELECT c.id,c.name,IFNULL(c.group_title,'Uncategorized') AS grp, IFNULL(c.is_adult,0) AS is_adult,
+  IFNULL(cat.sort_order, 999999) AS cat_sort, IFNULL(c.sort_order, c.id) AS ch_sort
+  FROM channels c
+  LEFT JOIN categories cat ON cat.id=c.category_id
+  ORDER BY cat_sort, ch_sort, c.id")->fetchAll();
 $movies = [];
 $series_list = [];
 try {

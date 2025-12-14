@@ -215,8 +215,19 @@ function db_migrate(PDO $pdo): void {
   _ensure_col($pdo, 'users', 'app_logo_url',   'app_logo_url VARCHAR(1024) NULL');
   _ensure_col($pdo, 'users', 'tmdb_region',    'tmdb_region VARCHAR(10) NULL');
 
+  /* ---------- Ordering (admin-defined sort) ---------- */
+  _ensure_col($pdo, 'categories', 'sort_order', 'sort_order INT NOT NULL DEFAULT 0');
+
   _ensure_col($pdo, 'channels', 'category_id', 'category_id INT NULL');
+  _ensure_col($pdo, 'channels', 'sort_order', 'sort_order INT NOT NULL DEFAULT 0');
   _ensure_col($pdo, 'channels', 'sources_json', 'sources_json TEXT NULL');
+
+  _ensure_index($pdo, 'categories', 'idx_categories_sort', 'INDEX idx_categories_sort (sort_order, id)');
+  _ensure_index($pdo, 'channels', 'idx_channels_cat_sort', 'INDEX idx_channels_cat_sort (category_id, sort_order, id)');
+
+  // Backfill sort_order for existing rows (idempotent).
+  $pdo->exec("UPDATE categories SET sort_order=id WHERE sort_order=0 OR sort_order IS NULL");
+  $pdo->exec("UPDATE channels SET sort_order=id WHERE sort_order=0 OR sort_order IS NULL");
 
   _ensure_col($pdo, 'stream_sessions', 'device_fp', 'device_fp VARCHAR(128) NULL');
   _ensure_index($pdo, 'stream_sessions', 'idx_ss_user_chan', 'INDEX idx_ss_user_chan (user_id, channel_id)');
