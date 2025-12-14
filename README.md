@@ -1,9 +1,7 @@
 [![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-%24tysonworlds-ffdd00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://cash.app/$tysonworlds)
 😁
 
-# Simple IPTV Admin Panel (PHP 7.4–8.x)
-
-> ⚠️ Work in progress – dev-friendly base, not a turnkey production panel.
+# Simple IPTV Admin Panel (PHP 7.4–8.x) — Gamechanger Edition
 
 Pure PHP + MySQL IPTV panel + companion Android app. No frameworks. No Composer. Shared-hosting friendly.
 
@@ -19,9 +17,9 @@ I’ve put a lot into this project. While the APK is public, I’m keeping the *
 
 ---
 
-## 🚀 Gamechanger: Ordered Multi‑M3U Imports (NEW)
+## 🚀 Gamechanger: Ordered Multi‑M3U Imports
 
-This panel now supports **multi M3U upload** with a **drag & drop “import order” list** — and that order is **persisted everywhere**:
+This panel supports **multi M3U upload** with a **drag & drop “import order” list** — and that order is **persisted everywhere**:
 
 - ✅ **Panel category + channel lists**
 - ✅ **User M3U downloads** (`get.php`)
@@ -39,9 +37,7 @@ So if an admin imports files in the order:
 
 ---
 
-## What’s New (Recent Work)
-
-This repo has been upgraded heavily versus the early “basic panel” version:
+## ✅ What’s New (Recent Work)
 
 ### ✅ Web Installer (Styled Wizard)
 - **Auto-redirects to `/install/`** if not installed.
@@ -69,6 +65,12 @@ Resellers can now always see exactly how many credits they have:
 - Implemented by injecting the reseller’s credit balance into the existing HTML topbar template.
 
 > Note: Admins don’t “have” credits — this display is intended for reseller-facing pages.
+
+### ✅ Admin/Reseller Dropdown → Change Password (NEW)
+In the top header, clicking **ADMIN** or **RESELLER** opens a dropdown that allows the logged-in user to:
+
+- Change password securely (requires current password)
+- Enforces basic validation (min length + confirm match)
 
 ### ✅ Fail Videos (System → Fail Videos)
 Admins can now set custom videos that play when a user fails authentication or is blocked — instead of returning plain text like **“Invalid credentials”**.
@@ -121,6 +123,38 @@ To support re-importing without duplicates:
 
 ---
 
+## 🕒 EPG System (Upgraded)
+
+### ✅ XMLTV endpoint actually returns imported EPG
+`xmltv.php` now outputs a real XMLTV feed based on the imported guide data (instead of an empty `<tv>`).
+
+### ✅ EPG Extract / Filter (NEW)
+New admin page under **EPG**:
+
+- Upload XMLTV (`.xml` or `.gz`)
+- Auto-detect “locations” (USA / Asia / etc.) using channel id + display-name matching
+- Select locations → generates a **new filtered XMLTV** download (real XMLTV output)
+
+### ✅ Upload XMLTV as Source (NEW)
+New admin page under **EPG**:
+
+- Upload **1 or 2 XMLTV files** (`.xml` or `.gz`)
+- If 2 files are uploaded, they are **combined** into one XMLTV on the server
+- The upload creates/updates a **local epg source** in the database (same flow as URL sources)
+- Then it runs the importer automatically
+
+### ✅ Auto-replace EPG on import (NEW)
+When importing from **URL** or **uploaded XMLTV**, the importer automatically **replaces the previous EPG** instead of stacking old guide data:
+
+- No duplicates
+- No stale programmes
+
+Uploaded XMLTV sources are also auto-maintained:
+- Uploading again updates the existing “local upload” source
+- Old uploaded files are cleaned up automatically
+
+---
+
 ## Features (Current)
 
 ### 🔐 Admin Area (`/admin`)
@@ -155,9 +189,9 @@ To support re-importing without duplicates:
   - Quick actions (ban IP/user)
 
 ### 💳 Billing Reports
-New **Billing → Reports** page:
-- **Monthly revenue grid** (up to last 12 months)
-- “Up for renewal” sections (users nearing expiry / renewal windows)
+**Billing → Reports** page:
+- Monthly revenue grid (up to last 12 months)
+- “Up for renewal” sections for accounts nearing expiry / renewal windows
 
 ### 📺 Channel + Category Management
 - Add / edit / delete channels
@@ -181,15 +215,6 @@ New **Billing → Reports** page:
 ### ✅ Stream Checker
 - Fast cURL probe (HEAD)
 - Stores `status` + `last_check`
-
-### 🕒 EPG System
-- Multiple EPG sources (add/enable/disable/delete)
-- Import + cache guide data for fast access
-- Protected XMLTV endpoint:
-```text
-http://yourdomain.com/xmltv.php?username=USER&password=PASS
-```
-- Admin-wrapped import page: `/admin/epg_import.php`
 
 ---
 
@@ -216,7 +241,7 @@ If you want `/live/...` and `/seg/...` to work, enable the provided Apache/Nginx
 
 ```bash
 */10 * * * * php /path/to/scripts/stream_probe.php --limit=400 >/dev/null 2>&1
-0 */6 * * * php /path/to/scripts/epg_import.php --flush=0 >/dev/null 2>&1
+0 */6 * * * php /path/to/scripts/epg_import.php --flush=1 >/dev/null 2>&1
 ```
 
 ---
@@ -232,7 +257,7 @@ If you want `/live/...` and `/seg/...` to work, enable the provided Apache/Nginx
 
 - **`.m3u8`** is the best choice for most IPTV apps (especially for Live-style playback).
 - **`.mp4`** works well for many apps but not all “live” players.
-- **`.ts`** is the safest for **segment endpoints** because those requests often expect raw transport stream bytes.
+- **`.ts`** is the safest for **segment endpoints** because those requests often expect transport stream bytes.
 
 ---
 
