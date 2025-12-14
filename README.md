@@ -123,6 +123,120 @@ To support re-importing without duplicates:
 
 ---
 
+## ✅ Admin + Reseller Account Management (Added)
+
+### ✅ User Profile Fields (Admin + Reseller)
+When creating/editing users you can now store:
+- **Subscriber Name**
+- **Subscriber Email**
+
+These fields appear on:
+- **Admin → Users → Add / Edit**
+- **Reseller → Users → Add / Edit**
+
+### ✅ Auto-Generated Numeric Credentials (Admin + Reseller)
+When adding a new user, the panel can auto-generate:
+- **Numeric username**
+- **Numeric password**
+
+Includes a **Regenerate** option so the admin/reseller can quickly roll new credentials.
+
+### ✅ Admin View: Password + Clickable M3U Link
+On **Admin → Users → Edit**, the admin can view:
+- Username
+- Password (admin view)
+- Clickable **M3U link** (full credentials embedded)
+
+Example format:
+```
+http://your-domain.com/get.php?username=USERNAME&password=PASSWORD&type=m3u
+```
+
+> Security note: the system stores a second, **encrypted** copy of the password (not a hash) so the admin can view it later. See **Database / Security** below.
+
+### ✅ Subscriber Details (Tracking Abuse)
+New admin page:
+- **Admin → Users → Subscriber Details**
+
+What it does:
+- Shows users who have a subscription (active/all filter)
+- Clicking a username shows their **device / activity log**:
+  - What was watched
+  - When it was watched
+  - IP address
+  - Device details (UA / device_id, when available)
+
+This makes it much easier to track multi-IP abuse, account sharing, and suspicious activity patterns.
+
+### ✅ Reseller Details: View Reseller’s Users (Admin)
+On the reseller management screen, the admin can now see:
+- **How many users a reseller has**
+- A dedicated **Reseller Details** view listing all subscribers tied to that reseller (`users.reseller_id`)
+- Quick jump from reseller’s user list → user edit page
+
+### ✅ Reseller Permissions (Hardened)
+Resellers can:
+- Add users
+- Edit user profile fields (name/email)
+- Reset credentials (generate new numeric password)
+
+Resellers cannot:
+- Ban users / ban IPs
+- Delete users
+- Override subscriptions / expiry / entitlements
+
+Those are **admin-only responsibilities** to keep abuse enforcement and billing control centralized.
+
+### ✅ Reseller Warning Banner
+A warning banner appears in the reseller panel:
+
+> **Your Clients — do NOT give free access.**  
+> If you are found giving free accounts away without prior approval from the website owner, your reseller account & your website account will be terminated.
+
+---
+
+## 🧰 Full Backup & Restore (System → Backup & Restore)
+
+New admin page:
+- **Admin → System → Backup & Restore**
+
+Supports:
+- **Full backup**: zips the **entire panel directory** + includes `database.sql`
+- **Restore**: restores **panel files** (overwrite) and/or **database** from a backup
+
+Important notes:
+- Backups are stored in: `storage/backups/`
+- Backups exclude `storage/backups/` itself to avoid infinite recursion
+- Requires PHP **ZipArchive** (zip extension)
+- Ensure web user can write to `storage/backups/`
+
+---
+
+## 🔐 Anti‑Bruteforce & Abuse Handling (How it Works)
+
+Bruteforce tools generate username/password combos until they get a “success” response.
+To stop that, the panel relies on:
+
+1) **Rate limiting**
+- Limits repeated failures by **IP** and by **username**
+- Returns a generic failure/limit response so bots can’t learn “user exists”
+
+2) **Progressive lockouts**
+- Temporary lockout windows after too many failures
+- Escalation for repeat offenders (longer cooldowns)
+
+3) **Bans**
+- Quick **ban IP / ban account** workflows via Admin tools
+- Suspicious behavior is visible via telemetry + request logs, making abuse easy to spot
+
+4) **Telemetry**
+- Tracks failure reasons (`auth_fail`, `banned_ip`, `rate_limited`, `max_connections`, etc.)
+- Lets admins identify top attacking IPs and block them
+
+> Best practice: put Cloudflare (or any WAF) in front and block datacenter bots + suspicious ASNs.
+
+---
+
 ## 🕒 EPG System (Upgraded)
 
 ### ✅ XMLTV endpoint actually returns imported EPG
@@ -243,6 +357,28 @@ If you want `/live/...` and `/seg/...` to work, enable the provided Apache/Nginx
 */10 * * * * php /path/to/scripts/stream_probe.php --limit=400 >/dev/null 2>&1
 0 */6 * * * php /path/to/scripts/epg_import.php --flush=1 >/dev/null 2>&1
 ```
+
+---
+
+## Database / Migrations (Important)
+
+Recent versions add/expect these columns:
+
+- `users.name` (subscriber name)
+- `users.email` (subscriber email)
+- `users.reseller_id` (ties users to resellers for admin reporting)
+- `users.password_enc` (encrypted password so admin can view it later)
+
+If you are upgrading:
+- run the built-in **migration.php**
+- or apply the SQL equivalents used in migrations.
+
+### Password storage note (Read this)
+Passwords are still stored as a **secure hash** for authentication, and also stored as an **encrypted copy** (`password_enc`) so the admin can **view** them and build clickable M3U links.
+
+If you want higher security, the safer alternative is:
+- only show credentials **once** at creation
+- later, allow **Reset Password** (but never reveal existing passwords)
 
 ---
 
