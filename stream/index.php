@@ -28,6 +28,11 @@ function _redirect_fail_video(string $url): void {
   exit;
 }
 
+// Base64url helpers (keeps segment URLs out of querystring patterns that trigger some WAF rules)
+function b64url_encode_str(string $s): string {
+  return rtrim(strtr(base64_encode($s), '+/', '-_'), '=');
+}
+
 
 $u  = (string)($_GET['u'] ?? '');
 $p  = (string)($_GET['p'] ?? '');
@@ -460,6 +465,21 @@ if ($chosen === '') {
 }
 
 /* if not HLS: proxy bytes to keep URL hidden (or redirect if upstream blocks) */
+// ---- streaming tune-ups (important for .ts and long-running streams) ----
+@ini_set('zlib.output_compression', 'Off');
+@ini_set('output_buffering', 'Off');
+@ini_set('implicit_flush', '1');
+if (function_exists('apache_setenv')) { @apache_setenv('no-gzip', '1'); }
+while (ob_get_level() > 0) { @ob_end_flush(); }
+@ob_implicit_flush(true);
+@set_time_limit(0);
+@ignore_user_abort(true);
+header('X-Accel-Buffering: no'); // disables nginx proxy buffering when supported
+
+// If the client asked for .ts, some players expect a TS MIME-type.
+if (preg_match('/\.ts(\?|$)/i', $chosen)) {
+  header('Content-Type: video/mp2t');
+}
 if (!preg_match('/\.m3u8(\?|$)/i', $chosen)) {
   $ch = curl_init($chosen);
   curl_setopt_array($ch, [
@@ -472,6 +492,10 @@ if (!preg_match('/\.m3u8(\?|$)/i', $chosen)) {
     CURLOPT_HTTPHEADER => $up_headers,
     CURLOPT_HEADERFUNCTION => function($curl, $header) {
       $len = strlen($header);
+// Forward upstream HTTP status (helps players fail fast on 403/404)
+if (preg_match('#^HTTP/\S+\s+(\d{3})#i', $header, $mm)) {
+  http_response_code((int)$mm[1]);
+}
       if (stripos($header, 'Content-Type:') === 0) header(trim($header));
       if (stripos($header, 'Content-Length:') === 0) header(trim($header));
       if (stripos($header, 'Accept-Ranges:') === 0) header(trim($header));
@@ -533,7 +557,7 @@ foreach ($lines as $line) {
     $trim = $base_dir . ltrim($trim, '/');
   }
 
-  $q = "url=" . rawurlencode($trim);
+  $q = "src=" . rawurlencode(b64url_encode_str($trim));
   if ($seg_tail !== '') $q .= "&" . $seg_tail;
   if ($token_ok) $q .= "&token=" . rawurlencode($token);
 

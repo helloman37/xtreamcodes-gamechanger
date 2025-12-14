@@ -23,6 +23,15 @@ function _seg_try_redirect_ts(string $url): void {
   exit;
 }
 
+// Base64url decode helper (pairs with stream/index.php src=...)
+function b64url_decode_str(string $s): string {
+  $s = strtr($s, '-_', '+/');
+  $pad = strlen($s) % 4;
+  if ($pad) $s .= str_repeat('=', 4 - $pad);
+  $out = base64_decode($s, true);
+  return ($out === false) ? '' : $out;
+}
+
 $u  = (string)($_GET['u'] ?? '');
 $p  = (string)($_GET['p'] ?? '');
 $id = (int)($_GET['id'] ?? 0);
@@ -33,7 +42,8 @@ $stoken = (string)($_GET['st'] ?? '');
 $exp   = (int)($_GET['exp'] ?? 0);
 $token = (string)($_GET['token'] ?? '');
 
-$url = (string)($_GET['url'] ?? '');
+$src = (string)($_GET['src'] ?? '');
+$url = $src !== '' ? b64url_decode_str($src) : (string)($_GET['url'] ?? '');
 
 if ($u==='' || $id<1 || $url==='') {
   http_response_code(400); exit("Bad params");
@@ -175,7 +185,18 @@ $pdo->prepare("UPDATE stream_sessions SET last_seen=NOW(), user_agent=?, device_
     ->execute([$ua, $device_fp, (int)$session['id']]);
 
 /* let upstream dictate content-type */
+// ---- streaming tune-ups (important for .ts segments) ----
+@ini_set('zlib.output_compression', 'Off');
+@ini_set('output_buffering', 'Off');
+@ini_set('implicit_flush', '1');
+if (function_exists('apache_setenv')) { @apache_setenv('no-gzip', '1'); }
+while (ob_get_level() > 0) { @ob_end_flush(); }
+@ob_implicit_flush(true);
+@set_time_limit(0);
+@ignore_user_abort(true);
+header('X-Accel-Buffering: no'); // disables nginx proxy buffering when supported
 header_remove("Content-Type");
+header('Content-Type: video/mp2t');
 
 /* ---------- stream segment bytes ---------- */
 $ch = curl_init($url);
@@ -183,6 +204,10 @@ $headers = [
   'Accept: */*',
   'Connection: keep-alive'
 ];
+if (!empty($_SERVER['HTTP_REFERER'])) $headers[] = 'Referer: '.$_SERVER['HTTP_REFERER'];
+if (!empty($_SERVER['HTTP_ORIGIN']))  $headers[] = 'Origin: '.$_SERVER['HTTP_ORIGIN'];
+if (!empty($_SERVER['HTTP_ACCEPT_LANGUAGE'])) $headers[] = 'Accept-Language: '.$_SERVER['HTTP_ACCEPT_LANGUAGE'];
+
 if (!empty($_SERVER['HTTP_RANGE'])) $headers[] = 'Range: '.$_SERVER['HTTP_RANGE'];
 
 curl_setopt_array($ch, [
@@ -196,6 +221,10 @@ curl_setopt_array($ch, [
   CURLOPT_TIMEOUT => 20,
   CURLOPT_HEADERFUNCTION => function($curl, $header) {
     $len = strlen($header);
+// Forward upstream HTTP status (helps players fail fast on 403/404)
+if (preg_match('#^HTTP/\S+\s+(\d{3})#i', $header, $mm)) {
+  http_response_code((int)$mm[1]);
+}
     if (stripos($header, 'Content-Type:') === 0) header(trim($header));
     if (stripos($header, 'Content-Length:') === 0) header(trim($header));
     if (stripos($header, 'Accept-Ranges:') === 0) header(trim($header));

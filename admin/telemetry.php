@@ -25,7 +25,10 @@ $params = [$hours];
 if ($endpoint !== '') { $where[] = "rl.endpoint = ?"; $params[] = $endpoint; }
 if ($reason !== '')   { $where[] = "IFNULL(rl.reason,'') = ?"; $params[] = $reason; }
 if ($ip !== '')       { $where[] = "rl.ip = ?"; $params[] = $ip; }
-if ($username !== '') { $where[] = "(rl.username = ? OR u.username = ?)"; $params[] = $username; $params[] = $username; }
+// IMPORTANT: Several queries on this page only read from `request_logs` (no JOIN to users).
+// So we must NOT reference a users alias (e.g. `u.username`) inside the shared WHERE clause.
+// `request_logs.username` already stores the attempted/known username string.
+if ($username !== '') { $where[] = "rl.username = ?"; $params[] = $username; }
 
 $where_sql = implode(' AND ', $where);
 

@@ -11,19 +11,20 @@ if (count($parts) < 4 || strtolower($parts[0]) !== 'seg') {
   exit('Not Found');
 }
 
-$u = $parts[1];
-$mid = $parts[2];
+$u = (string)$parts[1];
+$cred = (string)$parts[2];
 $id = (int)$parts[3];
 
 $exp = (int)($_GET['exp'] ?? 0);
-$token = $_GET['token'] ?? '';
+$token = '';
 
-// token-only mode
-if (preg_match('/^[a-f0-9]{64}$/i', $mid)) {
-  $token = $mid;
+// Token-only mode
+if (preg_match('/^[a-f0-9]{64}$/i', $cred)) {
+  $token = $cred;
   $_GET['p'] = '';
 } else {
-  $_GET['p'] = $mid;
+  $_GET['p'] = $cred;
+  $token = (string)($_GET['token'] ?? '');
 }
 
 $_GET['u'] = $u;
@@ -31,4 +32,5 @@ $_GET['id'] = $id;
 $_GET['exp'] = $exp;
 $_GET['token'] = $token;
 
+// Note: querystring params like type=, st=, src= are passed through automatically.
 require __DIR__ . '/stream/segment.php';
