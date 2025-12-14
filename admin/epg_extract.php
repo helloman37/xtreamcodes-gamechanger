@@ -75,6 +75,35 @@ function xtream_gunzip_to(string $src, string $dest): bool {
   return is_file($dest) && filesize($dest) > 0;
 }
 
+function xtream_download_to(string $url, string $dest, int $timeout = 90): bool {
+  if (!preg_match('#^https?://#i', $url)) return false;
+  $tmp = $dest . '.part';
+  @unlink($tmp);
+  $fh = @fopen($tmp, 'wb');
+  if (!$fh) return false;
+
+  $ch = curl_init($url);
+  curl_setopt_array($ch, [
+    CURLOPT_FOLLOWLOCATION => true,
+    CURLOPT_FILE => $fh,
+    CURLOPT_TIMEOUT => $timeout,
+    CURLOPT_CONNECTTIMEOUT => min(20, $timeout),
+    CURLOPT_USERAGENT => 'IPTV-EPG-Extract/1.0',
+    CURLOPT_ENCODING => ''
+  ]);
+  $ok = curl_exec($ch);
+  $code = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+  curl_close($ch);
+  @fclose($fh);
+
+  if (!$ok || $code < 200 || $code >= 400) {
+    @unlink($tmp);
+    return false;
+  }
+  @rename($tmp, $dest);
+  return is_file($dest) && filesize($dest) > 0;
+}
+
 function xtream_scan_channels(string $xmlPath, array $rules): array {
   $xr = new XMLReader();
   if (!$xr->open($xmlPath, null, LIBXML_NONET | LIBXML_COMPACT | LIBXML_PARSEHUGE)) {
@@ -274,8 +303,10 @@ try {
     csrf_validate();
 
     if ($step === 'upload') {
-      if (empty($_FILES['xmltv']['tmp_name']) || !is_uploaded_file($_FILES['xmltv']['tmp_name'])) {
-        throw new RuntimeException('No XMLTV file uploaded.');
+      $fromUrl = trim((string)($_POST['xmltv_url'] ?? ''));
+      $hasUpload = (!empty($_FILES['xmltv']['tmp_name']) && is_uploaded_file($_FILES['xmltv']['tmp_name']));
+      if (!$hasUpload && $fromUrl === '') {
+        throw new RuntimeException('Provide either an uploaded XMLTV file or an XMLTV URL.');
       }
 
       $rulesText = (string)($_POST['rules'] ?? $default_rules);
@@ -290,8 +321,14 @@ try {
       $tmpXml = $prefix . '.xml';
       $tmpMeta = $prefix . '.json';
 
-      if (!move_uploaded_file($_FILES['xmltv']['tmp_name'], $tmpSrc)) {
-        throw new RuntimeException('Failed to move uploaded file.');
+      if ($hasUpload) {
+        if (!move_uploaded_file($_FILES['xmltv']['tmp_name'], $tmpSrc)) {
+          throw new RuntimeException('Failed to move uploaded file.');
+        }
+      } else {
+        if (!xtream_download_to($fromUrl, $tmpSrc, 120)) {
+          throw new RuntimeException('Failed to download XMLTV from URL.');
+        }
       }
 
       $xmlPath = $tmpSrc;
@@ -299,7 +336,7 @@ try {
       if (xtream_is_gzip_file($tmpSrc)) {
         if (!xtream_gunzip_to($tmpSrc, $tmpXml)) {
           @unlink($tmpSrc);
-          throw new RuntimeException('Uploaded file looks gzipped but could not be decompressed.');
+          throw new RuntimeException('XMLTV file looks gzipped but could not be decompressed.');
         }
         $xmlPath = $tmpXml;
         $gunzipped = true;
@@ -314,6 +351,7 @@ try {
       $meta = [
         'token' => $token,
         'xml_path' => $xmlPath,
+        'xmltv_url' => ($hasUpload ? null : $fromUrl),
         'rules' => $rulesText,
         'counts' => $scan['counts'],
         'regions' => $scan['regions'],
@@ -396,13 +434,18 @@ try {
   <?php if (!$meta): ?>
     <div class="grid2">
       <div>
-        <h3>1) Upload XMLTV</h3>
+        <h3>1) XMLTV input</h3>
         <form method="post" enctype="multipart/form-data">
           <?= csrf_input() ?>
           <input type="hidden" name="step" value="upload">
           <div class="row">
-            <label class="muted">XMLTV file (.xml or .gz)</label><br>
-            <input type="file" name="xmltv" accept=".xml,.gz,application/gzip,application/xml,text/xml" required>
+            <label class="muted">XMLTV URL (optional)</label><br>
+            <input type="text" name="xmltv_url" placeholder="https://example.com/epg.xml.gz" value="<?= e($_POST['xmltv_url'] ?? '') ?>">
+          </div>
+
+          <div class="row" style="margin-top:10px;">
+            <label class="muted">Or upload XMLTV file (.xml or .gz)</label><br>
+            <input type="file" name="xmltv" accept=".xml,.gz,application/gzip,application/xml,text/xml">
           </div>
 
           <div class="row" style="margin-top:10px;">

@@ -216,6 +216,129 @@ function parse_m3u(string $content): array {
   return $channels;
 }
 
+/**
+ * Fetch a remote URL to a temporary file with sane limits.
+ * Returns: ['ok'=>bool,'tmp'=>path,'name'=>filename,'code'=>httpCode,'effective'=>url,'error'=>string]
+ */
+function iptv_fetch_url_to_temp(string $url, int $maxBytes = 52428800, int $timeout = 20): array {
+  $url = trim($url);
+  if ($url === '') return ['ok'=>false,'tmp'=>'','name'=>'','code'=>0,'effective'=>'','error'=>'Empty URL'];
+  $parts = @parse_url($url);
+  $scheme = strtolower((string)($parts['scheme'] ?? ''));
+  if (!in_array($scheme, ['http','https'], true)) {
+    return ['ok'=>false,'tmp'=>'','name'=>'','code'=>0,'effective'=>'','error'=>'Only http/https URLs are allowed'];
+  }
+
+  $path = (string)($parts['path'] ?? '');
+  $name = basename($path);
+  if ($name === '' || $name === '/' || $name === '.' || $name === '..') $name = 'remote.m3u';
+  // keep filename simple
+  $name = preg_replace('/[^a-zA-Z0-9._-]+/', '_', $name);
+  if (!preg_match('/\.m3u8?($|\.)/i', $name)) $name .= '.m3u';
+
+  $tmp = rtrim((string)sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR .
+         'iptv_m3u_' . bin2hex(random_bytes(8)) . '.tmp';
+
+  $code = 0;
+  $effective = $url;
+  $err = '';
+
+  // Prefer cURL when available
+  if (function_exists('curl_init')) {
+    $fh = @fopen($tmp, 'wb');
+    if (!$fh) return ['ok'=>false,'tmp'=>'','name'=>$name,'code'=>0,'effective'=>$url,'error'=>'Failed to create temp file'];
+
+    $downloaded = 0;
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+      CURLOPT_FOLLOWLOCATION => true,
+      CURLOPT_MAXREDIRS => 5,
+      CURLOPT_TIMEOUT => $timeout,
+      CURLOPT_CONNECTTIMEOUT => min(10, $timeout),
+      CURLOPT_USERAGENT => 'IPTV-Panel-M3U-Importer/1.0',
+      CURLOPT_FILE => $fh,
+      CURLOPT_RETURNTRANSFER => false,
+      CURLOPT_HEADER => false,
+      CURLOPT_ENCODING => '',
+      CURLOPT_SSL_VERIFYPEER => true,
+      CURLOPT_SSL_VERIFYHOST => 2,
+      CURLOPT_NOPROGRESS => false,
+      CURLOPT_PROGRESSFUNCTION => function($resource, $dlTotal, $dlNow, $ulTotal, $ulNow) use (&$downloaded, $maxBytes) {
+        $downloaded = (int)$dlNow;
+        if ($maxBytes > 0 && $downloaded > $maxBytes) return 1; // abort
+        return 0;
+      }
+    ]);
+
+    $ok = curl_exec($ch);
+    $code = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+    $effective = (string)(curl_getinfo($ch, CURLINFO_EFFECTIVE_URL) ?: $url);
+    $err = (string)curl_error($ch);
+    curl_close($ch);
+    @fclose($fh);
+
+    if ($ok === false) {
+      @unlink($tmp);
+      if ($downloaded > $maxBytes) {
+        return ['ok'=>false,'tmp'=>'','name'=>$name,'code'=>$code,'effective'=>$effective,'error'=>'Remote file too large'];
+      }
+      return ['ok'=>false,'tmp'=>'','name'=>$name,'code'=>$code,'effective'=>$effective,'error'=>($err ?: 'Failed to download URL')];
+    }
+    if ($code >= 400 || @filesize($tmp) === 0) {
+      @unlink($tmp);
+      return ['ok'=>false,'tmp'=>'','name'=>$name,'code'=>$code,'effective'=>$effective,'error'=>'Remote server returned HTTP '.$code];
+    }
+  } else {
+    // Fallback: streams (requires allow_url_fopen)
+    $ctx = stream_context_create([
+      'http' => [
+        'timeout' => $timeout,
+        'follow_location' => 1,
+        'user_agent' => 'IPTV-Panel-M3U-Importer/1.0',
+      ],
+      'ssl' => [
+        'verify_peer' => true,
+        'verify_peer_name' => true,
+      ]
+    ]);
+    $in = @fopen($url, 'rb', false, $ctx);
+    if (!$in) return ['ok'=>false,'tmp'=>'','name'=>$name,'code'=>0,'effective'=>$url,'error'=>'Failed to open URL (allow_url_fopen disabled?)'];
+    $out = @fopen($tmp, 'wb');
+    if (!$out) { @fclose($in); return ['ok'=>false,'tmp'=>'','name'=>$name,'code'=>0,'effective'=>$url,'error'=>'Failed to create temp file']; }
+
+    $downloaded = 0;
+    while (!feof($in)) {
+      $buf = fread($in, 8192);
+      if ($buf === false) break;
+      $downloaded += strlen($buf);
+      if ($maxBytes > 0 && $downloaded > $maxBytes) {
+        @fclose($in); @fclose($out);
+        @unlink($tmp);
+        return ['ok'=>false,'tmp'=>'','name'=>$name,'code'=>0,'effective'=>$url,'error'=>'Remote file too large'];
+      }
+      fwrite($out, $buf);
+    }
+    @fclose($in);
+    @fclose($out);
+
+    if (@filesize($tmp) === 0) { @unlink($tmp); return ['ok'=>false,'tmp'=>'','name'=>$name,'code'=>0,'effective'=>$url,'error'=>'Empty download']; }
+  }
+
+  // quick signature check (don’t hard-fail on weird spacing)
+  $head = @file_get_contents($tmp, false, null, 0, 256);
+  if ($head === false) $head = '';
+  $headTrim = ltrim($head);
+  if ($headTrim !== '' && !str_starts_with($headTrim, '#EXTM3U') && !str_contains($headTrim, '#EXTINF')) {
+    // Not necessarily fatal, but most bad URLs will be HTML or JSON.
+    // Keep it strict: fail to avoid importing garbage.
+    @unlink($tmp);
+    return ['ok'=>false,'tmp'=>'','name'=>$name,'code'=>$code,'effective'=>$effective,'error'=>'URL did not look like an M3U playlist'];
+  }
+
+  return ['ok'=>true,'tmp'=>$tmp,'name'=>$name,'code'=>$code,'effective'=>$effective,'error'=>''];
+}
+
+
 function check_stream_url(string $url, int $timeout=8): array {
   $ch = curl_init($url);
   curl_setopt_array($ch, [

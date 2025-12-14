@@ -12,71 +12,126 @@ $default_ext    = '';
 $default_adult  = 0;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-  // Support single or multi-upload.
-  if (empty($_FILES['m3u'])) {
-    flash_set("No file uploaded", "error");
-    header("Location: upload_m3u.php"); exit;
+  $cleanup_paths = [];
+  register_shutdown_function(function() use (&$cleanup_paths) {
+    foreach ($cleanup_paths as $p) {
+      if ($p && is_file($p)) @unlink($p);
+    }
+  });
+
+  $import_mode = trim((string)($_POST['import_mode'] ?? ''));
+  $url_raw     = trim((string)($_POST['m3u_url'] ?? ''));
+
+  // Detect uploads (single or multi-file).
+  $hasUpload = false;
+  if (!empty($_FILES['m3u'])) {
+    $tmp_names = $_FILES['m3u']['tmp_name'] ?? [];
+    if (is_array($tmp_names)) {
+      foreach ($tmp_names as $t) { if (!empty($t)) { $hasUpload = true; break; } }
+    } else {
+      $hasUpload = !empty($tmp_names);
+    }
   }
 
-  // Normalize PHP's "multi-file" structure into a simple list.
-  $tmp_names = $_FILES['m3u']['tmp_name'] ?? [];
-  $names     = $_FILES['m3u']['name'] ?? [];
-  $errors    = $_FILES['m3u']['error'] ?? [];
+  // Mode decision:
+  // - If user selected "URL" => URL mode
+  // - If no files uploaded but URL provided => URL mode (nice UX)
+  $useUrl = ($import_mode === 'url') || (!$hasUpload && $url_raw !== '');
 
-  if (!is_array($tmp_names)) {
-    $tmp_names = [$tmp_names];
-    $names     = [($names ?: 'playlist.m3u')];
-    $errors    = [($errors ?? UPLOAD_ERR_OK)];
-  }
-
-  // Filter out empty slots.
   $files = [];
-  for ($i = 0; $i < count($tmp_names); $i++) {
-    $t = $tmp_names[$i] ?? '';
-    if (!$t) continue;
-    $files[] = [
-      'orig_index' => $i,
-      'tmp_name' => $t,
-      'name' => (string)($names[$i] ?? 'playlist.m3u'),
-      'error' => (int)($errors[$i] ?? UPLOAD_ERR_OK),
-    ];
-  }
 
-  if (!$files) {
-    flash_set("No file uploaded", "error");
-    header("Location: upload_m3u.php"); exit;
-  }
+  if ($useUrl) {
+    $urls = preg_split('/[\r\n\s,]+/', $url_raw);
+    $urls = array_values(array_filter(array_map('trim', $urls ?: []), 'strlen'));
+    $urls = array_slice($urls, 0, 5);
 
-  // Optional: admin-defined file processing order (drag/drop list in UI).
-  $order_raw = trim($_POST['file_order'] ?? '');
-  if ($order_raw !== '') {
-    $parts = array_values(array_filter(array_map('trim', explode(',', $order_raw)), 'strlen'));
-    $idxs = [];
-    foreach ($parts as $p) {
-      if (ctype_digit($p)) $idxs[] = (int)$p;
+    if (!$urls) {
+      flash_set("No M3U URL provided", "error");
+      header("Location: upload_m3u.php"); exit;
     }
-    if ($idxs) {
-      $map = [];
-      foreach ($files as $f) {
-        $map[(int)($f['orig_index'] ?? -1)] = $f;
+
+    $i = 0;
+    foreach ($urls as $u) {
+      $r = iptv_fetch_url_to_temp($u, 52428800, 25); // 50MB max, 25s timeout
+      if (empty($r['ok'])) {
+        flash_set("Failed to download M3U (" . $u . "): " . ($r['error'] ?? 'Unknown error'), "error");
+        header("Location: upload_m3u.php"); exit;
       }
-      $re = [];
-      $seen = [];
-      foreach ($idxs as $oi) {
-        if (isset($map[$oi]) && empty($seen[$oi])) {
-          $re[] = $map[$oi];
-          $seen[$oi] = 1;
+      $cleanup_paths[] = $r['tmp'];
+      $files[] = [
+        'orig_index' => $i++,
+        'tmp_name' => $r['tmp'],
+        'name' => (string)($r['name'] ?? 'remote.m3u'),
+        'error' => UPLOAD_ERR_OK,
+      ];
+    }
+  } else {
+    // Upload mode (supports single or multi-upload).
+    if (empty($_FILES['m3u'])) {
+      flash_set("No file uploaded", "error");
+      header("Location: upload_m3u.php"); exit;
+    }
+
+    // Normalize PHP's "multi-file" structure into a simple list.
+    $tmp_names = $_FILES['m3u']['tmp_name'] ?? [];
+    $names     = $_FILES['m3u']['name'] ?? [];
+    $errors    = $_FILES['m3u']['error'] ?? [];
+
+    if (!is_array($tmp_names)) {
+      $tmp_names = [$tmp_names];
+      $names     = [($names ?: 'playlist.m3u')];
+      $errors    = [($errors ?? UPLOAD_ERR_OK)];
+    }
+
+    // Filter out empty slots.
+    for ($i = 0; $i < count($tmp_names); $i++) {
+      $t = $tmp_names[$i] ?? '';
+      if (!$t) continue;
+      $files[] = [
+        'orig_index' => $i,
+        'tmp_name' => $t,
+        'name' => (string)($names[$i] ?? 'playlist.m3u'),
+        'error' => (int)($errors[$i] ?? UPLOAD_ERR_OK),
+      ];
+    }
+
+    if (!$files) {
+      flash_set("No file uploaded", "error");
+      header("Location: upload_m3u.php"); exit;
+    }
+
+    // Optional: admin-defined file processing order (drag/drop list in UI).
+    $order_raw = trim($_POST['file_order'] ?? '');
+    if ($order_raw !== '') {
+      $parts = array_values(array_filter(array_map('trim', explode(',', $order_raw)), 'strlen'));
+      $idxs = [];
+      foreach ($parts as $p) {
+        if (ctype_digit($p)) $idxs[] = (int)$p;
+      }
+      if ($idxs) {
+        $map = [];
+        foreach ($files as $f) {
+          $map[(int)($f['orig_index'] ?? -1)] = $f;
         }
+        $re = [];
+        $seen = [];
+        foreach ($idxs as $oi) {
+          if (isset($map[$oi]) && empty($seen[$oi])) {
+            $re[] = $map[$oi];
+            $seen[$oi] = 1;
+          }
+        }
+        // Append remaining (any not listed or invalid indices) in original order.
+        foreach ($files as $f) {
+          $oi = (int)($f['orig_index'] ?? -1);
+          if ($oi >= 0 && empty($seen[$oi])) $re[] = $f;
+        }
+        if ($re) $files = $re;
       }
-      // Append remaining (any not listed or invalid indices) in original order.
-      foreach ($files as $f) {
-        $oi = (int)($f['orig_index'] ?? -1);
-        if ($oi >= 0 && empty($seen[$oi])) $re[] = $f;
-      }
-      if ($re) $files = $re;
     }
   }
 
+  // defaults chosen in the upload form
   // defaults chosen in the upload form
   $default_direct = isset($_POST['direct_play']) ? 1 : 0;
   $default_ext    = trim($_POST['container_ext'] ?? '');
@@ -375,8 +430,21 @@ $topbar = file_get_contents(__DIR__ . '/topbar.html');
   </p>
 
   <form method="post" enctype="multipart/form-data">
-    <label>M3U File(s)</label>
-    <input type="file" id="m3u_input" name="m3u[]" accept=".m3u,.m3u8" multiple required>
+    <label>Import Source</label>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px;">
+      <label class="check-row" style="margin:0;">
+        <input type="radio" name="import_mode" value="upload" checked>
+        Upload file(s)
+      </label>
+      <label class="check-row" style="margin:0;">
+        <input type="radio" name="import_mode" value="url">
+        By URL
+      </label>
+    </div>
+
+    <div id="upload_mode_wrap">
+      <label>M3U File(s)</label>
+    <input type="file" id="m3u_input" name="m3u[]" accept=".m3u,.m3u8" multiple>
     <input type="hidden" id="file_order" name="file_order" value="">
     <div class="muted" style="margin-top:6px;">
       Tip: hold <b>Ctrl</b> (Windows/Linux) or <b>Cmd</b> (Mac) to select multiple files.
@@ -390,6 +458,17 @@ $topbar = file_get_contents(__DIR__ . '/topbar.html');
         <button type="button" id="m3u_sort_za" class="m3u-mini-btn">Sort Z→A</button>
       </div>
     </div>
+
+
+</div><!-- upload_mode_wrap -->
+
+<div id="url_mode_wrap" style="display:none;">
+  <label>M3U URL</label>
+  <textarea id="m3u_url" name="m3u_url" rows="3" placeholder="https://example.com/playlist.m3u" style="width:100%;"></textarea>
+  <div class="muted" style="margin-top:6px;">
+    Paste a direct M3U link. You can also paste up to <b>5</b> URLs (one per line).
+  </div>
+</div>
 
     <label class="check-row" style="margin-top:12px;">
       <input type="checkbox" name="direct_play" value="1" <?= !empty($default_direct) ? 'checked' : '' ?>>
@@ -426,6 +505,47 @@ $topbar = file_get_contents(__DIR__ . '/topbar.html');
   const order = document.getElementById('file_order');
   const btnAZ = document.getElementById('m3u_sort_az');
   const btnZA = document.getElementById('m3u_sort_za');
+const radioUpload = document.querySelector('input[name="import_mode"][value="upload"]');
+const radioUrl    = document.querySelector('input[name="import_mode"][value="url"]');
+const uploadWrap  = document.getElementById('upload_mode_wrap');
+const urlWrap     = document.getElementById('url_mode_wrap');
+const urlField    = document.getElementById('m3u_url');
+
+function setMode(mode){
+  const isUrl = mode === 'url';
+  if (uploadWrap) uploadWrap.style.display = isUrl ? 'none' : 'block';
+  if (urlWrap) urlWrap.style.display = isUrl ? 'block' : 'none';
+  if (input) input.required = !isUrl;
+  if (urlField) urlField.required = isUrl;
+
+  if (isUrl) {
+    // URL mode doesn't use file ordering UI
+    if (wrap) wrap.style.display = 'none';
+    if (order) order.value = '';
+  }
+}
+
+radioUpload && radioUpload.addEventListener('change', () => {
+  if (radioUpload.checked) setMode('upload');
+});
+radioUrl && radioUrl.addEventListener('change', () => {
+  if (radioUrl.checked) setMode('url');
+});
+urlField && urlField.addEventListener('input', () => {
+  if (urlField.value.trim() !== '' && radioUrl) {
+    radioUrl.checked = true;
+    setMode('url');
+  }
+});
+
+// initial mode
+if (urlField && urlField.value.trim() !== '' && radioUrl) {
+  radioUrl.checked = true;
+  setMode('url');
+} else {
+  setMode((radioUrl && radioUrl.checked) ? 'url' : 'upload');
+}
+
 
   function formatBytes(bytes){
     const n = Number(bytes||0);

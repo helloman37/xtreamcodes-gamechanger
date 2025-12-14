@@ -41,6 +41,78 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   }
 
 
+
+
+  if ($op === 'update_sub' && $id > 0) {
+    $sub_id = (int)($_POST['sub_id'] ?? 0);
+    if ($sub_id <= 0) {
+      flash_set("Invalid subscription", "error");
+      header("Location: user_accounts.php?edit=".$id);
+      exit;
+    }
+
+    $st = $pdo->prepare("SELECT * FROM subscriptions WHERE id=? AND user_id=? LIMIT 1");
+    $st->execute([$sub_id, $id]);
+    $sub = $st->fetch(PDO::FETCH_ASSOC);
+
+    if (!$sub) {
+      flash_set("Subscription not found for this user", "error");
+      header("Location: user_accounts.php?edit=".$id);
+      exit;
+    }
+
+    $starts_in = trim((string)($_POST['sub_starts'] ?? ''));
+    $ends_in   = trim((string)($_POST['sub_ends'] ?? ''));
+    $unlimited = isset($_POST['sub_unlimited']) ? 1 : 0;
+
+    $starts_at = (string)$sub['starts_at'];
+    $ends_at   = (string)$sub['ends_at'];
+
+    try {
+      if ($starts_in !== '') {
+        $starts_dt = new DateTime($starts_in);
+        $starts_at = $starts_dt->format('Y-m-d H:i:s');
+      } else {
+        $starts_dt = new DateTime($starts_at);
+      }
+
+      if ($unlimited) {
+        $ends_at = '9999-12-31 23:59:59';
+        $ends_dt = new DateTime($ends_at);
+      } else {
+        if ($ends_in !== '') {
+          $ends_dt = new DateTime($ends_in);
+          $ends_at = $ends_dt->format('Y-m-d H:i:s');
+        } else {
+          $ends_dt = new DateTime($ends_at);
+        }
+      }
+
+      if (!$unlimited && $starts_dt > $ends_dt) {
+        flash_set("Subscription start cannot be after end", "error");
+        header("Location: user_accounts.php?edit=".$id);
+        exit;
+      }
+
+      $status_new = (string)($sub['status'] ?? 'active');
+      if ($status_new !== 'cancelled') {
+        $is_unlimited = str_starts_with((string)$ends_at, '9999-');
+        $now = new DateTime();
+        $status_new = ($is_unlimited || $ends_dt > $now) ? 'active' : 'expired';
+      }
+
+      $pdo->prepare("UPDATE subscriptions SET starts_at=?, ends_at=?, status=? WHERE id=? AND user_id=?")
+          ->execute([$starts_at, $ends_at, $status_new, $sub_id, $id]);
+
+      flash_set("Subscription dates updated", "success");
+    } catch (Throwable $e) {
+      flash_set("Invalid date/time format", "error");
+    }
+
+    header("Location: user_accounts.php?edit=".$id);
+    exit;
+  }
+
   // Save user
   $username = trim($_POST['username'] ?? '');
   $name = trim((string)($_POST['name'] ?? ''));
@@ -122,6 +194,20 @@ if (!$edit) {
   $prefill_password = iptv_numeric_string(10);
 }
 
+
+$subs_edit = [];
+if ($edit) {
+  $st = $pdo->prepare("
+    SELECT s.*, p.name AS plan_name
+    FROM subscriptions s
+    JOIN plans p ON p.id=s.plan_id
+    WHERE s.user_id=?
+    ORDER BY s.ends_at DESC, s.id DESC
+  ");
+  $st->execute([$edit['id']]);
+  $subs_edit = $st->fetchAll(PDO::FETCH_ASSOC);
+}
+
 $users=$pdo->query("
   SELECT u.*, r.username AS reseller_name,
          (SELECT COUNT(*) FROM user_devices ud WHERE ud.user_id=u.id) AS device_count
@@ -130,6 +216,18 @@ $users=$pdo->query("
   ORDER BY u.created_at DESC
 ")->fetchAll();
 $topbar = file_get_contents(__DIR__ . '/topbar.html');
+if (!function_exists('iptv_dt_local')) {
+  function iptv_dt_local($dt) {
+    if (!$dt) return '';
+    try {
+      $d = new DateTime((string)$dt);
+      return $d->format('Y-m-d\TH:i');
+    } catch (Throwable $e) {
+      return '';
+    }
+  }
+}
+
 ?>
 <!doctype html>
 <html>
@@ -234,6 +332,52 @@ $topbar = file_get_contents(__DIR__ . '/topbar.html');
   </form>
 
   <?php if($edit): ?>
+    <div class="card" style="margin-top:14px;">
+      <h4 style="margin-top:0;">Subscription Dates (Admin)</h4>
+
+      <?php if (empty($subs_edit)): ?>
+        <div class="muted">No subscriptions found for this user. Assign one in <a href="plans_subs.php">Plans &amp; Subscriptions</a>.</div>
+      <?php else: ?>
+        <div class="muted" style="margin-bottom:8px;">Edit the start/end. Check “Unlimited” to set end date to 9999-12-31.</div>
+        <?php foreach ($subs_edit as $s): ?>
+          <?php $is_unlimited = !$s['ends_at'] || str_starts_with((string)$s['ends_at'], '9999-'); $end_id = 'end_'.$s['id']; ?>
+          <form method="post" class="row" style="align-items:flex-end; gap:10px; margin:10px 0 0 0;">
+            <input type="hidden" name="op" value="update_sub">
+            <input type="hidden" name="id" value="<?=$edit['id']?>">
+            <input type="hidden" name="sub_id" value="<?=$s['id']?>">
+
+            <div style="min-width:180px;">
+              <label>Plan</label>
+              <input readonly value="<?=e($s['plan_name'] ?? ('#'.$s['plan_id']))?>">
+            </div>
+
+            <div>
+              <label>Begins</label>
+              <input type="datetime-local" name="sub_starts" value="<?=e(iptv_dt_local($s['starts_at'] ?? ''))?>" required>
+            </div>
+
+            <div>
+              <label>Ends</label>
+              <input id="<?=e($end_id)?>" type="datetime-local" name="sub_ends" value="<?= $is_unlimited ? '' : e(iptv_dt_local($s['ends_at'] ?? '')) ?>" <?= $is_unlimited ? 'disabled' : '' ?> <?= $is_unlimited ? '' : 'required' ?>>
+            </div>
+
+            <div style="min-width:120px;">
+              <label style="margin-bottom:6px;">Unlimited</label>
+              <label style="display:flex; gap:8px; align-items:center; margin:0;">
+                <input type="checkbox" name="sub_unlimited" value="1" <?= $is_unlimited ? 'checked' : '' ?>
+                  onchange="var el=document.getElementById('<?=e($end_id)?>'); if(!el) return; el.disabled=this.checked; if(this.checked){ el.value=''; }">
+                <span class="muted" style="font-size:12px;">never expires</span>
+              </label>
+            </div>
+
+            <div>
+              <button type="submit">Save</button>
+            </div>
+          </form>
+        <?php endforeach; ?>
+      <?php endif; ?>
+    </div>
+
     <?php $plain = iptv_decrypt($edit['password_enc'] ?? ''); $m3u = $plain ? iptv_m3u_link((string)$edit['username'], $plain) : ''; ?>
     <div class="card" style="margin-top:14px;">
       <h4 style="margin-top:0;">Account Info (Admin View)</h4>

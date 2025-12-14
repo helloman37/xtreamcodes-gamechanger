@@ -179,6 +179,19 @@ function db_migrate(PDO $pdo): void {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   ");
 
+  // XMLTV sources (upstream EPG providers). Used by xmltv.php proxy mode and importer.
+  $pdo->exec("
+    CREATE TABLE IF NOT EXISTS epg_sources (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(255) NOT NULL,
+      xmltv_url TEXT NOT NULL,
+      enabled TINYINT(1) DEFAULT 1,
+      region_rules TEXT NULL,
+      cache_ttl INT NOT NULL DEFAULT 21600,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  ");
+
 
 
   $pdo->exec("
@@ -193,6 +206,7 @@ function db_migrate(PDO $pdo): void {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   ");
 
+  // --- EPG source extra fields (safe on older installs) ---
   $pdo->exec("
     CREATE TABLE IF NOT EXISTS stream_health (
       channel_id INT PRIMARY KEY,
@@ -223,6 +237,10 @@ function db_migrate(PDO $pdo): void {
   _ensure_col($pdo, 'users', 'reseller_id', 'reseller_id INT NULL');
   _ensure_index($pdo, 'users', 'idx_users_email', 'INDEX idx_users_email (email)');
   _ensure_index($pdo, 'users', 'idx_users_reseller_id', 'INDEX idx_users_reseller_id (reseller_id)');
+
+  /* ---------- EPG source options ---------- */
+  _ensure_col($pdo, 'epg_sources', 'region_rules', 'region_rules TEXT NULL');
+  _ensure_col($pdo, 'epg_sources', 'cache_ttl', 'cache_ttl INT NOT NULL DEFAULT 21600');
 
   /* ---------- Ordering (admin-defined sort) ---------- */
   _ensure_col($pdo, 'categories', 'sort_order', 'sort_order INT NOT NULL DEFAULT 0');

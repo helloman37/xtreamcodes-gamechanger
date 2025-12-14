@@ -64,6 +64,8 @@ CREATE TABLE epg_sources (
   name VARCHAR(255) NOT NULL,
   xmltv_url TEXT NOT NULL,
   enabled TINYINT(1) DEFAULT 1,
+  region_rules TEXT NULL,
+  cache_ttl INT NOT NULL DEFAULT 21600,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
