@@ -117,8 +117,8 @@ $topbar = file_get_contents(__DIR__ . '/topbar.html');
   <h2>Run Import</h2>
   <p class="muted">Runs the XMLTV importer now (admin only). Opens in a new tab.</p>
   <div class="row" style="align-items:center; gap:12px;">
-    <a class="btn" href="epg_import.php?flush=0" target="_blank" rel="noopener">Run (no flush)</a>
-    <a class="btn" href="epg_import.php?flush=1" target="_blank" rel="noopener" onclick="return confirm('This will TRUNCATE epg_programs first. Continue?')">Run (flush + reimport)</a>
+    <a class="btn" href="epg_import.php?flush=1" target="_blank" rel="noopener" onclick="return confirm('This will replace the currently imported EPG with the latest source data. Continue?')">Run Import (replace old)</a>
+    <a class="btn" href="epg_import.php?flush=0" target="_blank" rel="noopener" style="background:#2b3545;">Append (advanced)</a>
   </div>
 </div>
 

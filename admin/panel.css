@@ -137,6 +137,24 @@ body{
 }
 .user-menu{font-size:13px; opacity:.95}
 
+/* Top-right dropdown (Change Password) */
+.user-menu-wrap{position:relative; display:inline-flex; align-items:center;}
+.user-menu{cursor:pointer; user-select:none; padding:6px 10px; border-radius:999px; background:#0f172a; border:1px solid rgba(255,255,255,.08); color:#e2e8f0;}
+.user-menu:focus{outline:2px solid rgba(59,130,246,.6); outline-offset:2px;}
+.user-dropdown{
+  position:absolute; right:0; top:44px;
+  width:260px; background:#fff; color:#0f172a;
+  border:1px solid var(--line); border-radius:14px; box-shadow:0 18px 40px rgba(0,0,0,.18);
+  padding:12px; display:none; z-index:20;
+}
+.user-dropdown.open{display:block;}
+.ud-title{font-weight:900; font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:#475569; margin-bottom:10px;}
+.ud-label{display:block; font-size:12px; color:#334155; margin:8px 0 4px;}
+.ud-input{width:100%; padding:9px 10px; border:1px solid var(--line); border-radius:10px; background:#fff;}
+.ud-input:focus{outline:2px solid rgba(59,130,246,.35); outline-offset:1px;}
+.ud-btn{margin-top:10px; width:100%; padding:9px 10px; border-radius:12px; border:1px solid rgba(15,23,42,.2); background:#0f172a; color:#fff; cursor:pointer; font-weight:800;}
+.ud-btn:hover{filter:brightness(1.05)}
+
 /* Content container */
 .container{
   padding:18px 18px 30px;
@@ -194,6 +212,17 @@ input,select,textarea{
   width:100%; padding:9px 10px; border-radius:10px;
   border:1px solid var(--line); background:#fff; color:var(--text);
   outline:none; font-size:14px;
+}
+
+/* Don't force checkboxes/radios to full width (fixes alignment in lists/forms) */
+input[type="checkbox"],
+input[type="radio"]{
+  width:auto;
+  padding:0;
+  border-radius:4px;
+  box-shadow:none;
+  background:transparent;
+  accent-color: var(--blue);
 }
 textarea{min-height:110px; resize:vertical}
 label{font-size:13px; font-weight:800; color:#334155; letter-spacing:.02em}

@@ -6,7 +6,7 @@ require_once __DIR__ . '/../auth.php';
 require_once __DIR__ . '/../helpers.php';
 require_admin();
 
-$flush = isset($_GET['flush']) ? (int)$_GET['flush'] : 0;
+$flush = isset($_GET['flush']) ? (int)$_GET['flush'] : 1;
 $source_id = isset($_GET['source_id']) ? (int)$_GET['source_id'] : 0;
 
 $topbar = file_get_contents(__DIR__ . '/topbar.html');
@@ -40,8 +40,8 @@ $out = ob_get_clean();
 
   <div class="row" style="margin-top:12px;">
     <a class="btn" href="epg_manager.php">Back to EPG Manager</a>
-    <a class="btn" href="epg_import.php?flush=0<?= $source_id>0 ? '&source_id='.urlencode((string)$source_id) : '' ?>">Run (no flush)</a>
-    <a class="btn" href="epg_import.php?flush=1<?= $source_id>0 ? '&source_id='.urlencode((string)$source_id) : '' ?>" onclick="return confirm('Flush old EPG first?')">Run (flush)</a>
+    <a class="btn" href="epg_import.php?flush=1<?= $source_id>0 ? '&source_id='.urlencode((string)$source_id) : '' ?>" onclick="return confirm('Replace currently imported EPG with the latest source data?')">Run Import (replace old)</a>
+    <a class="btn" href="epg_import.php?flush=0<?= $source_id>0 ? '&source_id='.urlencode((string)$source_id) : '' ?>" style="background:#2b3545;">Append (advanced)</a>
   </div>
 
   <h3 style="margin-top:16px;">Output</h3>

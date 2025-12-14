@@ -34,7 +34,9 @@
         <summary class="nav-group-summary"><span class="icon">🗓️</span><span>EPG</span><span class="chev">▸</span></summary>
         <div class="nav-sub">
           <a class="nav-item" href="epg_manager.php"><span class="icon">🗓️</span><span>Sources</span></a>
+          <a class="nav-item" href="epg_upload.php"><span class="icon">⬆️</span><span>Upload XMLTV</span></a>
           <a class="nav-item" href="epg_import.php"><span class="icon">⏬</span><span>Import / Run</span></a>
+          <a class="nav-item" href="epg_extract.php"><span class="icon">🧩</span><span>Extract / Filter</span></a>
         </div>
       </details>
 
@@ -129,8 +131,57 @@
       </div>
       <div class="header-right">
         <a class="credits" href="#"><span class="dot-green"></span>Credits</a>
-        <div class="user-menu">admin ▾</div>
+        <div class="user-menu-wrap" data-role="admin">
+          <div class="user-menu" role="button" tabindex="0" aria-haspopup="true" aria-expanded="false">ADMIN ▾</div>
+          <div class="user-dropdown" aria-label="User menu">
+            <div class="ud-title">Change password</div>
+            <form method="post" action="change_password.php" autocomplete="off">
+              <input type="hidden" name="role" value="admin">
+              <label class="ud-label">Current</label>
+              <input class="ud-input" type="password" name="current_password" autocomplete="current-password" required>
+              <label class="ud-label">New</label>
+              <input class="ud-input" type="password" name="new_password" autocomplete="new-password" required>
+              <label class="ud-label">Confirm</label>
+              <input class="ud-input" type="password" name="confirm_password" autocomplete="new-password" required>
+              <button class="ud-btn" type="submit" name="change_password" value="1">Update</button>
+            </form>
+          </div>
+        </div>
       </div>
     </header>
 
     <div class="container">
+
+    <script>
+      // Top-right user menu: click ADMIN to open "change password" dropdown
+      (function(){
+        var wrap = document.querySelector('.user-menu-wrap');
+        if(!wrap) return;
+        var btn = wrap.querySelector('.user-menu');
+        var dd  = wrap.querySelector('.user-dropdown');
+        if(!btn || !dd) return;
+
+        function close(){ dd.classList.remove('open'); btn.setAttribute('aria-expanded','false'); }
+        function toggle(){
+          var open = dd.classList.toggle('open');
+          btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+          if(open){
+            var first = dd.querySelector('input');
+            if(first) setTimeout(function(){ first.focus(); }, 0);
+          }
+        }
+
+        btn.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); toggle(); });
+        btn.addEventListener('keydown', function(e){
+          if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); toggle(); }
+          if(e.key === 'Escape'){ close(); }
+        });
+
+        document.addEventListener('click', function(e){
+          if(!wrap.contains(e.target)) close();
+        });
+        document.addEventListener('keydown', function(e){
+          if(e.key === 'Escape') close();
+        });
+      })();
+    </script>

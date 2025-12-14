@@ -86,8 +86,53 @@
       </div>
       <div class="header-right">
         <a class="credits" href="reseller_dashboard.php"><span class="dot-green"></span>Credits: <strong>{{CREDITS}}</strong></a>
-        <div class="user-menu">reseller ▾</div>
+        <div class="user-menu-wrap" data-role="reseller">
+          <div class="user-menu" role="button" tabindex="0" aria-haspopup="true" aria-expanded="false">RESELLER ▾</div>
+          <div class="user-dropdown" aria-label="User menu">
+            <div class="ud-title">Change password</div>
+            <form method="post" action="change_password.php" autocomplete="off">
+              <input type="hidden" name="role" value="reseller">
+              <label class="ud-label">Current</label>
+              <input class="ud-input" type="password" name="current_password" autocomplete="current-password" required>
+              <label class="ud-label">New</label>
+              <input class="ud-input" type="password" name="new_password" autocomplete="new-password" required>
+              <label class="ud-label">Confirm</label>
+              <input class="ud-input" type="password" name="confirm_password" autocomplete="new-password" required>
+              <button class="ud-btn" type="submit" name="change_password" value="1">Update</button>
+            </form>
+          </div>
+        </div>
       </div>
     </header>
 
     <div class="container">
+
+    <script>
+      // Top-right user menu: click RESELLER to open "change password" dropdown
+      (function(){
+        var wrap = document.querySelector('.user-menu-wrap');
+        if(!wrap) return;
+        var btn = wrap.querySelector('.user-menu');
+        var dd  = wrap.querySelector('.user-dropdown');
+        if(!btn || !dd) return;
+
+        function close(){ dd.classList.remove('open'); btn.setAttribute('aria-expanded','false'); }
+        function toggle(){
+          var open = dd.classList.toggle('open');
+          btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+          if(open){
+            var first = dd.querySelector('input');
+            if(first) setTimeout(function(){ first.focus(); }, 0);
+          }
+        }
+
+        btn.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); toggle(); });
+        btn.addEventListener('keydown', function(e){
+          if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); toggle(); }
+          if(e.key === 'Escape'){ close(); }
+        });
+
+        document.addEventListener('click', function(e){ if(!wrap.contains(e.target)) close(); });
+        document.addEventListener('keydown', function(e){ if(e.key === 'Escape') close(); });
+      })();
+    </script>
