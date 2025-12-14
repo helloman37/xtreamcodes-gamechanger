@@ -19,6 +19,26 @@ I’ve put a lot into this project. While the APK is public, I’m keeping the *
 
 ---
 
+## 🚀 Gamechanger: Ordered Multi‑M3U Imports (NEW)
+
+This panel now supports **multi M3U upload** with a **drag & drop “import order” list** — and that order is **persisted everywhere**:
+
+- ✅ **Panel category + channel lists**
+- ✅ **User M3U downloads** (`get.php`)
+- ✅ **Xtream-style API output** (`player_api.php`)
+
+So if an admin imports files in the order:
+
+1. Sports.m3u  
+2. Movies.m3u  
+3. Kids.m3u  
+
+…then the panel + exported playlists return **Sports → Movies → Kids**, matching that exact order (server-side).
+
+> Note: some IPTV apps still sort locally (A→Z) no matter what. The server output is ordered, but the client may override it.
+
+---
+
 ## What’s New (Recent Work)
 
 This repo has been upgraded heavily versus the early “basic panel” version:
@@ -67,6 +87,38 @@ How it works:
 - When a request fails (invalid login / expired / banned / limit reached), the server returns a **302 redirect** to your configured fail video URL.
 - If no fail video is configured, the system falls back to the original behavior (plain error response).
 
+### ✅ Category Manager + Channel Manager (NEW)
+A dedicated **Categories** page (under **Content**) that lets admins:
+
+- Create / rename / delete categories (shows channel counts)
+- Manage channels **inside the selected category**
+- Keeps `channels.category_id` and `channels.group_title` aligned for clean M3U `group-title` output
+
+### ✅ Cascade Delete Categories (NEW)
+When deleting a category, the system now also deletes **all channels inside that category** (safe “cascade delete” behavior).
+
+> “Uncategorized” (or protected base category) is protected from deletion.
+
+### ✅ Multi M3U Upload + Drag & Drop Order (NEW)
+- Upload **multiple M3U files at once**
+- Drag & drop to arrange import order **before** importing
+- Import order persists across the panel + exports
+
+### ✅ Persistent Ordering Everywhere (NEW)
+To make admin-chosen ordering consistent, the DB now tracks ordering:
+
+- `categories.sort_order`
+- `channels.sort_order`
+
+After import, the system updates sort orders so:
+- categories appear in the same order as imported files
+- channels appear in consistent order inside each category
+
+### ✅ Import Upsert + Re-Order (NEW)
+To support re-importing without duplicates:
+- Channels are **upserted** (matched by stream URL) when possible
+- Re-importing can update ordering and metadata instead of creating duplicates
+
 ---
 
 ## Features (Current)
@@ -107,17 +159,24 @@ New **Billing → Reports** page:
 - **Monthly revenue grid** (up to last 12 months)
 - “Up for renewal” sections (users nearing expiry / renewal windows)
 
-### 📺 Channel Management
+### 📺 Channel + Category Management
 - Add / edit / delete channels
-- Categories
-- Fields:
+- Create / rename / delete categories
+- Channel fields:
   - Name, Category, Stream URL, Logo URL, EPG ID (tvg-id), Active toggle
 - Stream status + last check timestamp per channel
+- Consistent ordering via `sort_order` (panel + exports)
 
 ### 📂 M3U Import
-- Import from uploaded M3U or remote URL
-- Parses: tvg-id, tvg-logo, group-title, name, URL
-- Skips broken entries; supports duplicate-friendly workflows
+- Import from:
+  - uploaded M3U (**single or multiple**)
+  - remote URL
+- Parses: `tvg-id`, `tvg-logo`, `group-title`, name, URL
+- Multi-file import supports:
+  - drag & drop file ordering before upload
+  - persistent category ordering based on import order
+  - per-category channel ordering
+  - duplicate-friendly workflows (upsert when possible)
 
 ### ✅ Stream Checker
 - Fast cURL probe (HEAD)
@@ -159,6 +218,13 @@ If you want `/live/...` and `/seg/...` to work, enable the provided Apache/Nginx
 */10 * * * * php /path/to/scripts/stream_probe.php --limit=400 >/dev/null 2>&1
 0 */6 * * * php /path/to/scripts/epg_import.php --flush=0 >/dev/null 2>&1
 ```
+
+---
+
+## Notes on Ordering (Important)
+
+- The server outputs categories/channels ordered by `sort_order` (admin-defined via import order).
+- Some client apps will still sort categories/channels alphabetically on-device — that’s app behavior, not the server.
 
 ---
 
