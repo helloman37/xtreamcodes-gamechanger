@@ -52,7 +52,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   }
 }
 
-$resellers = $pdo->query("SELECT * FROM resellers ORDER BY id DESC")->fetchAll();
+// Include quick stats so admins can see reseller activity at a glance.
+$resellers = $pdo->query(
+  "SELECT r.*,
+          (SELECT COUNT(*) FROM users u WHERE u.reseller_id=r.id) AS users_total,
+          (
+            SELECT COUNT(DISTINCT u2.id)
+            FROM users u2
+            JOIN subscriptions s ON s.user_id=u2.id
+            WHERE u2.reseller_id=r.id
+              AND s.status='active'
+              AND (s.ends_at IS NULL OR s.ends_at>NOW())
+          ) AS users_active
+   FROM resellers r
+   ORDER BY r.id DESC"
+)->fetchAll(PDO::FETCH_ASSOC);
 $topbar = file_get_contents(__DIR__ . '/topbar.html');
 ?><!doctype html>
 <html>
@@ -89,7 +103,7 @@ $topbar = file_get_contents(__DIR__ . '/topbar.html');
 <table class="table">
   <thead>
     <tr>
-      <th>ID</th><th>Username</th><th>Credits</th><th>Status</th><th>Actions</th>
+      <th>ID</th><th>Username</th><th>Credits</th><th>Status</th><th>Users</th><th>Actions</th>
     </tr>
   </thead>
   <tbody>
@@ -100,8 +114,13 @@ $topbar = file_get_contents(__DIR__ . '/topbar.html');
       <td><?= (int)$r['credits'] ?></td>
       <td><?= e($r['status']) ?></td>
       <td>
+        <a href="reseller_details.php?id=<?= (int)$r['id'] ?>" title="View reseller users">
+          <?= (int)($r['users_total'] ?? 0) ?> total / <?= (int)($r['users_active'] ?? 0) ?> active
+        </a>
+      </td>
+      <td>
         <details>
-          <summary>Edit</summary>
+          <summary>Edit / Details</summary>
           <form method="post" style="margin-top:6px;">
             <input type="hidden" name="action" value="update_reseller">
             <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
@@ -121,6 +140,16 @@ $topbar = file_get_contents(__DIR__ . '/topbar.html');
             <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
             <button type="submit" class="danger">Delete</button>
           </form>
+
+          <hr>
+          <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:8px;">
+            <div>
+              <strong>Users:</strong>
+              <?= (int)($r['users_total'] ?? 0) ?> total,
+              <?= (int)($r['users_active'] ?? 0) ?> active
+            </div>
+            <a class="btn btn-small" href="reseller_details.php?id=<?= (int)$r['id'] ?>">View Users</a>
+          </div>
         </details>
       </td>
     </tr>

@@ -21,8 +21,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $err = "That username is taken.";
     } else {
       $hash = password_hash($password, PASSWORD_DEFAULT);
-      $pdo->prepare("INSERT INTO users (username,password_hash,status,allow_adult) VALUES (?,?, 'active', ?)")
-          ->execute([$username,$hash,$allow_adult]);
+      $enc  = iptv_encrypt($password);
+      $pdo->prepare("INSERT INTO users (username,password_hash,password_enc,status,allow_adult) VALUES (?,?,?, 'active', ?)")
+          ->execute([$username,$hash,$enc,$allow_adult]);
       $uid = (int)$pdo->lastInsertId();
       $_SESSION['store_user'] = $uid;
       header("Location: dashboard.php"); exit;

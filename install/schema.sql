@@ -2,16 +2,20 @@ CREATE TABLE admins (
   id INT AUTO_INCREMENT PRIMARY KEY,
   username VARCHAR(50) UNIQUE NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
+  password_enc TEXT DEFAULT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE users (
   id INT AUTO_INCREMENT PRIMARY KEY,
   username VARCHAR(50) UNIQUE NOT NULL,
+  name VARCHAR(190) DEFAULT NULL,
+  email VARCHAR(190) DEFAULT NULL,
   password_hash VARCHAR(255) NOT NULL,
   status ENUM('active','suspended') DEFAULT 'active',
   allow_adult TINYINT(1) DEFAULT 0,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_users_email (email)
 );
 
 CREATE TABLE plans (

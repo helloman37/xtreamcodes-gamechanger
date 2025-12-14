@@ -215,6 +215,15 @@ function db_migrate(PDO $pdo): void {
   _ensure_col($pdo, 'users', 'app_logo_url',   'app_logo_url VARCHAR(1024) NULL');
   _ensure_col($pdo, 'users', 'tmdb_region',    'tmdb_region VARCHAR(10) NULL');
 
+  // User profile fields (optional)
+  _ensure_col($pdo, 'users', 'name',  'name VARCHAR(190) NULL');
+  _ensure_col($pdo, 'users', 'email', 'email VARCHAR(190) NULL');
+  _ensure_col($pdo, 'users', 'password_enc', 'password_enc TEXT NULL');
+  // Reseller attribution (used for reseller dashboards + admin reporting)
+  _ensure_col($pdo, 'users', 'reseller_id', 'reseller_id INT NULL');
+  _ensure_index($pdo, 'users', 'idx_users_email', 'INDEX idx_users_email (email)');
+  _ensure_index($pdo, 'users', 'idx_users_reseller_id', 'INDEX idx_users_reseller_id (reseller_id)');
+
   /* ---------- Ordering (admin-defined sort) ---------- */
   _ensure_col($pdo, 'categories', 'sort_order', 'sort_order INT NOT NULL DEFAULT 0');
 

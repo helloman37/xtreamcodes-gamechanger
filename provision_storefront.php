@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/helpers.php';
 
 function provision_storefront_order($orderId, $providerTxn){
   $pdo=db();
@@ -24,9 +25,9 @@ function provision_storefront_order($orderId, $providerTxn){
     if(!$checkout) throw new Exception("Checkout session missing");
 
     // create user
-    $uSt=$pdo->prepare("INSERT INTO users (username,password_hash,status,allow_adult,reseller_id)
-                        VALUES (?,?, 'active', 0, NULL)");
-    $uSt->execute([$checkout['username'],$checkout['password_hash']]);
+    $uSt=$pdo->prepare("INSERT INTO users (username,password_hash,password_enc,status,allow_adult,reseller_id)
+                        VALUES (?,?,?, 'active', ?, NULL)");
+    $uSt->execute([$checkout['username'],$checkout['password_hash'],$checkout['password_enc'] ?? '', $want_adult]);
     $userId=$pdo->lastInsertId();
   }
 

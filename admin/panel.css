@@ -337,3 +337,20 @@ tr:hover td{background:#fafbff}
   width:16px; height:16px;
   accent-color:#4f6cf7;
 }
+
+
+/* Reseller warning banner */
+.notice{
+  border:1px solid rgba(251,146,60,.35);
+  background:rgba(251,146,60,.14);
+  color:#7c2d12;
+  border-radius:var(--radius);
+  padding:12px 14px;
+  margin:14px 0;
+  display:flex;
+  gap:10px;
+  align-items:flex-start;
+}
+.notice .notice-icon{font-size:18px; line-height:1; margin-top:1px;}
+.notice .notice-title{font-weight:800; margin-bottom:2px;}
+.notice .notice-text{color:#7c2d12; opacity:.92;}

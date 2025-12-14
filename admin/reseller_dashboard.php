@@ -17,13 +17,30 @@ if (!$reseller) {
 
 $plans = $pdo->query("SELECT * FROM plans ORDER BY price ASC")->fetchAll(PDO::FETCH_ASSOC);
 
+// Prefill numeric credentials for convenience (reseller can overwrite)
+$prefill_username = iptv_unique_numeric_username($pdo, 10);
+$prefill_password = iptv_numeric_string(10);
+
 /* Create user by reseller (cost: 1 credit per user) */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_user'])) {
+  $auto_gen = !empty($_POST['auto_gen']) ? 1 : 0;
   $username = trim($_POST['username'] ?? '');
   $password = (string)($_POST['password'] ?? '');
+  $name = trim((string)($_POST['name'] ?? ''));
+  $email = trim((string)($_POST['email'] ?? ''));
   $plan_id  = (int)($_POST['plan_id'] ?? 0);
   $allow_adult = !empty($_POST['allow_adult']) ? 1 : 0;
   $unlimited = 0; // resellers cannot create unlimited subs
+
+  if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+    flash_set("Invalid email address.", "error");
+    header("Location: reseller_dashboard.php"); exit;
+  }
+
+  if ($auto_gen) {
+    $username = iptv_unique_numeric_username($pdo, 10);
+    $password = iptv_numeric_string(10);
+  }
 
   if ($username === '' || $password === '' || $plan_id <= 0) {
     flash_set("Please fill username, password, and plan.", "error");
@@ -99,8 +116,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_user'])) {
 
     // insert user tied to reseller
     $hash = password_hash($password, PASSWORD_BCRYPT);
-    $uStmt = $pdo->prepare("INSERT INTO users (username, password_hash, status, allow_adult, reseller_id) VALUES (?,?,?,?,?)");
-    $uStmt->execute([$username, $hash, 'active', $allow_adult, $reseller_id]);
+    $enc  = iptv_encrypt($password);
+    $uStmt = $pdo->prepare("INSERT INTO users (username, name, email, password_hash, password_enc, status, allow_adult, reseller_id) VALUES (?,?,?,?,?,?,?,?)");
+    $uStmt->execute([$username, $name, $email, $hash, $enc, 'active', $allow_adult, $reseller_id]);
     $user_id = (int)$pdo->lastInsertId();
 
     // insert subscription
@@ -128,7 +146,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_user'])) {
 
 // list reseller's recent users
 $my_users = $pdo->prepare(
-  "SELECT u.id, u.username, u.status, u.allow_adult, s.ends_at, p.name AS plan_name
+  "SELECT u.id, u.username, u.name, u.email, u.status, u.allow_adult, s.ends_at, p.name AS plan_name
    FROM users u
    LEFT JOIN subscriptions s ON s.user_id=u.id AND s.status='active'
    LEFT JOIN plans p ON p.id=s.plan_id
@@ -165,12 +183,28 @@ if ($_credits <= 0) { $topbar = str_replace('dot-green', 'dot-red', $topbar); }
   <form method="post">
     <input type="hidden" name="create_user" value="1">
     <div class="row">
+      <label>Subscriber Name</label>
+      <input name="name" placeholder="John Doe">
+    </div>
+    <div class="row">
+      <label>Subscriber Email</label>
+      <input name="email" type="email" placeholder="user@example.com">
+    </div>
+    <div class="row">
       <label>Username</label>
-      <input name="username" required>
+      <input id="username" name="username" value="<?= e($prefill_username) ?>" required>
     </div>
     <div class="row">
       <label>Password</label>
-      <input name="password" type="text" required>
+      <input id="password" name="password" type="text" value="<?= e($prefill_password) ?>" required>
+    </div>
+
+    <div class="row" style="margin-top:8px;">
+      <label style="display:block;">
+        <input type="checkbox" id="auto_gen" name="auto_gen" value="1" checked>
+        Auto-generate numeric username &amp; password
+      </label>
+      <button type="button" id="regen_btn" class="btn gray" style="margin-top:8px;">Regenerate</button>
     </div>
     <div class="row">
       <label>Plan</label>
@@ -192,17 +226,42 @@ if ($_credits <= 0) { $topbar = str_replace('dot-green', 'dot-red', $topbar); }
   </form>
 </div>
 
+<script>
+  (function(){
+    const autoGen = document.getElementById('auto_gen');
+    const u = document.getElementById('username');
+    const p = document.getElementById('password');
+    const btn = document.getElementById('regen_btn');
+    if (!autoGen || !u || !p || !btn) return;
+    function randDigits(n){
+      let s='';
+      for (let i=0;i<n;i++) s += Math.floor(Math.random()*10);
+      return s;
+    }
+    function regen(){
+      u.value = randDigits(10);
+      p.value = randDigits(10);
+    }
+    btn.addEventListener('click', regen);
+    autoGen.addEventListener('change', function(){
+      if (autoGen.checked) regen();
+    });
+  })();
+</script>
+
 <div class="card" style="margin-top:15px;">
   <h3>My Recent My Users</h3>
   <table class="table">
     <thead><tr>
-      <th>ID</th><th>Username</th><th>Plan</th><th>Expires</th><th>Status</th><th>Adult</th><th></th>
+      <th>ID</th><th>Username</th><th>Name</th><th>Email</th><th>Plan</th><th>Expires</th><th>Status</th><th>Adult</th><th></th>
     </tr></thead>
     <tbody>
     <?php foreach($my_users as $u): ?>
       <tr>
         <td><?= (int)$u['id'] ?></td>
         <td><?= e($u['username']) ?></td>
+        <td><?= e($u['name'] ?? '') ?></td>
+        <td><?= e($u['email'] ?? '') ?></td>
         <td><?= e($u['plan_name'] ?? '-') ?></td>
         <td><?= $u['ends_at'] ? e($u['ends_at']) : 'Unlimited' ?></td>
         <td><?= e($u['status']) ?></td>

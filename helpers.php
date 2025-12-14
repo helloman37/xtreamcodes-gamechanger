@@ -81,6 +81,98 @@ function csrf_validate(): void {
   }
 }
 // --- end CSRF helpers ---
+/* ---------- CREDENTIAL + LINK UTILITIES (ADMIN) ---------- */
+function iptv_config(): array {
+  static $cfg = null;
+  if ($cfg !== null) return $cfg;
+  try {
+    $cfg = require __DIR__ . '/config.php';
+    if (!is_array($cfg)) $cfg = [];
+  } catch (Throwable $e) {
+    $cfg = [];
+  }
+  return $cfg;
+}
+
+function iptv_base_url(): string {
+  $cfg = iptv_config();
+  $base = trim((string)($cfg['base_url'] ?? ''));
+  if ($base !== '' && $base !== 'http://' && $base !== 'https://') {
+    return rtrim($base, '/');
+  }
+
+  // Fallback: infer from request
+  $https = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
+  $scheme = $https ? 'https' : 'http';
+  $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+
+  $script = $_SERVER['SCRIPT_NAME'] ?? '/index.php';
+  $dir = rtrim(str_replace('\\', '/', dirname($script)), '/');
+  return $scheme . '://' . $host . ($dir ? $dir : '');
+}
+
+function iptv_numeric_string(int $len=10): string {
+  $out = '';
+  for ($i=0; $i<$len; $i++) {
+    $out .= (string)random_int(0, 9);
+  }
+  return $out;
+}
+
+function iptv_unique_numeric_username(PDO $pdo, int $len=10, int $tries=30): string {
+  for ($i=0; $i<$tries; $i++) {
+    $u = iptv_numeric_string($len);
+    $st = $pdo->prepare("SELECT id FROM users WHERE username=? LIMIT 1");
+    $st->execute([$u]);
+    if (!$st->fetch()) return $u;
+  }
+  // fallback: append time fragment
+  return iptv_numeric_string(max(4, $len-4)) . substr((string)time(), -4);
+}
+
+/**
+ * Encrypt plaintext (used only so admins can view a user's generated password).
+ * Format: base64( IV(16) || HMAC(32) || CIPHERTEXT )
+ */
+function iptv_encrypt(string $plain): string {
+  if ($plain === '') return '';
+  if (!function_exists('openssl_encrypt')) return '';
+  $cfg = iptv_config();
+  $secret = (string)($cfg['secret_key'] ?? '');
+  $key = hash('sha256', $secret, true); // 32 bytes
+  $iv = random_bytes(16);
+  $cipher = openssl_encrypt($plain, 'AES-256-CBC', $key, OPENSSL_RAW_DATA, $iv);
+  if ($cipher === false) return '';
+  $mac = hash_hmac('sha256', $iv . $cipher, $key, true);
+  return base64_encode($iv . $mac . $cipher);
+}
+
+function iptv_decrypt(?string $enc): string {
+  if (!$enc) return '';
+  if (!function_exists('openssl_decrypt')) return '';
+  $raw = base64_decode($enc, true);
+  if ($raw === false || strlen($raw) < (16+32+1)) return '';
+  $iv = substr($raw, 0, 16);
+  $mac = substr($raw, 16, 32);
+  $cipher = substr($raw, 48);
+
+  $cfg = iptv_config();
+  $secret = (string)($cfg['secret_key'] ?? '');
+  $key = hash('sha256', $secret, true);
+
+  $calc = hash_hmac('sha256', $iv . $cipher, $key, true);
+  if (!hash_equals($mac, $calc)) return '';
+
+  $plain = openssl_decrypt($cipher, 'AES-256-CBC', $key, OPENSSL_RAW_DATA, $iv);
+  return ($plain === false) ? '' : (string)$plain;
+}
+
+function iptv_m3u_link(string $username, string $password): string {
+  $base = iptv_base_url();
+  return $base . '/get.php?username=' . urlencode($username) . '&password=' . urlencode($password) . '&type=m3u';
+}
+/* ---------- END CREDENTIAL + LINK UTILITIES ---------- */
+
 
 function parse_m3u(string $content): array {
   $lines = preg_split("/\r\n|\n|\r/", $content);

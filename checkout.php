@@ -34,6 +34,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
     $password=$_POST['password'] ?? '';
     if(!$email||!$username||!$password) die("Missing fields");
     $password_hash=password_hash($password,PASSWORD_DEFAULT);
+    $password_enc=iptv_encrypt($password);
     $userId = null;
   }
 
@@ -49,6 +50,7 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
     $_SESSION['checkout_'.$orderId]=[
       'email'=>$email,'username'=>$username,
       'password_hash'=>$password_hash,
+      'password_enc'=>$password_enc,
       'allow_adult'=>$want_adult
     ];
   } else {
