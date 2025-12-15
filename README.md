@@ -39,6 +39,28 @@ So if an admin imports files in the order:
 
 ## ✅ What’s New (Recent Work)
 
+### ✅ Today’s Work (Dec 15, 2025)
+
+#### ✅ Fixed “Forbidden (CSRF)” on EPG XML Uploads
+- The CSRF error was *usually* caused by the upload body being rejected/truncated (PHP/web‑server limits), which makes the CSRF token disappear.
+- Updated the upload flow so oversized/rejected uploads don’t get mislabeled as CSRF, and return a clearer error.
+- Reminder: server limits still must be set correctly (`post_max_size` >= `upload_max_filesize`, plus Nginx/Apache body limits if used).
+
+#### ✅ Max Streams + Max Devices Enforcement (Channel‑Switch Safe)
+- Reworked the limiter so **changing channels on the same device does NOT stack sessions** and instantly trigger “limit reached”.
+- **Max Streams** now behaves like **concurrent streaming devices/sessions**, not “number of channel changes”.
+- **Max Devices** is enforced separately when **Device Lock** is enabled.
+
+#### ✅ Near Real‑Time “Active Stream” Tracking
+- Sessions stay “alive” only while the device is actively streaming (updates `last_seen` during stream activity).
+- Reduced reliance on long timeouts so slots free quickly after a stream stops.
+- Prevents false “limit reached” when a user flips channels fast.
+
+#### ✅ Always Show Current Password + Clickable M3U (Even After Reinstall)
+- Fixed the “Not available (was created before password storage)” warning by making the encryption secret **persist across reinstalls/overwrites**.
+- Admin can always view the current password (encrypted copy) and the full clickable M3U link for existing users.
+- Legacy users are auto‑backfilled where possible so the warning disappears going forward.
+
 ### ✅ Web Installer (Styled Wizard)
 - **Auto-redirects to `/install/`** if not installed.
 - **Step-by-step wizard** with Next/Back (server-rendered; doesn’t break if JS fails).
