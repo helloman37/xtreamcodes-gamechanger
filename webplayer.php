@@ -321,10 +321,11 @@ function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
   async function probe(url){
     try{
       const r = await fetch(url, {method:"GET", cache:"no-store"});
-      return r && r.ok;
+      // get.php/xmltv.php return 400/401 when called without creds; treat as "exists"
+      return r && (r.ok || [400,401,403].includes(r.status));
     }catch(e){ return false; }
   }
-  async function detectBase(){
+async function detectBase(){
     if (baseCache) return baseCache;
     const here = window.location.pathname.replace(/\/[^\/]*$/, "/");
     const candidates = [
