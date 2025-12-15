@@ -61,24 +61,27 @@ if ($username === '' || $password === '') {
 
 $pdo = db();
 
-// Global maintenance mode off-switch
+// Global maintenance mode
 $maint_enabled = system_setting_get($pdo, 'maintenance_mode', '0') === '1';
-if ($maint_enabled) {
-  $maint_msg = system_setting_get(
-    $pdo,
-    'maintenance_message',
-    'Service is temporarily under maintenance. Please try again later.'
-  );
+$maint_msg = system_setting_get(
+  $pdo,
+  'maintenance_message',
+  'Service is temporarily under maintenance. Please try again later.'
+);
+$maint_video = trim((string)system_setting_get($pdo, 'maintenance_video_url', ''));
+$maint_has_video = ($maint_enabled && $maint_video !== '');
 
+// Backward-compatible behavior: if maintenance is enabled but no video URL is set, block requests like before.
+if ($maint_enabled && !$maint_has_video) {
   if ($type === 'config') {
     header('Content-Type: application/json; charset=utf-8');
     echo json_encode([
       'maintenance' => true,
       'message'     => $maint_msg,
+      'video_url'   => '',
     ], JSON_UNESCAPED_SLASHES);
     exit;
   }
-
   http_response_code(503);
   header('Content-Type: text/plain; charset=utf-8');
   echo $maint_msg;
@@ -175,7 +178,10 @@ if ($type === 'config') {
     'app_logo_url' => $app_logo_url,
     'tmdb_region'  => $tmdb_region,
     'site_url'     => $site_url,
-    'token_ttl'    => $ttl
+    'token_ttl'    => $ttl,
+    'maintenance'  => $maint_enabled,
+    'message'      => $maint_enabled ? $maint_msg : '',
+    'video_url'    => $maint_video
   ], JSON_UNESCAPED_SLASHES);
   exit;
 }
@@ -234,7 +240,7 @@ foreach ($channels as $c) {
     $hidden .= "?exp=".$exp."&token=".$token;
 
   } elseif ($link_type === 'auto') {
-    if ((int)$c['direct_play'] === 1) {
+    if ((int)$c['direct_play'] === 1 && !$maint_has_video) {
       echo $c['stream_url']."\n";
       continue;
     }

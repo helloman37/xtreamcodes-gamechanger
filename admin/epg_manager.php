@@ -86,7 +86,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
 }
 
 $sources=$pdo->query("SELECT * FROM epg_sources ORDER BY created_at DESC")->fetchAll();
-$channels=$pdo->query("SELECT id,name,tvg_id,tvg_name,epg_url FROM channels ORDER BY name")->fetchAll();
+$channels=$pdo->query("SELECT c.id,c.name,c.tvg_id,c.tvg_name,c.epg_url, IFNULL(cat.sort_order, 999999) AS cat_sort, IFNULL(c.sort_order, c.id) AS ch_sort FROM channels c LEFT JOIN categories cat ON cat.id=c.category_id ORDER BY cat_sort, ch_sort, c.id")->fetchAll();
 $topbar = file_get_contents(__DIR__ . '/topbar.html');
 ?>
 <!doctype html>

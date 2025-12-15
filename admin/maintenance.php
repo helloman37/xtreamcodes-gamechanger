@@ -11,9 +11,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
   $enabled = isset($_POST['enabled']) ? '1' : '0';
   $message = trim((string)($_POST['message'] ?? ''));
+  $video_url = trim((string)($_POST['video_url'] ?? ''));
 
   system_setting_set($pdo, 'maintenance_mode', $enabled);
   system_setting_set($pdo, 'maintenance_message', $message !== '' ? $message : null);
+  system_setting_set($pdo, 'maintenance_video_url', $video_url !== '' ? $video_url : null);
 
   audit_log('system_maintenance_update', null, ['enabled' => $enabled === '1']);
   flash_set('Maintenance settings updated', 'success');
@@ -27,6 +29,8 @@ $message = system_setting_get(
   'maintenance_message',
   'Service is temporarily under maintenance. Please try again later.'
 );
+
+$video_url = (string)system_setting_get($pdo, 'maintenance_video_url', '');
 
 $topbar = file_get_contents(__DIR__ . '/topbar.html');
 ?>
@@ -52,7 +56,16 @@ $topbar = file_get_contents(__DIR__ . '/topbar.html');
         <input type="checkbox" name="enabled" value="1" <?= $enabled ? 'checked' : '' ?>>
         Enable global maintenance mode
       </label>
-      <div class="muted">When enabled, get.php + web player will show this message to normal users.</div>
+      <div class="muted">When enabled, stream requests will be redirected to the maintenance video (if set). If no video is set, clients will see the message below.</div>
+    </div>
+
+    <div style="margin-bottom:12px;">
+      <label>Maintenance video URL (optional)</label>
+      <input type="text" name="video_url" value="<?= e($video_url) ?>" placeholder="https://.../maintenance.m3u8 (or .ts / .mp4)" style="width:100%;">
+      <div class="muted" style="margin-top:6px;">When maintenance mode is enabled, /live + /movie + /series stream requests will redirect to this URL.</div>
+      <?php if ($video_url !== ''): ?>
+        <div style="margin-top:8px;"><a class="btn" target="_blank" rel="noopener" href="<?= e($video_url) ?>">Open</a></div>
+      <?php endif; ?>
     </div>
 
     <div style="margin-bottom:12px;">

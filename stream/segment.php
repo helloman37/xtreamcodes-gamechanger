@@ -160,18 +160,35 @@ if ($stoken === '') {
   exit('missing_session_token');
 }
 
-$st = $pdo->prepare("
-  SELECT id FROM stream_sessions
-  WHERE user_id=?
-    AND stream_type=?
-    AND item_id=?
-    AND ip=?
-    AND session_token=?
-    AND (killed_at IS NULL OR killed_at='0000-00-00 00:00:00')
-    AND last_seen > (NOW() - INTERVAL ? SECOND)
-  ORDER BY last_seen DESC LIMIT 1
-");
-$st->execute([(int)$user['id'], $type, $id, $ip, $stoken, $dev_win]);
+if ($device_fp !== '') {
+  $st = $pdo->prepare("
+    SELECT id FROM stream_sessions
+    WHERE user_id=?
+      AND stream_type=?
+      AND item_id=?
+      AND device_fp=?
+      AND session_token=?
+      AND (killed_at IS NULL OR killed_at='0000-00-00 00:00:00')
+      AND last_seen > (NOW() - INTERVAL ? SECOND)
+    ORDER BY last_seen DESC LIMIT 1
+  ");
+  $st->execute([(int)$user['id'], $type, $id, $device_fp, $stoken, $dev_win]);
+} else {
+  // Legacy fallback: no device_fp available, bind to IP
+  $st = $pdo->prepare("
+    SELECT id FROM stream_sessions
+    WHERE user_id=?
+      AND stream_type=?
+      AND item_id=?
+      AND ip=?
+      AND session_token=?
+      AND (killed_at IS NULL OR killed_at='0000-00-00 00:00:00')
+      AND last_seen > (NOW() - INTERVAL ? SECOND)
+    ORDER BY last_seen DESC LIMIT 1
+  ");
+  $st->execute([(int)$user['id'], $type, $id, $ip, $stoken, $dev_win]);
+}
+
 $session = $st->fetch(PDO::FETCH_ASSOC);
 if (!$session) {
   http_response_code(429);
@@ -181,9 +198,8 @@ if (!$session) {
 }
 
 // refresh last_seen
-$pdo->prepare("UPDATE stream_sessions SET last_seen=NOW(), user_agent=?, device_fp=? WHERE id=?")
-    ->execute([$ua, $device_fp, (int)$session['id']]);
-
+$pdo->prepare("UPDATE stream_sessions SET last_seen=NOW(), ip=?, user_agent=?, device_fp=? WHERE id=?")
+    ->execute([$ip, $ua, $device_fp, (int)$session['id']]);
 /* let upstream dictate content-type */
 // ---- streaming tune-ups (important for .ts segments) ----
 @ini_set('zlib.output_compression', 'Off');
