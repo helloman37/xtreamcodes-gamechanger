@@ -60,6 +60,31 @@ if ($username === '' || $password === '') {
 }
 
 $pdo = db();
+
+// Global maintenance mode off-switch
+$maint_enabled = system_setting_get($pdo, 'maintenance_mode', '0') === '1';
+if ($maint_enabled) {
+  $maint_msg = system_setting_get(
+    $pdo,
+    'maintenance_message',
+    'Service is temporarily under maintenance. Please try again later.'
+  );
+
+  if ($type === 'config') {
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode([
+      'maintenance' => true,
+      'message'     => $maint_msg,
+    ], JSON_UNESCAPED_SLASHES);
+    exit;
+  }
+
+  http_response_code(503);
+  header('Content-Type: text/plain; charset=utf-8');
+  echo $maint_msg;
+  exit;
+}
+
 ensure_categories($pdo);
 
 /* user */

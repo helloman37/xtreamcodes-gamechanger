@@ -332,6 +332,9 @@ if (!function_exists('iptv_dt_local')) {
   </form>
 
   <?php if($edit): ?>
+    <div style="margin-top:14px; margin-bottom:6px;">
+      <a class="btn" href="user_notes.php?user_id=<?= (int)$edit['id'] ?>">Notes / Tags</a>
+    </div>
     <div class="card" style="margin-top:14px;">
       <h4 style="margin-top:0;">Subscription Dates (Admin)</h4>
 

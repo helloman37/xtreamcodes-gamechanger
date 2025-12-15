@@ -372,4 +372,17 @@ function db_migrate(PDO $pdo): void {
   _ensure_index($pdo, 'stream_sessions', 'idx_ss_token', 'INDEX idx_ss_token (session_token)');
   _ensure_index($pdo, 'stream_sessions', 'idx_ss_type_item', 'INDEX idx_ss_type_item (stream_type, item_id)');
 
+  // Per-user notes + tags
+  $pdo->exec("
+    CREATE TABLE IF NOT EXISTS user_notes (
+      user_id INT PRIMARY KEY,
+      notes TEXT NULL,
+      tags VARCHAR(255) NULL,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ON UPDATE CURRENT_TIMESTAMP,
+      CONSTRAINT fk_user_notes_user
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  ");
+
 }
