@@ -42,7 +42,7 @@ $defaults = [
   'webhook_url' => '',
 
   // device/connection window in seconds
-  'device_window' => 120,
+  'device_window' => 30,
 
   // anti-restream: max unique IPs in window
   'max_ip_changes' => 3,

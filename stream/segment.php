@@ -120,38 +120,36 @@ if ($type === 'live') {
   }
 }
 
-/* package/bouquet enforcement (live only) */
+/* package/bouquet enforcement (live + VOD + Series) */
 $pkg_ids = user_package_ids($pdo, (int)$user['id']);
-if ($type !== 'live') { $pkg_ids = []; }
 
 if ($pkg_ids) {
   $in = implode(',', array_fill(0, count($pkg_ids), '?'));
-  $params = array_merge([$id], $pkg_ids);
-  $st = $pdo->prepare("SELECT 1 FROM package_channels pc WHERE pc.channel_id=? AND pc.package_id IN ($in) LIMIT 1");
-  $st->execute($params);
-  if (!$st->fetch()) {
-    http_response_code(403);
-    exit("Not in your package");
+
+  if ($type === 'live') {
+    $params = array_merge([$id], $pkg_ids);
+    $st = $pdo->prepare("SELECT 1 FROM package_channels pc WHERE pc.channel_id=? AND pc.package_id IN ($in) LIMIT 1");
+    $st->execute($params);
+    if (!$st->fetch()) { http_response_code(403); exit("Not in your package"); }
+  } elseif ($type === 'movie') {
+    $params = array_merge([$id], $pkg_ids);
+    $st = $pdo->prepare("SELECT 1 FROM package_movies pm WHERE pm.movie_id=? AND pm.package_id IN ($in) LIMIT 1");
+    $st->execute($params);
+    if (!$st->fetch()) { http_response_code(403); exit("Not in your package"); }
+  } else { // episode -> package rules are on the parent series
+    $st = $pdo->prepare("SELECT series_id FROM series_episodes WHERE id=? LIMIT 1");
+    $st->execute([$id]);
+    $series_id = (int)($st->fetch(PDO::FETCH_ASSOC)['series_id'] ?? 0);
+    if ($series_id < 1) { http_response_code(404); exit('Episode not found'); }
+
+    $params = array_merge([$series_id], $pkg_ids);
+    $st = $pdo->prepare("SELECT 1 FROM package_series ps WHERE ps.series_id=? AND ps.package_id IN ($in) LIMIT 1");
+    $st->execute($params);
+    if (!$st->fetch()) { http_response_code(403); exit("Not in your package"); }
   }
 }
 
-/* sub */
-$st = $pdo->prepare("
-  SELECT s.*
-  FROM subscriptions s
-  WHERE s.user_id=? AND s.status='active' AND (s.ends_at IS NULL OR s.ends_at>NOW())
-  ORDER BY s.ends_at DESC LIMIT 1
-");
-$st->execute([(int)$user['id']]);
-$sub = $st->fetch(PDO::FETCH_ASSOC);
-if (!$sub) {
-  $fv = _seg_fail_video_url($pdo, $type, 'expired');
-  _seg_try_redirect_ts($fv);
-  http_response_code(403);
-  exit("No active subscription");
-}
-
-/* Require an active recent session for this stream (anti-hotlink) */
+/* Require an active recent session for this DEVICE (anti-hotlink + fixes channel switch) */
 $config = require __DIR__ . '/../config.php';
 $dev_win = (int)($config['device_window'] ?? 120);
 
@@ -160,41 +158,42 @@ if ($stoken === '') {
   exit('missing_session_token');
 }
 
-if ($device_fp !== '') {
-  $st = $pdo->prepare("
-    SELECT id FROM stream_sessions
-    WHERE user_id=?
-      AND stream_type=?
-      AND item_id=?
-      AND device_fp=?
-      AND session_token=?
-      AND (killed_at IS NULL OR killed_at='0000-00-00 00:00:00')
-      AND last_seen > (NOW() - INTERVAL ? SECOND)
-    ORDER BY last_seen DESC LIMIT 1
-  ");
-  $st->execute([(int)$user['id'], $type, $id, $device_fp, $stoken, $dev_win]);
-} else {
-  // Legacy fallback: no device_fp available, bind to IP
-  $st = $pdo->prepare("
-    SELECT id FROM stream_sessions
-    WHERE user_id=?
-      AND stream_type=?
-      AND item_id=?
-      AND ip=?
-      AND session_token=?
-      AND (killed_at IS NULL OR killed_at='0000-00-00 00:00:00')
-      AND last_seen > (NOW() - INTERVAL ? SECOND)
-    ORDER BY last_seen DESC LIMIT 1
-  ");
-  $st->execute([(int)$user['id'], $type, $id, $ip, $stoken, $dev_win]);
-}
+try {
+  if ($device_fp !== '') {
+    $st = $pdo->prepare("
+      SELECT id FROM stream_sessions
+      WHERE user_id=?
+        AND device_fp=?
+        AND session_token=?
+        AND (killed_at IS NULL OR killed_at='0000-00-00 00:00:00')
+        AND last_seen > (NOW() - INTERVAL ? SECOND)
+      ORDER BY last_seen DESC LIMIT 1
+    ");
+    $st->execute([(int)$user['id'], $device_fp, $stoken, $dev_win]);
+  } else {
+    $st = $pdo->prepare("
+      SELECT id FROM stream_sessions
+      WHERE user_id=?
+        AND ip=?
+        AND user_agent=?
+        AND session_token=?
+        AND (killed_at IS NULL OR killed_at='0000-00-00 00:00:00')
+        AND last_seen > (NOW() - INTERVAL ? SECOND)
+      ORDER BY last_seen DESC LIMIT 1
+    ");
+    $st->execute([(int)$user['id'], $ip, $ua, $stoken, $dev_win]);
+  }
 
-$session = $st->fetch(PDO::FETCH_ASSOC);
-if (!$session) {
-  http_response_code(429);
-  header("Content-Type: application/json; charset=utf-8");
-  echo json_encode(["error"=>"no_active_session"]);
-  exit;
+  $session = $st->fetch(PDO::FETCH_ASSOC);
+  if (!$session) {
+    http_response_code(429);
+    header("Content-Type: application/json; charset=utf-8");
+    echo json_encode(["error"=>"no_active_session"]);
+    exit;
+  }
+} catch (Throwable $e) {
+  http_response_code(500);
+  exit('segment_session_check_failed');
 }
 
 // refresh last_seen

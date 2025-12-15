@@ -381,7 +381,24 @@ if (!function_exists('iptv_dt_local')) {
       <?php endif; ?>
     </div>
 
-    <?php $plain = iptv_decrypt($edit['password_enc'] ?? ''); $m3u = $plain ? iptv_m3u_link((string)$edit['username'], $plain) : ''; ?>
+    <?php
+      $plain = iptv_decrypt($edit['password_enc'] ?? '');
+      // Legacy recovery: if passwords were username-based (common in older installs),
+      // we can safely recover by verifying against the hash.
+      if ($plain === '') {
+        $u = (string)($edit['username'] ?? '');
+        $h = (string)($edit['password_hash'] ?? '');
+        if ($u !== '' && $h !== '' && password_verify($u, $h)) {
+          $plain = $u;
+          // Backfill password_enc so it shows normally next time.
+          try {
+            $pdo->prepare("UPDATE users SET password_enc=? WHERE id=?")->execute([iptv_encrypt($plain), (int)$edit['id']]);
+            $edit['password_enc'] = iptv_encrypt($plain);
+          } catch (Throwable $e) { /* ignore */ }
+        }
+      }
+      $m3u = $plain ? iptv_m3u_link((string)$edit['username'], $plain) : '';
+    ?>
     <div class="card" style="margin-top:14px;">
       <h4 style="margin-top:0;">Account Info (Admin View)</h4>
       <div class="form-row" style="margin-bottom:6px;">
@@ -400,7 +417,7 @@ if (!function_exists('iptv_dt_local')) {
               <button type="button" class="btn btn-small" style="box-shadow:none; background:#334155;" onclick="iptvCopyPrev(this)">Copy</button>
             </div>
           <?php else: ?>
-            <div class="muted" style="margin-top:6px;">Not available (was created before password storage). Use “Generate New Password”.</div>
+            <div class="muted" style="margin-top:6px;">Not available (missing stored password OR secret-key mismatch after a reinstall). Use “Generate New Password”.</div>
           <?php endif; ?>
         </div>
       </div>

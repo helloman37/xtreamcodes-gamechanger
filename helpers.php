@@ -73,6 +73,19 @@ function csrf_input(): string {
 }
 function csrf_validate(): void {
   if (session_status() !== PHP_SESSION_ACTIVE) session_start();
+
+  // If the POST body got dropped (most commonly because post_max_size/client body limits were exceeded),
+  // $_POST/$_FILES will be empty and the CSRF token will look 'missing'. Return a proper 413 instead.
+  if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+    $cl = (int)($_SERVER['CONTENT_LENGTH'] ?? 0);
+    if ($cl > 0 && empty($_POST) && empty($_FILES)) {
+      $pm = (string)ini_get('post_max_size');
+      $um = (string)ini_get('upload_max_filesize');
+      http_response_code(413);
+      die('Upload too large or request body rejected. Increase post_max_size (' . $pm . ') and upload_max_filesize (' . $um . ') (and server body limits if applicable).');
+    }
+  }
+
   $sent = $_POST['csrf_token'] ?? '';
   $good = $_SESSION['csrf_token'] ?? '';
   if (!$sent || !$good || !hash_equals($good, $sent)) {
@@ -134,11 +147,58 @@ function iptv_unique_numeric_username(PDO $pdo, int $len=10, int $tries=30): str
  * Encrypt plaintext (used only so admins can view a user's generated password).
  * Format: base64( IV(16) || HMAC(32) || CIPHERTEXT )
  */
+
+function iptv_secret_key(): string {
+  static $cached = null;
+  if ($cached !== null) return $cached;
+
+  $cfg = iptv_config();
+  $cfg_key = (string)($cfg['secret_key'] ?? '');
+
+  // Prefer DB-persisted secret key so reinstalling/overwriting files doesn't break decryption.
+  $db_key = '';
+  if (function_exists('db')) {
+    try {
+      $pdo = db();
+      // Ensure table exists (older installs may not have it yet).
+      $pdo->exec("CREATE TABLE IF NOT EXISTS system_settings (
+        setting_key VARCHAR(190) PRIMARY KEY,
+        setting_value TEXT NULL,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+      $st = $pdo->prepare("SELECT setting_value FROM system_settings WHERE setting_key='secret_key' LIMIT 1");
+      $st->execute();
+      $row = $st->fetch(PDO::FETCH_ASSOC);
+      if ($row && !empty($row['setting_value'])) {
+        $db_key = (string)$row['setting_value'];
+      } else {
+        // First run: seed DB with config secret (or generate one). Do NOT overwrite if it already exists.
+        $seed = $cfg_key;
+        if ($seed === '') {
+          // 64 chars printable
+          $seed = bin2hex(random_bytes(32));
+        }
+        $ins = $pdo->prepare("INSERT INTO system_settings (setting_key, setting_value)
+          VALUES ('secret_key', ?)
+          ON DUPLICATE KEY UPDATE setting_value = setting_value");
+        $ins->execute([$seed]);
+        $db_key = $seed;
+      }
+    } catch (Throwable $e) {
+      // ignore and fall back
+      $db_key = '';
+    }
+  }
+
+  $cached = ($db_key !== '') ? $db_key : $cfg_key;
+  return $cached;
+}
+
 function iptv_encrypt(string $plain): string {
   if ($plain === '') return '';
   if (!function_exists('openssl_encrypt')) return '';
-  $cfg = iptv_config();
-  $secret = (string)($cfg['secret_key'] ?? '');
+  $secret = iptv_secret_key();
   $key = hash('sha256', $secret, true); // 32 bytes
   $iv = random_bytes(16);
   $cipher = openssl_encrypt($plain, 'AES-256-CBC', $key, OPENSSL_RAW_DATA, $iv);
@@ -156,8 +216,7 @@ function iptv_decrypt(?string $enc): string {
   $mac = substr($raw, 16, 32);
   $cipher = substr($raw, 48);
 
-  $cfg = iptv_config();
-  $secret = (string)($cfg['secret_key'] ?? '');
+  $secret = iptv_secret_key();
   $key = hash('sha256', $secret, true);
 
   $calc = hash_hmac('sha256', $iv . $cipher, $key, true);
@@ -393,8 +452,7 @@ function get_device_fingerprint(): string {
   }
 
   $ua = $_SERVER['HTTP_USER_AGENT'] ?? 'unknown';
-  $lang = $_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? '';
-  return substr(hash('sha256', $ua.'|'.$lang), 0, 32);
+  return substr(hash('sha256', $ua), 0, 32);
 }
 
 

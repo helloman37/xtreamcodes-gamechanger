@@ -161,28 +161,38 @@ if ($maint_enabled) {
   exit;
 }
 
-// Device lock (optional): binds first-seen device fingerprint to the account
+// Device lock (optional): binds the account to a *set* of devices (up to plan max_devices)
+// - When unchecked: no hard binding (but we still record devices for visibility).
+// - When checked: the first N unique devices (N = plan max_devices) are "bound" and only those are allowed.
 try {
   if ($device_fp !== '') {
-  $pdo->prepare("
-    INSERT INTO user_devices (user_id, fingerprint, last_seen, last_ip)
-    VALUES (?,?,NOW(),?)
-    ON DUPLICATE KEY UPDATE last_seen=NOW(), last_ip=VALUES(last_ip)
-  ")->execute([(int)$user['id'], $device_fp, $ip]);
-  }
+    if (!empty($user['device_lock'])) {
+      $st = $pdo->prepare("SELECT 1 FROM user_devices WHERE user_id=? AND fingerprint=? LIMIT 1");
+      $st->execute([(int)$user['id'], $device_fp]);
+      $known = (bool)$st->fetchColumn();
 
-  if (!empty($user['device_lock'])) {
-    $st = $pdo->prepare("SELECT fingerprint FROM user_devices WHERE user_id=? ORDER BY first_seen ASC LIMIT 1");
-    $st->execute([(int)$user['id']]);
-    $primary = (string)($st->fetch(PDO::FETCH_ASSOC)['fingerprint'] ?? '');
-    if ($primary && $device_fp!=='' && !hash_equals($primary, $device_fp)) {
-      audit_log('device_lock_block', (int)$user['id'], ['ip'=>$ip,'channel_id'=>$id]);
-      telemetry_reason('device_lock');
-      $url = _fail_video_url($pdo, $type, 'limit');
-      if ($url !== '') _redirect_fail_video($url);
-      http_response_code(403);
-      exit("Device locked");
+      if (!$known) {
+        $st2 = $pdo->prepare("SELECT COUNT(*) AS c FROM user_devices WHERE user_id=?");
+        $st2->execute([(int)$user['id']]);
+        $bound = (int)($st2->fetch(PDO::FETCH_ASSOC)['c'] ?? 0);
+
+        if ($max_devices > 0 && $bound >= $max_devices) {
+          audit_log('device_lock_block', (int)$user['id'], ['ip'=>$ip,'id'=>$id,'max_devices'=>$max_devices,'bound'=>$bound]);
+          telemetry_reason('device_lock', ['max_devices'=>$max_devices,'bound'=>$bound]);
+          $url = _fail_video_url($pdo, $type, 'limit');
+          if ($url !== '') _redirect_fail_video($url);
+          http_response_code(403);
+          exit("Device limit reached");
+        }
+      }
     }
+
+    // Record/refresh this device fingerprint (for admin visibility + last_seen)
+    $pdo->prepare("
+      INSERT INTO user_devices (user_id, fingerprint, last_seen, last_ip)
+      VALUES (?,?,NOW(),?)
+      ON DUPLICATE KEY UPDATE last_seen=NOW(), last_ip=VALUES(last_ip)
+    ")->execute([(int)$user['id'], $device_fp, $ip]);
   }
 } catch (Throwable $e) {
   // ignore
@@ -241,11 +251,11 @@ $pdo->exec("DELETE FROM stream_sessions WHERE last_seen < (NOW() - INTERVAL 2 DA
 $dev_win  = (int)($config['device_window'] ?? 120);
 
 /*
-  STREAM/DEVICE LIMIT MODEL (requested):
-  - If it's the SAME device_id/device_fp, do NOT kick/override the user's other streams.
-  - Unlimited concurrent streams are allowed from the same device.
-  - max_devices still enforces distinct active devices in the window.
-  - max_streams now enforces distinct *active devices streaming* (not sessions).
+  CONCURRENT LIMIT MODEL (FIXES CHANNEL-SWITCH FALSE POSITIVES):
+  - We treat one *device* as one active session in the window.
+  - Changing channels on the same device UPDATES the session (doesn't consume a new slot).
+  - max_streams = concurrent active sessions (devices actively streaming).
+  - max_devices = concurrent distinct devices actively streaming.
 */
 
 $device_active = false;
@@ -254,96 +264,112 @@ $session_token = '';
 
 try {
   if ($device_fp !== '') {
-    // Is this device already active in the window?
-    $st = $pdo->prepare("
-      SELECT 1
-      FROM stream_sessions
-      WHERE user_id=?
-        AND device_fp=?
-        AND (killed_at IS NULL OR killed_at='0000-00-00 00:00:00')
-        AND last_seen > (NOW() - INTERVAL ? SECOND)
-      LIMIT 1
-    ");
-    $st->execute([(int)$user['id'], $device_fp, $dev_win]);
-    $device_active = (bool)$st->fetchColumn();
-
-    // Reuse ONLY if same device + same item (prevents overwriting other streams on same device)
+    // Reuse the most recent active session for this device
     $st = $pdo->prepare("
       SELECT id, IFNULL(session_token,'') AS session_token
       FROM stream_sessions
       WHERE user_id=?
         AND device_fp=?
-        AND stream_type=?
-        AND item_id=?
         AND (killed_at IS NULL OR killed_at='0000-00-00 00:00:00')
         AND last_seen > (NOW() - INTERVAL ? SECOND)
       ORDER BY last_seen DESC LIMIT 1
     ");
-    $st->execute([(int)$user['id'], $device_fp, $type, $id, $dev_win]);
+    $st->execute([(int)$user['id'], $device_fp, $dev_win]);
     $row = $st->fetch(PDO::FETCH_ASSOC) ?: [];
     $session_id = (int)($row['id'] ?? 0);
     $session_token = (string)($row['session_token'] ?? '');
+    $device_active = ($session_id > 0);
+
+    // Defensive: kill any other active sessions for this same device in the window (prevents stacking)
+    if ($session_id > 0) {
+      $pdo->prepare("
+        UPDATE stream_sessions
+        SET killed_at=NOW()
+        WHERE user_id=?
+          AND device_fp=?
+          AND id<>?
+          AND (killed_at IS NULL OR killed_at='0000-00-00 00:00:00')
+          AND last_seen > (NOW() - INTERVAL ? SECOND)
+      ")->execute([(int)$user['id'], $device_fp, $session_id, $dev_win]);
+    }
   } else {
     // Fallback identity when no device_fp is available
     $st = $pdo->prepare("
-      SELECT 1
-      FROM stream_sessions
-      WHERE user_id=?
-        AND ip=?
-        AND user_agent=?
-        AND (killed_at IS NULL OR killed_at='0000-00-00 00:00:00')
-        AND last_seen > (NOW() - INTERVAL ? SECOND)
-      LIMIT 1
-    ");
-    $st->execute([(int)$user['id'], $ip, $ua, $dev_win]);
-    $device_active = (bool)$st->fetchColumn();
-
-    $st = $pdo->prepare("
       SELECT id, IFNULL(session_token,'') AS session_token
       FROM stream_sessions
       WHERE user_id=?
         AND ip=?
         AND user_agent=?
-        AND stream_type=?
-        AND item_id=?
         AND (killed_at IS NULL OR killed_at='0000-00-00 00:00:00')
         AND last_seen > (NOW() - INTERVAL ? SECOND)
       ORDER BY last_seen DESC LIMIT 1
     ");
-    $st->execute([(int)$user['id'], $ip, $ua, $type, $id, $dev_win]);
+    $st->execute([(int)$user['id'], $ip, $ua, $dev_win]);
     $row = $st->fetch(PDO::FETCH_ASSOC) ?: [];
     $session_id = (int)($row['id'] ?? 0);
     $session_token = (string)($row['session_token'] ?? '');
+    $device_active = ($session_id > 0);
+
+    if ($session_id > 0) {
+      $pdo->prepare("
+        UPDATE stream_sessions
+        SET killed_at=NOW()
+        WHERE user_id=?
+          AND ip=?
+          AND user_agent=?
+          AND id<>?
+          AND (killed_at IS NULL OR killed_at='0000-00-00 00:00:00')
+          AND last_seen > (NOW() - INTERVAL ? SECOND)
+      ")->execute([(int)$user['id'], $ip, $ua, $session_id, $dev_win]);
+    }
   }
 } catch (Throwable $e) {
+  // Older schema fallback (no killed_at/session_token/etc)
   $device_active = false;
   $session_id = 0;
   $session_token = '';
 }
 
 $need_device = $device_active ? 0 : 1;
+// Stream slots track concurrent devices streaming (one slot per device)
 $need_stream = $device_active ? 0 : 1;
 
-// Count active devices (stable: device_fp when present; otherwise ip+ua)
-$st = $pdo->prepare("
-  SELECT COUNT(DISTINCT
-    CASE
-      WHEN device_fp IS NOT NULL AND device_fp<>'' THEN device_fp
-      ELSE CONCAT('ip:',ip,'|ua:',user_agent)
-    END
-  ) AS c
-  FROM stream_sessions
-  WHERE user_id=?
-    AND (killed_at IS NULL OR killed_at='0000-00-00 00:00:00')
-    AND last_seen > (NOW() - INTERVAL ? SECOND)
-");
-$st->execute([(int)$user['id'], $dev_win]);
-$active_devices = (int)($st->fetch(PDO::FETCH_ASSOC)['c'] ?? 0);
+// Count active devices in window (stable: device_fp when present; otherwise ip+ua)
+$active_devices = 0;
+$active_streams = 0;
 
-// Streams now count per active device (unlimited per device)
-$active_streams = $active_devices;
+try {
+  $st = $pdo->prepare("
+    SELECT COUNT(DISTINCT
+      CASE
+        WHEN device_fp IS NOT NULL AND device_fp<>'' THEN device_fp
+        ELSE CONCAT('ip:',ip,'|ua:',user_agent)
+      END
+    ) AS c
+    FROM stream_sessions
+    WHERE user_id=?
+      AND (killed_at IS NULL OR killed_at='0000-00-00 00:00:00')
+      AND last_seen > (NOW() - INTERVAL ? SECOND)
+  ");
+  $st->execute([(int)$user['id'], $dev_win]);
+  $active_devices = (int)($st->fetch(PDO::FETCH_ASSOC)['c'] ?? 0);
 
-// Enforce plan max_devices (active devices window)
+  // In this model, active streams == active devices (one active session per device)
+  $active_streams = $active_devices;
+} catch (Throwable $e) {
+  // Older schema fallback
+  $st = $pdo->prepare("
+    SELECT COUNT(DISTINCT CONCAT('ip:',ip,'|ua:',user_agent)) AS c
+    FROM stream_sessions
+    WHERE user_id=?
+      AND last_seen > (NOW() - INTERVAL ? SECOND)
+  ");
+  $st->execute([(int)$user['id'], $dev_win]);
+  $active_devices = (int)($st->fetch(PDO::FETCH_ASSOC)['c'] ?? 0);
+  $active_streams = $active_devices;
+}
+
+// Enforce plan max_devices (concurrent active devices)
 if ($max_devices > 0 && ($active_devices + $need_device) > $max_devices) {
   audit_log('max_devices', (int)$user['id'], ['active'=>$active_devices,'max'=>$max_devices]);
   telemetry_reason('max_devices', ['active'=>$active_devices,'max'=>$max_devices]);
@@ -353,9 +379,9 @@ if ($max_devices > 0 && ($active_devices + $need_device) > $max_devices) {
   exit('max_devices_reached');
 }
 
-// Enforce plan max_streams (active devices streaming)
+// Enforce plan max_streams (concurrent sessions / devices actively streaming)
 if ($max_streams > 0 && ($active_streams + $need_stream) > $max_streams) {
-  audit_log('max_connections', (int)$user['id'], ['channel_id'=>$id,'active'=>$active_streams,'max'=>$max_streams]);
+  audit_log('max_connections', (int)$user['id'], ['id'=>$id,'active'=>$active_streams,'max'=>$max_streams]);
   telemetry_reason('max_connections', ['active'=>$active_streams,'max'=>$max_streams,'id'=>$id]);
   $url = _fail_video_url($pdo, $type, 'limit');
   if ($url !== '') _redirect_fail_video($url);
@@ -365,7 +391,48 @@ if ($max_streams > 0 && ($active_streams + $need_stream) > $max_streams) {
   exit;
 }
 
-/* ---------- session tracking (NO token rotation on same device+item) ---------- */
+/* ---------- session tracking (NO token rotation on same device) ---------- */
+if ($session_token === '') {
+  $session_token = random_hex_token(16);
+}
+
+if ($session_id > 0) {
+  // Reuse the device session and simply update what it's currently watching.
+  try {
+    $pdo->prepare("
+      UPDATE stream_sessions
+      SET channel_id=?,
+          item_id=?,
+          stream_type=?,
+          ip=?,
+          user_agent=?,
+          device_fp=?,
+          session_token=?,
+          killed_at=NULL,
+          last_seen=NOW()
+      WHERE id=?
+    ")->execute([$id, $id, $type, $ip, $ua, $device_fp, $session_token, $session_id]);
+  } catch (Throwable $e) {
+    // Backward compatible update
+    $pdo->prepare("UPDATE stream_sessions SET channel_id=?, ip=?, user_agent=?, device_fp=?, last_seen=NOW() WHERE id=?")
+        ->execute([$id, $ip, $ua, $device_fp, $session_id]);
+  }
+} else {
+  // New device session
+  try {
+    $pdo->prepare("
+      INSERT INTO stream_sessions (user_id, channel_id, item_id, stream_type, ip, user_agent, device_fp, session_token, last_seen)
+      VALUES (?,?,?,?,?,?,?,?, NOW())
+    ")->execute([(int)$user['id'], $id, $id, $type, $ip, $ua, $device_fp, $session_token]);
+  } catch (Throwable $e) {
+    // Backward compatible insert
+    $pdo->prepare("
+      INSERT INTO stream_sessions (user_id, channel_id, ip, user_agent, device_fp, last_seen)
+      VALUES (?,?,?,?,?, NOW())
+    ")->execute([(int)$user['id'], $id, $ip, $ua, $device_fp]);
+  }
+}
+
 if ($session_token === '') {
   $session_token = random_hex_token(16);
 }
@@ -553,6 +620,15 @@ if (preg_match('/\.ts(\?|$)/i', $chosen)) {
   header('Content-Type: video/mp2t');
 }
 if (!preg_match('/\.m3u8(\?|$)/i', $chosen)) {
+  // Keep last_seen fresh for long-running non-HLS streams (near real-time max streams/devices)
+  $__sid = (int)$session_id;
+  $__ip = $ip;
+  $__ua = $ua;
+  $__dfp = $device_fp;
+  $__pdo = $pdo;
+  $__last_ping = 0;
+  $__ping_every = 8; // seconds
+
   $ch = curl_init($chosen);
   curl_setopt_array($ch, [
     CURLOPT_FOLLOWLOCATION => true,
@@ -572,6 +648,21 @@ if (preg_match('#^HTTP/\S+\s+(\d{3})#i', $header, $mm)) {
       if (stripos($header, 'Content-Length:') === 0) header(trim($header));
       if (stripos($header, 'Accept-Ranges:') === 0) header(trim($header));
       return $len;
+    },
+    CURLOPT_WRITEFUNCTION => function($curl, $data) use ($__pdo, $__sid, $__ip, $__ua, $__dfp, $__ping_every, &$__last_ping) {
+      if ($__sid > 0) {
+        $now = time();
+        if ($__last_ping === 0 || ($now - $__last_ping) >= $__ping_every) {
+          $__last_ping = $now;
+          try {
+            $__pdo->prepare("UPDATE stream_sessions SET last_seen=NOW(), ip=?, user_agent=?, device_fp=? WHERE id=?")
+                 ->execute([$__ip, $__ua, $__dfp, $__sid]);
+          } catch (Throwable $e) {}
+        }
+      }
+      echo $data;
+      @flush();
+      return strlen($data);
     }
   ]);
   // forward Range for VOD/MP4
