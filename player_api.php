@@ -101,6 +101,16 @@ if (!$sub) {
 $adult_ok = !empty($user["allow_adult"]);
 $pkg_ids  = user_package_ids($pdo, (int)$user['id']);
 
+// Detect optional categories.is_adult column (avoid fatal SQL errors if schema is older)
+$has_cat_adult = false;
+try {
+  $chk = $pdo->query("SHOW COLUMNS FROM categories LIKE 'is_adult'");
+  $has_cat_adult = (bool)$chk->fetch(PDO::FETCH_ASSOC);
+} catch (Throwable $e) {
+  $has_cat_adult = false;
+}
+
+
 /* ---------- BASE RESPONSE (no action) ---------- */
 if ($action === '') {
   $now = time();
@@ -144,7 +154,7 @@ if ($action === 'get_live_categories') {
     FROM categories cat
     JOIN channels c ON c.category_id=cat.id
     WHERE 1=1
-      ".($adult_ok ? "" : " AND IFNULL(c.is_adult,0)=0 AND IFNULL(cat.is_adult,0)=0 ")."
+      ".($adult_ok ? "" : (" AND IFNULL(c.is_adult,0)=0 " . ($has_cat_adult ? " AND IFNULL(cat.is_adult,0)=0 " : "")))."
       $pkg_sql
     GROUP BY cat.id, cat.name, cat.sort_order
     ORDER BY cat.sort_order, cat.id
@@ -180,8 +190,9 @@ if ($action === 'get_live_streams') {
   $sql = "
     SELECT c.id,c.category_id,c.name,c.group_title,c.tvg_id,c.tvg_name,c.tvg_logo,c.stream_url,c.direct_play,c.container_ext,c.created_at
     FROM channels c
+    LEFT JOIN categories cat ON cat.id = c.category_id
     WHERE 1=1
-      ".($adult_ok ? "" : " AND IFNULL(c.is_adult,0)=0 AND IFNULL(cat.is_adult,0)=0 ")."
+      ".($adult_ok ? "" : (" AND IFNULL(c.is_adult,0)=0 " . ($has_cat_adult ? " AND IFNULL(cat.is_adult,0)=0 " : "")))."
       $pkg_sql
       $where_cat
     ORDER BY IFNULL(c.sort_order, c.id), c.id
