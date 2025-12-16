@@ -31,6 +31,10 @@ telemetry_meta(['link'=>$link_type]);
 
 // -----------------------------------------------------------------------------
 // Optional fail-video redirect (System -> Fail Videos).
+// NOTE: For get.php, fail-video redirects can confuse IPTV apps during login/handshake.
+// Set this to true only if you explicitly want playlist requests to redirect to a fail video on auth errors.
+$ENABLE_GET_FAIL_VIDEOS = false;
+
 // For get.php, we only redirect on non-config requests, since config expects JSON.
 // Kind mapping: m3u_plus => vod, otherwise live.
 // -----------------------------------------------------------------------------
@@ -98,7 +102,7 @@ $user = $st->fetch(PDO::FETCH_ASSOC);
 if (!$user || !password_verify($password, $user['password_hash'])) {
   telemetry_reason('auth_fail', ['username'=>$username]);
   // If configured, redirect to a custom fail video instead of returning text.
-  if ($type !== 'config') {
+  if ($ENABLE_GET_FAIL_VIDEOS && $type !== 'config') {
     $kind = _get_fail_kind($type);
     $fv = _get_fail_video_url($pdo, $kind, 'invalid_login');
     if ($fv !== '') _get_redirect_fail_video($fv);
@@ -112,11 +116,27 @@ telemetry_set_user((int)$user['id'], (string)$user['username']);
 
 // Policy: IP allow/deny
 $ip = get_client_ip();
-$ban = abuse_ban_lookup($pdo, $ip, (int)$user['id']);
+// Hard bans (IP)
+$ban = abuse_ip_ban_lookup($pdo, $ip);
 if ($ban) {
-  audit_log('ban_block', (int)$user['id'], ['ban_type'=>$ban['ban_type'] ?? 'user','ip'=>$ip]);
-  telemetry_reason('banned');
-  if ($type !== 'config') {
+  audit_log('ban_block', (int)$user['id'], ['ban_type'=>'ip','ip'=>$ip]);
+  telemetry_reason('banned_ip');
+  if ($ENABLE_GET_FAIL_VIDEOS && $type !== 'config') {
+    $kind = _get_fail_kind($type);
+    $fv = _get_fail_video_url($pdo, $kind, 'banned');
+    if ($fv !== '') _get_redirect_fail_video($fv);
+  }
+  http_response_code(403);
+  echo "Banned";
+  exit;
+}
+
+// Hard bans (user)
+$ban = abuse_user_ban_lookup($pdo, (int)$user['id']);
+if ($ban) {
+  audit_log('ban_block_user', (int)$user['id'], ['ban_type'=>'user','ip'=>$ip]);
+  telemetry_reason('banned_user');
+  if ($ENABLE_GET_FAIL_VIDEOS && $type !== 'config') {
     $kind = _get_fail_kind($type);
     $fv = _get_fail_video_url($pdo, $kind, 'banned');
     if ($fv !== '') _get_redirect_fail_video($fv);
@@ -128,7 +148,7 @@ if ($ban) {
 
 if (!ip_allowed($ip, $user['ip_allowlist'] ?? null, $user['ip_denylist'] ?? null)) {
   telemetry_reason('ip_not_allowed');
-  if ($type !== 'config') {
+  if ($ENABLE_GET_FAIL_VIDEOS && $type !== 'config') {
     $kind = _get_fail_kind($type);
     $fv = _get_fail_video_url($pdo, $kind, 'banned');
     if ($fv !== '') _get_redirect_fail_video($fv);
@@ -151,7 +171,7 @@ $sub = $st->fetch(PDO::FETCH_ASSOC);
 
 if (!$sub) {
   telemetry_reason('no_subscription');
-  if ($type !== 'config') {
+  if ($ENABLE_GET_FAIL_VIDEOS && $type !== 'config') {
     $kind = _get_fail_kind($type);
     $fv = _get_fail_video_url($pdo, $kind, 'expired');
     if ($fv !== '') _get_redirect_fail_video($fv);

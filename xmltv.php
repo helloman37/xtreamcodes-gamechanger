@@ -337,10 +337,21 @@ telemetry_set_user((int)$user['id'], (string)$user['username']);
 
 // policy: IP allow/deny
 $ip = get_client_ip();
-$ban = abuse_ban_lookup($pdo, $ip, (int)$user['id']);
+// Hard bans (IP)
+$ban = abuse_ip_ban_lookup($pdo, $ip);
 if ($ban) {
-  audit_log('ban_block', (int)$user['id'], ['ban_type'=>$ban['ban_type'] ?? 'user','ip'=>$ip]);
-  telemetry_reason('banned');
+  audit_log('ban_block', (int)$user['id'], ['ban_type'=>'ip','ip'=>$ip]);
+  telemetry_reason('banned_ip');
+  http_response_code(403);
+  echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?><tv></tv>";
+  exit;
+}
+
+// Hard bans (user)
+$ban = abuse_user_ban_lookup($pdo, (int)$user['id']);
+if ($ban) {
+  audit_log('ban_block_user', (int)$user['id'], ['ban_type'=>'user','ip'=>$ip]);
+  telemetry_reason('banned_user');
   http_response_code(403);
   echo "<?xml version=\"1.0\" encoding=\"UTF-8\"?><tv></tv>";
   exit;

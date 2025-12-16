@@ -65,6 +65,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $ends_in   = trim((string)($_POST['sub_ends'] ?? ''));
     $unlimited = isset($_POST['sub_unlimited']) ? 1 : 0;
 
+    $plan_id_in = (int)($_POST['sub_plan_id'] ?? 0);
+    $plan_id_new = $plan_id_in > 0 ? $plan_id_in : (int)($sub['plan_id'] ?? 0);
+
+    $status_in = strtolower(trim((string)($_POST['sub_status'] ?? '')));
+    $allowed_status = ['active','cancelled','expired'];
+    if (!in_array($status_in, $allowed_status, true)) $status_in = (string)($sub['status'] ?? 'active');
+
+    $reset_end = !empty($_POST['sub_reset_end']) ? 1 : 0;
+
+    // Validate plan if changing (or if reset_end requested)
+    $plan = null;
+    if ($plan_id_new > 0 && ($reset_end || $plan_id_new !== (int)($sub['plan_id'] ?? 0))) {
+      $pst = $pdo->prepare("SELECT * FROM plans WHERE id=? LIMIT 1");
+      $pst->execute([$plan_id_new]);
+      $plan = $pst->fetch(PDO::FETCH_ASSOC);
+      if (!$plan) {
+        flash_set("Plan not found", "error");
+        header("Location: user_accounts.php?edit=".$id);
+        exit;
+      }
+    }
+
     $starts_at = (string)$sub['starts_at'];
     $ends_at   = (string)$sub['ends_at'];
 
@@ -80,7 +102,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $ends_at = '9999-12-31 23:59:59';
         $ends_dt = new DateTime($ends_at);
       } else {
-        if ($ends_in !== '') {
+        if ($reset_end && $plan) {
+          $dur = (int)($plan['duration_days'] ?? 0);
+          if ($dur < 1) $dur = 30;
+          $ends_dt = (clone $starts_dt)->modify('+' . $dur . ' days');
+          $ends_at = $ends_dt->format('Y-m-d H:i:s');
+        } elseif ($ends_in !== '') {
           $ends_dt = new DateTime($ends_in);
           $ends_at = $ends_dt->format('Y-m-d H:i:s');
         } else {
@@ -94,17 +121,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
       }
 
-      $status_new = (string)($sub['status'] ?? 'active');
-      if ($status_new !== 'cancelled') {
+      // Status: allow explicit cancel/expire, otherwise compute from end date.
+      if ($status_in === 'cancelled') {
+        $status_new = 'cancelled';
+      } elseif ($status_in === 'expired') {
+        $status_new = 'expired';
+      } else {
         $is_unlimited = str_starts_with((string)$ends_at, '9999-');
         $now = new DateTime();
         $status_new = ($is_unlimited || $ends_dt > $now) ? 'active' : 'expired';
       }
 
-      $pdo->prepare("UPDATE subscriptions SET starts_at=?, ends_at=?, status=? WHERE id=? AND user_id=?")
-          ->execute([$starts_at, $ends_at, $status_new, $sub_id, $id]);
+      $pdo->prepare("UPDATE subscriptions SET plan_id=?, starts_at=?, ends_at=?, status=? WHERE id=? AND user_id=?")
+          ->execute([$plan_id_new, $starts_at, $ends_at, $status_new, $sub_id, $id]);
 
-      flash_set("Subscription dates updated", "success");
+      flash_set("Subscription updated", "success");
     } catch (Throwable $e) {
       flash_set("Invalid date/time format", "error");
     }
@@ -206,6 +237,14 @@ if ($edit) {
   ");
   $st->execute([$edit['id']]);
   $subs_edit = $st->fetchAll(PDO::FETCH_ASSOC);
+
+$plans_all = [];
+try {
+  $plans_all = $pdo->query("SELECT id,name,duration_days,max_streams,IFNULL(max_devices,2) AS max_devices, IFNULL(price,0) AS price FROM plans ORDER BY price ASC, id ASC")->fetchAll(PDO::FETCH_ASSOC);
+} catch (Throwable $e) {
+  $plans_all = $pdo->query("SELECT id,name,duration_days,max_streams,IFNULL(max_devices,2) AS max_devices FROM plans ORDER BY id ASC")->fetchAll(PDO::FETCH_ASSOC);
+}
+
 }
 
 $users=$pdo->query("
@@ -344,40 +383,65 @@ if (!function_exists('iptv_dt_local')) {
         <div class="muted" style="margin-bottom:8px;">Edit the start/end. Check “Unlimited” to set end date to 9999-12-31.</div>
         <?php foreach ($subs_edit as $s): ?>
           <?php $is_unlimited = !$s['ends_at'] || str_starts_with((string)$s['ends_at'], '9999-'); $end_id = 'end_'.$s['id']; ?>
-          <form method="post" class="row" style="align-items:flex-end; gap:10px; margin:10px 0 0 0;">
-            <input type="hidden" name="op" value="update_sub">
-            <input type="hidden" name="id" value="<?=$edit['id']?>">
-            <input type="hidden" name="sub_id" value="<?=$s['id']?>">
+          <form method="post" class="sub-form iptv-sub-form">
+  <input type="hidden" name="op" value="update_sub">
+  <input type="hidden" name="id" value="<?=$edit['id']?>">
+  <input type="hidden" name="sub_id" value="<?=$s['id']?>">
 
-            <div style="min-width:180px;">
-              <label>Plan</label>
-              <input readonly value="<?=e($s['plan_name'] ?? ('#'.$s['plan_id']))?>">
-            </div>
+  <div class="sub-plan">
+    <label>Plan</label>
+    <select name="sub_plan_id" class="iptv-sub-plan">
+      <?php foreach ($plans_all as $pp): ?>
+        <option value="<?=$pp['id']?>" data-days="<?= (int)($pp['duration_days'] ?? 0) ?>" <?= ((int)$pp['id'] === (int)$s['plan_id']) ? 'selected' : '' ?>>
+          <?=e($pp['name'])?> (<?= (int)($pp['duration_days'] ?? 0) ?>d / <?= (int)($pp['max_streams'] ?? 1) ?> streams / <?= (int)($pp['max_devices'] ?? 2) ?> dev)
+        </option>
+      <?php endforeach; ?>
+    </select>
+  </div>
 
-            <div>
-              <label>Begins</label>
-              <input type="datetime-local" name="sub_starts" value="<?=e(iptv_dt_local($s['starts_at'] ?? ''))?>" required>
-            </div>
+  <div class="sub-status">
+    <label>Status</label>
+    <?php $stval = (string)($s['status'] ?? 'active'); ?>
+    <select name="sub_status">
+      <option value="active" <?= $stval==='active'?'selected':'' ?>>active</option>
+      <option value="cancelled" <?= $stval==='cancelled'?'selected':'' ?>>cancelled</option>
+      <option value="expired" <?= $stval==='expired'?'selected':'' ?>>expired</option>
+    </select>
+  </div>
 
-            <div>
-              <label>Ends</label>
-              <input id="<?=e($end_id)?>" type="datetime-local" name="sub_ends" value="<?= $is_unlimited ? '' : e(iptv_dt_local($s['ends_at'] ?? '')) ?>" <?= $is_unlimited ? 'disabled' : '' ?> <?= $is_unlimited ? '' : 'required' ?>>
-            </div>
+  <div class="sub-begins">
+    <label>Begins</label>
+    <input type="datetime-local" name="sub_starts" class="iptv-sub-begins" value="<?=e(iptv_dt_local($s['starts_at'] ?? ''))?>" required>
+  </div>
 
-            <div style="min-width:120px;">
-              <label style="margin-bottom:6px;">Unlimited</label>
-              <label style="display:flex; gap:8px; align-items:center; margin:0;">
-                <input type="checkbox" name="sub_unlimited" value="1" <?= $is_unlimited ? 'checked' : '' ?>
-                  onchange="var el=document.getElementById('<?=e($end_id)?>'); if(!el) return; el.disabled=this.checked; if(this.checked){ el.value=''; }">
-                <span class="muted" style="font-size:12px;">never expires</span>
-              </label>
-            </div>
+  <div class="sub-ends">
+    <label>Ends</label>
+    <input id="<?=e($end_id)?>" type="datetime-local" name="sub_ends" class="iptv-sub-ends"
+      value="<?= $is_unlimited ? '' : e(iptv_dt_local($s['ends_at'] ?? '')) ?>"
+      <?= $is_unlimited ? 'disabled' : '' ?> <?= $is_unlimited ? '' : 'required' ?>>
+  </div>
 
-            <div>
-              <button type="submit">Save</button>
-            </div>
-          </form>
-        <?php endforeach; ?>
+  <div class="sub-check sub-reset">
+    <label>Reset end</label>
+    <label class="checkline">
+      <input type="checkbox" name="sub_reset_end" value="1" class="iptv-sub-reset" <?= $is_unlimited ? 'disabled' : '' ?>>
+      <span>begins + plan days</span>
+    </label>
+  </div>
+
+  <div class="sub-check sub-unlimited">
+    <label>Unlimited</label>
+    <label class="checkline">
+      <input type="checkbox" name="sub_unlimited" value="1" class="iptv-sub-unlimited" <?= $is_unlimited ? 'checked' : '' ?>>
+      <span>never expires</span>
+    </label>
+  </div>
+
+  <div class="sub-save">
+    <button type="submit">Save</button>
+  </div>
+</form>
+<?php endforeach; ?>
       <?php endif; ?>
     </div>
 
@@ -509,6 +573,72 @@ if (!function_exists('iptv_dt_local')) {
     pEl.value = genDigits(10);
   }
   btn.addEventListener('click', function(){ if(auto) auto.checked = true; regen(); });
+})();
+
+(function(){
+  function pad2(n){ return String(n).padStart(2,'0'); }
+  function parseDT(v){
+    if(!v) return null;
+    var d = new Date(v);
+    if(isNaN(d.getTime())) return null;
+    return d;
+  }
+  function fmtDT(d){
+    return d.getFullYear() + '-' + pad2(d.getMonth()+1) + '-' + pad2(d.getDate()) + 'T' + pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+  }
+  function planDays(sel){
+    var opt = sel && sel.options ? sel.options[sel.selectedIndex] : null;
+    var days = opt ? parseInt(opt.getAttribute('data-days') || '0', 10) : 0;
+    if(!days || days < 1) days = 30;
+    return days;
+  }
+  function sync(form){
+    var plan = form.querySelector('.iptv-sub-plan');
+    var begins = form.querySelector('.iptv-sub-begins');
+    var ends = form.querySelector('.iptv-sub-ends');
+    var reset = form.querySelector('.iptv-sub-reset');
+    var unlim = form.querySelector('.iptv-sub-unlimited');
+    if(!plan || !begins || !ends || !reset || !unlim) return;
+
+    // Unlimited overrides everything
+    if(unlim.checked){
+      ends.disabled = true;
+      reset.disabled = true;
+      return;
+    }
+    reset.disabled = false;
+
+    // If "reset end" is checked, auto-calc + lock end input (backend ignores manual end anyway)
+    if(reset.checked){
+      var b = parseDT(begins.value);
+      if(b){
+        b.setDate(b.getDate() + planDays(plan));
+        ends.value = fmtDT(b);
+      }
+      ends.disabled = true;
+    } else {
+      ends.disabled = false;
+    }
+  }
+
+  document.querySelectorAll('form.iptv-sub-form').forEach(function(form){
+    // initial cleanup
+    sync(form);
+
+    form.addEventListener('change', function(e){
+      if(!e || !e.target) return;
+      if(e.target.classList.contains('iptv-sub-plan') ||
+         e.target.classList.contains('iptv-sub-begins') ||
+         e.target.classList.contains('iptv-sub-reset') ||
+         e.target.classList.contains('iptv-sub-unlimited')) {
+        sync(form);
+      }
+    });
+    form.addEventListener('input', function(e){
+      if(!e || !e.target) return;
+      if(e.target.classList.contains('iptv-sub-begins')) sync(form);
+    });
+  });
 })();
 </script>
 </body>

@@ -24,6 +24,10 @@ function _seg_try_redirect_ts(string $url): void {
 }
 
 // Base64url decode helper (pairs with stream/index.php src=...)
+function b64url_encode_str(string $s): string {
+  return rtrim(strtr(base64_encode($s), '+/', '-_'), '=');
+}
+
 function b64url_decode_str(string $s): string {
   $s = strtr($s, '-_', '+/');
   $pad = strlen($s) % 4;
@@ -51,7 +55,7 @@ if ($u==='' || $id<1 || $url==='') {
 
 $pdo = db();
 $ip = get_client_ip();
-$ban = abuse_ban_lookup($pdo, $ip, null);
+$ban = abuse_ip_ban_lookup($pdo, $ip);
 if ($ban) {
   audit_log('ban_block', null, ['ban_type'=>'ip','ip'=>$ip]);
   $fv = _seg_fail_video_url($pdo, $type, 'banned');
@@ -87,6 +91,18 @@ if (!$token_ok && !$pass_ok) {
   http_response_code(401);
   exit("Invalid credentials");
 }
+
+
+// Hard bans (user)
+$ban = abuse_user_ban_lookup($pdo, (int)$user['id']);
+if ($ban) {
+  audit_log('ban_block_user', (int)$user['id'], ['ban_type'=>'user','ip'=>$ip]);
+  $fv = _seg_fail_video_url($pdo, $type, 'banned');
+  _seg_try_redirect_ts($fv);
+  http_response_code(403);
+  exit('Banned');
+}
+
 
 // Policy: IP allow/deny
 if (!ip_allowed($ip, $user['ip_allowlist'] ?? null, $user['ip_denylist'] ?? null)) {
@@ -211,6 +227,119 @@ while (ob_get_level() > 0) { @ob_end_flush(); }
 @ignore_user_abort(true);
 header('X-Accel-Buffering: no'); // disables nginx proxy buffering when supported
 header_remove("Content-Type");
+
+/* ---------- playlist proxy (nested .m3u8) ---------- */
+$is_playlist = (bool)preg_match('/\.m3u8(\?|$)/i', $url) || (bool)preg_match('/\.m3u(\?|$)/i', $url);
+if ($is_playlist) {
+  // For playlists, do NOT redirect to fail videos here (players expect text/m3u8).
+  header_remove("Content-Type");
+  header('Content-Type: application/vnd.apple.mpegurl; charset=utf-8');
+  header('Cache-Control: no-store, no-cache, must-revalidate');
+  header('Pragma: no-cache');
+
+  $config   = require __DIR__ . '/../config.php';
+  $base_url = rtrim($config['base_url'], '/');
+
+  // Build seg base URL matching the current auth mode
+  $seg_cred = ($p !== '') ? $p : $token;
+  $seg_base = $base_url . "/seg/" . rawurlencode($u) . "/" . rawurlencode($seg_cred) . "/" . $id;
+
+  // Pass-through params required by segment validator
+  $pass = [
+    'type' => $type,
+    'st'   => $stoken,
+  ];
+  if ($exp > 0) $pass['exp'] = (string)$exp;
+  if (isset($_GET['device_id']) && (string)$_GET['device_id'] !== '') $pass['device_id'] = (string)$_GET['device_id'];
+  if (isset($_GET['dfp']) && (string)$_GET['dfp'] !== '') $pass['dfp'] = (string)$_GET['dfp'];
+  if ($token !== '') $pass['token'] = $token;
+
+  // Resolve relative URLs against this playlist URL
+  $pl_parsed = parse_url($url);
+  $pl_scheme = $pl_parsed['scheme'] ?? 'http';
+  $pl_host   = $pl_parsed['host'] ?? '';
+  $pl_port   = isset($pl_parsed['port']) ? (':' . $pl_parsed['port']) : '';
+  $pl_path   = $pl_parsed['path'] ?? '/';
+  $pl_dir    = preg_replace('~/[^/]*$~', '/', $pl_path);
+  $pl_origin = $pl_scheme . '://' . $pl_host . $pl_port;
+
+  $resolve = function(string $ref) use ($pl_scheme, $pl_origin, $pl_dir): string {
+    $ref = trim($ref);
+    if ($ref === '' || stripos($ref, 'data:') === 0) return $ref;
+    if (preg_match('~^https?://~i', $ref)) return $ref;
+    if (strpos($ref, '//') === 0) return $pl_scheme . ':' . $ref;
+    if (strpos($ref, '/') === 0) return $pl_origin . $ref;
+    return $pl_origin . $pl_dir . $ref;
+  };
+
+  $wrap = function(string $abs) use ($seg_base, $pass): string {
+    $abs = trim($abs);
+    if ($abs === '') return $abs;
+
+    // Idempotent: if it's already our seg URL with src=, keep it
+    if (strpos($abs, '/seg/') !== false && (strpos($abs, 'src=') !== false || strpos($abs, '?src=') !== false)) {
+      return $abs;
+    }
+
+    $q = 'src=' . rawurlencode(b64url_encode_str($abs));
+    $tail = http_build_query($pass, '', '&', PHP_QUERY_RFC3986);
+    if ($tail !== '') $q .= '&' . $tail;
+    return $seg_base . '?' . $q;
+  };
+
+  /* ---------- fetch upstream playlist ---------- */
+  $ch = curl_init($url);
+  curl_setopt_array($ch, [
+    CURLOPT_FOLLOWLOCATION => true,
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_SSL_VERIFYPEER => false,
+    CURLOPT_SSL_VERIFYHOST => false,
+    CURLOPT_ENCODING => "",
+    CURLOPT_USERAGENT => $ua,
+    CURLOPT_HTTPHEADER => [
+      'Accept: application/vnd.apple.mpegurl, application/x-mpegURL, */*',
+    ],
+  ]);
+  $body = curl_exec($ch);
+  $err  = curl_error($ch);
+  $code = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+  curl_close($ch);
+
+  if ($body === false) {
+    http_response_code(502);
+    exit('upstream_error');
+  }
+  if ($code >= 400) {
+    http_response_code($code);
+    // Return a minimal playlist so players stop cleanly.
+    echo "#EXTM3U\n#EXT-X-ENDLIST\n";
+    exit;
+  }
+
+  $lines = preg_split("/\r\n|\n|\r/", (string)$body);
+  $out = [];
+  foreach ($lines as $ln) {
+    $ln = (string)$ln;
+
+    if ($ln === '' || $ln[0] === '#') {
+      // Rewrite URI="..." fields inside tags (KEY/MAP/etc)
+      $ln = preg_replace_callback('/URI="([^"]+)"/', function($m) use ($resolve, $wrap) {
+        $abs = $resolve((string)$m[1]);
+        return 'URI="' . $wrap($abs) . '"';
+      }, $ln);
+      $out[] = $ln;
+      continue;
+    }
+
+    $abs = $resolve($ln);
+    $out[] = $wrap($abs);
+  }
+
+  echo implode("\n", $out);
+  exit;
+}
+
+
 header('Content-Type: video/mp2t');
 
 /* ---------- stream segment bytes ---------- */

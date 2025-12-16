@@ -521,12 +521,14 @@ function ip_allowed(string $ip, ?string $allowlist, ?string $denylist): bool {
 
 /* ---------- ABUSE BANS ---------- */
 /**
- * Returns the active ban row if the IP or user is currently banned, else null.
+ * Abuse bans are stored in abuse_bans.
+ * We keep IP bans and User bans as separate concepts:
+ *  - IP ban: blocks an IP address regardless of account.
+ *  - User ban: blocks a specific account regardless of IP.
  * Table: abuse_bans (created by runtime migrations).
  */
-function abuse_ban_lookup(PDO $pdo, string $ip, ?int $user_id=null): ?array {
+function abuse_ip_ban_lookup(PDO $pdo, string $ip): ?array {
   try {
-    // IP ban (takes priority)
     $st = $pdo->prepare("
       SELECT * FROM abuse_bans
       WHERE ban_type='ip' AND ip=?
@@ -537,22 +539,41 @@ function abuse_ban_lookup(PDO $pdo, string $ip, ?int $user_id=null): ?array {
     $st->execute([$ip]);
     $row = $st->fetch(PDO::FETCH_ASSOC);
     if ($row) return $row;
-
-    // User ban
-    if ($user_id) {
-      $st = $pdo->prepare("
-        SELECT * FROM abuse_bans
-        WHERE ban_type='user' AND user_id=?
-          AND (expires_at IS NULL OR expires_at > NOW())
-        ORDER BY (expires_at IS NULL) DESC, expires_at DESC, id DESC
-        LIMIT 1
-      ");
-      $st->execute([(int)$user_id]);
-      $row = $st->fetch(PDO::FETCH_ASSOC);
-      if ($row) return $row;
-    }
   } catch (Throwable $e) {
     return null;
+  }
+  return null;
+}
+
+function abuse_user_ban_lookup(PDO $pdo, int $user_id): ?array {
+  if ($user_id < 1) return null;
+  try {
+    $st = $pdo->prepare("
+      SELECT * FROM abuse_bans
+      WHERE ban_type='user' AND user_id=?
+        AND (expires_at IS NULL OR expires_at > NOW())
+      ORDER BY (expires_at IS NULL) DESC, expires_at DESC, id DESC
+      LIMIT 1
+    ");
+    $st->execute([(int)$user_id]);
+    $row = $st->fetch(PDO::FETCH_ASSOC);
+    if ($row) return $row;
+  } catch (Throwable $e) {
+    return null;
+  }
+  return null;
+}
+
+/**
+ * Back-compat helper: returns the first active ban encountered.
+ * Prefer calling abuse_ip_ban_lookup() and abuse_user_ban_lookup() separately.
+ */
+function abuse_ban_lookup(PDO $pdo, string $ip, ?int $user_id=null): ?array {
+  $row = abuse_ip_ban_lookup($pdo, $ip);
+  if ($row) return $row;
+  if ($user_id) {
+    $row = abuse_user_ban_lookup($pdo, (int)$user_id);
+    if ($row) return $row;
   }
   return null;
 }

@@ -26,7 +26,7 @@ function cat_name(PDO $pdo, int $cid): ?string {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   // Add category
   if (isset($_POST['add_cat'])) {
-    $name = trim($_POST['name'] ?? '');
+    $name = preg_replace('/\s+/', ' ', trim((string)($_POST['name'] ?? '')));
     if ($name !== '') {
       $pdo->prepare("INSERT IGNORE INTO categories (name) VALUES (?)")->execute([$name]);
       flash_set("Category added.", "success");
@@ -38,8 +38,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   // Update category (name + adult flag)
   if (isset($_POST['save_cat']) || isset($_POST['rename_cat'])) {
     $cid = (int)($_POST['category_id'] ?? 0);
-    $name = trim($_POST['new_name'] ?? '');
+    $name = preg_replace('/\s+/', ' ', trim((string)($_POST['new_name'] ?? '')));
     $is_adult = isset($_POST['cat_is_adult']) ? 1 : 0;
+
+    $redirect_cid = $cid;
 
     if ($cid > 0) {
       // Update adult flag for any category (including Uncategorized)
@@ -47,17 +49,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pdo->prepare("UPDATE categories SET is_adult=? WHERE id=?")->execute([$is_adult, $cid]);
       } catch (Throwable $e) {}
 
-      // Rename is allowed for any category except the reserved Uncategorized bucket
+      // Rename/merge is allowed for any category except the reserved Uncategorized bucket
       if ($name !== '' && $cid !== $uncat_id) {
-        $pdo->prepare("UPDATE categories SET name=? WHERE id=?")->execute([$name, $cid]);
-        // Keep channels.group_title aligned with category name for M3U group-title output.
-        $pdo->prepare("UPDATE channels SET group_title=? WHERE category_id=?")->execute([$name, $cid]);
-        flash_set("Category updated.", "success");
+        try {
+          $st = $pdo->prepare("SELECT id FROM categories WHERE name=? LIMIT 1");
+          $st->execute([$name]);
+          $existing_id = (int)($st->fetchColumn() ?: 0);
+
+          if ($existing_id > 0 && $existing_id !== $cid) {
+            // Merge into the existing category name (handles UNIQUE constraint cleanly)
+            $pdo->beginTransaction();
+
+            $pdo->prepare("UPDATE channels SET category_id=?, group_title=? WHERE category_id=?")
+                ->execute([$existing_id, $name, $cid]);
+
+            // If admin marked this category adult, keep the merged target as adult too.
+            if ($is_adult) {
+              $pdo->prepare("UPDATE categories SET is_adult=1 WHERE id=?")->execute([$existing_id]);
+            }
+
+            $pdo->prepare("DELETE FROM categories WHERE id=?")->execute([$cid]);
+
+            $pdo->commit();
+            $redirect_cid = $existing_id;
+            flash_set("Category merged.", "success");
+          } else {
+            $pdo->prepare("UPDATE categories SET name=? WHERE id=?")->execute([$name, $cid]);
+            // Keep channels.group_title aligned with category name for M3U group-title output.
+            $pdo->prepare("UPDATE channels SET group_title=? WHERE category_id=?")->execute([$name, $cid]);
+            flash_set("Category updated.", "success");
+          }
+        } catch (Throwable $e) {
+          if ($pdo->inTransaction()) $pdo->rollBack();
+          flash_set("Category name already exists (or rename failed).", "error");
+        }
       } else {
         flash_set("Category updated.", "success");
       }
     }
-    header('Location: category_manager.php?category_id=' . $cid);
+
+    header('Location: category_manager.php?category_id=' . $redirect_cid);
     exit;
   }
 
@@ -206,8 +237,14 @@ if (isset($_GET['edit_channel'])) {
   if ($edit && !empty($edit['category_id'])) $selected = (int)$edit['category_id'];
 }
 
-$params = [$selected];
-$where = "WHERE ch.category_id=?";
+$params = [];
+if ($selected === $uncat_id) {
+  $where = "WHERE (ch.category_id=? OR ((ch.category_id IS NULL OR ch.category_id=0) AND COALESCE(NULLIF(TRIM(ch.group_title),''),'Uncategorized')='Uncategorized'))";
+  $params[] = $uncat_id;
+} else {
+  $where = "WHERE ch.category_id=?";
+  $params[] = $selected;
+}
 if ($q !== '') {
   $where .= " AND (ch.name LIKE ? OR ch.tvg_name LIKE ? OR ch.tvg_id LIKE ?)";
   $params[] = "%$q%";
@@ -239,46 +276,60 @@ $topbar = file_get_contents(__DIR__ . '/topbar.html');
 
 <br>
 
-<div class="row" style="align-items:flex-start; gap:18px;">
+<div class="grid12">
   <!-- Categories column -->
-  <div class="card" style="flex:1; min-width:280px;">
-    <h3>Categories</h3>
-    <form method="post" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-      <input type="text" name="name" placeholder="New category name" required>
-      <button class="btn" name="add_cat" value="1">Add</button>
-    </form>
+<div class="card">
+  <h3>Categories</h3>
+  <form method="post" class="row" style="gap:8px;align-items:center;flex-wrap:wrap;">
+    <input type="text" name="name" placeholder="New category name" required style="max-width:360px;">
+    <button class="btn" name="add_cat" value="1">Add</button>
+  </form>
 
-    <div style="margin-top:10px;">
-      <?php foreach($cats as $c): ?>
-        <?php $isSelected = ((int)$c['id'] === (int)$selected); ?>
-        <div style="display:flex;gap:10px;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid #1f2a44;">
-          <div style="display:flex;flex-direction:column;gap:4px;min-width:0;">
-            <a href="category_manager.php?category_id=<?=$c['id']?>" class="link" style="font-weight:700;<?= $isSelected ? 'text-decoration:underline;' : '' ?>">
-              <?=e($c['name'])?><?php if(!empty($c['is_adult'])): ?> <span style="font-size:11px;padding:2px 6px;border:1px solid #ff4d4d;border-radius:999px;color:#ffb3b3;">Adult</span><?php endif; ?>
+  <div class="cat-list">
+    <?php foreach($cats as $c): ?>
+      <?php $isSelected = ((int)$c['id'] === (int)$selected); ?>
+      <div class="cat-item <?= $isSelected ? 'active' : '' ?>">
+        <div class="cat-head">
+          <div class="cat-title">
+            <a href="category_manager.php?category_id=<?=$c['id']?>" class="cat-link">
+              <?=e($c['name'])?>
             </a>
-            <span class="muted"><?=$c['cnt']?> channel(s)</span>
+            <?php if(!empty($c['is_adult'])): ?>
+              <span class="pill bad" style="margin-left:6px;">Adult</span>
+            <?php endif; ?>
           </div>
-
-          <div style="display:flex; gap:8px; align-items:center;">
-            <form method="post" style="margin:0; display:flex; gap:6px; align-items:center;">
-              <input type="hidden" name="category_id" value="<?=$c['id']?>">
-              <input type="text" name="new_name" value="<?=e($c['name'])?>" style="width:140px;" <?= ((int)$c['id'] === $uncat_id) ? 'disabled' : '' ?> >
-              <label style="display:flex;gap:6px;align-items:center;font-size:12px;" title="Mark category as Adult">
-                <input type="checkbox" name="cat_is_adult" value="1" <?= !empty($c['is_adult']) ? 'checked' : '' ?>> Adult
-              </label>
-              <button class="btn gray btn-small" name="save_cat" value="1"  >Save</button>
-            </form>
-            <form method="post" style="margin:0;" onsubmit="return confirm('Delete this category? All channels in this category will be deleted too.');">
-              <input type="hidden" name="category_id" value="<?=$c['id']?>">
-              <button class="btn danger btn-small" name="del_cat" value="1" <?= ((int)$c['id'] === $uncat_id) ? 'disabled' : '' ?>>Delete</button>
-            </form>
-          </div>
+          <span class="muted"><?=$c['cnt']?> channel(s)</span>
         </div>
-      <?php endforeach; ?>
-    </div>
-  </div>
 
-  <!-- Channels column -->
+        <div class="cat-controls">
+          <form method="post" class="cat-form">
+            <input type="hidden" name="category_id" value="<?=$c['id']?>">
+            <input type="text" name="new_name" value="<?=e($c['name'])?>" placeholder="Rename"
+              <?= ((int)$c['id'] === $uncat_id) ? 'disabled' : '' ?> >
+            <label class="cat-adult" title="Mark category as Adult">
+              <input type="checkbox" name="cat_is_adult" value="1" <?= !empty($c['is_adult']) ? 'checked' : '' ?>> Adult
+            </label>
+            <button class="btn gray btn-small" name="save_cat" value="1">Save</button>
+          </form>
+
+          <?php if((int)$c['id'] === $uncat_id): ?>
+            <form method="post" class="cat-form" onsubmit="return confirm('Delete ALL Uncategorized channels?');">
+              <input type="hidden" name="category_id" value="<?=$c['id']?>">
+              <button class="btn danger btn-small" name="purge_uncat" value="1">Purge Channels</button>
+            </form>
+          <?php else: ?>
+            <form method="post" class="cat-form" onsubmit="return confirm('Delete this category? All channels in this category will be deleted too.');">
+              <input type="hidden" name="category_id" value="<?=$c['id']?>">
+              <button class="btn danger btn-small" name="del_cat" value="1">Delete</button>
+            </form>
+          <?php endif; ?>
+        </div>
+      </div>
+    <?php endforeach; ?>
+  </div>
+</div>
+
+<!-- Channels column -->
   <div style="flex:2; min-width:520px;">
     <div class="card">
       <h3><?= $edit ? 'Edit Channel #' . (int)$edit['id'] : 'Add Channel' ?></h3>
@@ -354,6 +405,13 @@ $topbar = file_get_contents(__DIR__ . '/topbar.html');
 
     <div class="card">
       <h3>Channels in “<?= e(cat_name($pdo, $selected) ?: 'Uncategorized') ?>”</h3>
+<?php if($selected === $uncat_id): ?>
+  <form method="post" style="margin:8px 0 12px;" onsubmit="return confirm('Delete ALL Uncategorized channels?');">
+    <input type="hidden" name="category_id" value="<?=$uncat_id?>">
+    <button class="btn danger btn-small" name="purge_uncat" value="1">Delete ALL Uncategorized Channels</button>
+  </form>
+<?php endif; ?>
+
       <form method="get" style="display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin-bottom:10px;">
         <input type="hidden" name="category_id" value="<?=$selected?>">
         <div style="flex:1;min-width:220px;">

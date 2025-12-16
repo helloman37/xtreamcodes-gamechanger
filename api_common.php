@@ -7,9 +7,11 @@ require_once __DIR__ . '/helpers.php';
  * and backfill channels.category_id. Stable IDs going forward.
  */
 function ensure_categories(PDO $pdo): void {
-  // Keep categories in sync with group_title values. This is idempotent.
-  $groups = $pdo->query("SELECT DISTINCT IFNULL(group_title,'Uncategorized') AS grp FROM channels ORDER BY grp")
+  // Keep categories in sync with channels.group_title values. This is idempotent.
+  // Treat NULL/empty/whitespace group titles as "Uncategorized".
+  $groups = $pdo->query("SELECT DISTINCT COALESCE(NULLIF(TRIM(group_title),''),'Uncategorized') AS grp FROM channels ORDER BY grp")
     ->fetchAll(PDO::FETCH_ASSOC);
+
   $ins = $pdo->prepare("INSERT IGNORE INTO categories (name) VALUES (?)");
   foreach ($groups as $g) {
     $ins->execute([$g['grp']]);
@@ -18,18 +20,34 @@ function ensure_categories(PDO $pdo): void {
   // Ensure we always have an Uncategorized bucket.
   $ins->execute(['Uncategorized']);
 
-  // Backfill channels.category_id where NULL
+  // Build name -> id map
   $map = [];
   $rows = $pdo->query("SELECT id,name FROM categories")->fetchAll(PDO::FETCH_ASSOC);
   foreach ($rows as $r) $map[$r['name']] = (int)$r['id'];
 
-  $st = $pdo->query("SELECT id, IFNULL(group_title,'Uncategorized') AS grp FROM channels WHERE category_id IS NULL");
-  $upd = $pdo->prepare("UPDATE channels SET category_id=? WHERE id=?");
+  // Backfill channels.category_id where NULL/0 and normalize blank group_title to "Uncategorized"
+  $st = $pdo->query("SELECT id, COALESCE(NULLIF(TRIM(group_title),''),'Uncategorized') AS grp FROM channels WHERE category_id IS NULL OR category_id=0");
+  $upd = $pdo->prepare("UPDATE channels SET category_id=?, group_title=? WHERE id=?");
+
   while ($row = $st->fetch(PDO::FETCH_ASSOC)) {
-    $cid = $map[$row['grp']] ?? null;
-    if ($cid) $upd->execute([$cid, (int)$row['id']]);
+    $grp = $row['grp'] ?? 'Uncategorized';
+    $cid = $map[$grp] ?? null;
+
+    // If a category name slipped in after the initial map build, insert it and refresh just-in-time.
+    if (!$cid && $grp !== '') {
+      try {
+        $ins->execute([$grp]);
+        $cid = (int)($pdo->query("SELECT id FROM categories WHERE name=" . $pdo->quote($grp) . " LIMIT 1")->fetch(PDO::FETCH_ASSOC)['id'] ?? 0);
+        if ($cid) $map[$grp] = $cid;
+      } catch (Throwable $e) {}
+    }
+
+    if ($cid) {
+      $upd->execute([$cid, $grp, (int)$row['id']]);
+    }
   }
 }
+
 
 /**
  * Returns user package IDs (empty array => no restriction).

@@ -55,7 +55,7 @@ if ($u === '' || $id < 1) {
 
 $pdo = db();
 $ip = get_client_ip();
-$ban = abuse_ban_lookup($pdo, $ip, null);
+$ban = abuse_ip_ban_lookup($pdo, $ip);
 if ($ban) {
   audit_log('ban_block', null, ['ban_type'=>'ip','ip'=>$ip]);
   telemetry_reason('banned_ip');
@@ -103,6 +103,19 @@ if (!$token_ok && !$pass_ok) {
   http_response_code(401);
   exit("Invalid credentials");
 }
+
+
+// Hard bans (user)
+$ban = abuse_user_ban_lookup($pdo, (int)$user['id']);
+if ($ban) {
+  audit_log('ban_block_user', (int)$user['id'], ['ban_type'=>'user','ip'=>$ip]);
+  telemetry_reason('banned_user');
+  $url = _fail_video_url($pdo, $type, 'banned');
+  if ($url !== '') _redirect_fail_video($url);
+  http_response_code(403);
+  exit('Banned');
+}
+
 
 // Policy: IP allow/deny
 if (!ip_allowed($ip, $user['ip_allowlist'] ?? null, $user['ip_denylist'] ?? null)) {
@@ -424,53 +437,14 @@ if ($session_id > 0) {
       INSERT INTO stream_sessions (user_id, channel_id, item_id, stream_type, ip, user_agent, device_fp, session_token, last_seen)
       VALUES (?,?,?,?,?,?,?,?, NOW())
     ")->execute([(int)$user['id'], $id, $id, $type, $ip, $ua, $device_fp, $session_token]);
+    $session_id = (int)$pdo->lastInsertId();
   } catch (Throwable $e) {
     // Backward compatible insert
     $pdo->prepare("
       INSERT INTO stream_sessions (user_id, channel_id, ip, user_agent, device_fp, last_seen)
       VALUES (?,?,?,?,?, NOW())
     ")->execute([(int)$user['id'], $id, $ip, $ua, $device_fp]);
-  }
-}
-
-if ($session_token === '') {
-  $session_token = random_hex_token(16);
-}
-
-if ($session_id > 0) {
-  // Reuse the exact session for this device+item. Do NOT overwrite other sessions on the same device.
-  try {
-    $pdo->prepare("
-      UPDATE stream_sessions
-      SET channel_id=?,
-          item_id=?,
-          stream_type=?,
-          ip=?,
-          user_agent=?,
-          device_fp=?,
-          session_token=?,
-          killed_at=NULL,
-          last_seen=NOW()
-      WHERE id=?
-    ")->execute([$id, $id, $type, $ip, $ua, $device_fp, $session_token, $session_id]);
-  } catch (Throwable $e) {
-    // Backward compatible update
-    $pdo->prepare("UPDATE stream_sessions SET channel_id=?, ip=?, user_agent=?, device_fp=?, last_seen=NOW() WHERE id=?")
-        ->execute([$id, $ip, $ua, $device_fp, $session_id]);
-  }
-} else {
-  // New stream session (multiple streams on same device are allowed)
-  try {
-    $pdo->prepare("
-      INSERT INTO stream_sessions (user_id, channel_id, item_id, stream_type, ip, user_agent, device_fp, session_token, last_seen)
-      VALUES (?,?,?,?,?,?,?,?, NOW())
-    ")->execute([(int)$user['id'], $id, $id, $type, $ip, $ua, $device_fp, $session_token]);
-  } catch (Throwable $e) {
-    // Backward compatible insert
-    $pdo->prepare("
-      INSERT INTO stream_sessions (user_id, channel_id, ip, user_agent, device_fp, last_seen)
-      VALUES (?,?,?,?,?, NOW())
-    ")->execute([(int)$user['id'], $id, $ip, $ua, $device_fp]);
+    $session_id = (int)$pdo->lastInsertId();
   }
 }
 

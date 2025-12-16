@@ -39,8 +39,8 @@ if ($username === '' || $password === '') {
 $pdo = db();
 ensure_categories($pdo);
 
-// Hard bans (IP/user)
-$ban = abuse_ban_lookup($pdo, $ip, null);
+// Hard bans (IP)
+$ban = abuse_ip_ban_lookup($pdo, $ip);
 if ($ban) {
   audit_log('ban_block', null, ['ban_type'=>'ip','ip'=>$ip]);
   telemetry_reason('banned_ip');
@@ -64,9 +64,9 @@ if (!$user || !password_verify($password, $user['password_hash'])) {
 telemetry_set_user((int)$user['id'], (string)$user['username']);
 
 // Hard bans (user)
-$ban = abuse_ban_lookup($pdo, $ip, (int)$user['id']);
+$ban = abuse_user_ban_lookup($pdo, (int)$user['id']);
 if ($ban) {
-  audit_log('ban_block_user', (int)$user['id'], ['ban_type'=>$ban['ban_type'] ?? 'user','ip'=>$ip]);
+  audit_log('ban_block_user', (int)$user['id'], ['ban_type'=>'user','ip'=>$ip]);
   telemetry_reason('banned_user');
   http_response_code(403);
   echo json_encode(["user_info"=>["auth"=>0],"error"=>"banned"]);

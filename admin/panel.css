@@ -228,6 +228,33 @@ textarea{min-height:110px; resize:vertical}
 label{font-size:13px; font-weight:800; color:#334155; letter-spacing:.02em}
 form .form-row{display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; align-items:end}
 
+/* Subscription editor (User Accounts) */
+.sub-form{
+  display:grid;
+  grid-template-columns: minmax(260px, 2.2fr) minmax(140px, 1fr) minmax(220px, 1.3fr) minmax(220px, 1.3fr) minmax(170px, 1fr) minmax(170px, 1fr) auto;
+  gap:12px;
+  align-items:end;
+  margin:10px 0 0;
+  padding-top:12px;
+  border-top:1px dashed var(--line);
+}
+.sub-form:first-of-type{border-top:none; padding-top:0;}
+.sub-form .sub-check{display:flex; flex-direction:column; gap:6px;}
+.sub-form .checkline{display:flex; gap:8px; align-items:center; margin:0;}
+.sub-form .checkline span{font-size:12px; color:var(--muted); font-weight:700;}
+.sub-form .sub-save{align-self:end;}
+.sub-form button{white-space:nowrap;}
+.sub-form input[type="datetime-local"]{min-width:220px;}
+
+@media (max-width: 1100px){
+  .sub-form{grid-template-columns: 1fr 1fr;}
+  .sub-form .sub-save{grid-column:1 / -1; justify-self:flex-start;}
+  .sub-form input[type="datetime-local"]{min-width:0;}
+}
+@media (max-width: 700px){
+  .sub-form{grid-template-columns: 1fr;}
+}
+
 /* Buttons */
 .btn,button{
   display:inline-flex; align-items:center; justify-content:center; gap:8px;
@@ -354,3 +381,76 @@ tr:hover td{background:#fafbff}
 .notice .notice-icon{font-size:18px; line-height:1; margin-top:1px;}
 .notice .notice-title{font-weight:800; margin-bottom:2px;}
 .notice .notice-text{color:#7c2d12; opacity:.92;}
+
+
+/* Category/Channel Manager */
+/* Two-column layout that stacks on smaller screens */
+.grid12{
+  display:grid;
+  grid-template-columns: 1fr 2fr;
+  gap:18px;
+  align-items:start;
+}
+@media (max-width: 1100px){
+  .grid12{grid-template-columns:1fr;}
+}
+
+/* Category list rows */
+.cat-list{margin-top:10px;}
+.cat-item{
+  padding:10px 0;
+  border-bottom:1px solid var(--line);
+}
+.cat-item.active{
+  background:rgba(79,109,245,.07);
+  border-radius:12px;
+  padding:10px;
+  margin:0 -10px;
+  border-bottom:1px solid transparent;
+}
+.cat-head{
+  display:flex;
+  gap:10px;
+  align-items:flex-start;
+  justify-content:space-between;
+}
+.cat-title{min-width:0;}
+.cat-link{
+  font-weight:900;
+  color:var(--text);
+  text-decoration:none;
+}
+.cat-link:hover{text-decoration:underline;}
+
+.cat-controls{
+  display:flex;
+  gap:8px;
+  align-items:center;
+  flex-wrap:wrap;
+  margin-top:8px;
+}
+.cat-form{
+  display:flex;
+  gap:6px;
+  align-items:center;
+  flex-wrap:wrap;
+  margin:0;
+}
+.cat-form input[type="text"]{
+  width:220px;
+  max-width:100%;
+}
+.cat-adult{
+  display:flex;
+  gap:6px;
+  align-items:center;
+  font-size:12px;
+  font-weight:800;
+  color:#334155;
+}
+
+/* Missing "gray" button style used in a few pages */
+.btn.gray, button.gray{
+  background:#0f172a;
+  box-shadow:0 6px 16px rgba(15,23,42,.18);
+}
