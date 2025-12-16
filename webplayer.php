@@ -33,6 +33,7 @@ function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
 
   <style>
     :root{
+      --player-h: clamp(320px, 72vh, 760px);
       --bg:#0b0d12;
       --panel:#121621;
       --panel2:#0f1320;
@@ -113,16 +114,34 @@ function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
     .ch-name{font-size:14px;font-weight:700;line-height:1.1}
     .ch-meta{font-size:11px;color:var(--muted)}
 
-    main{display:grid;grid-template-rows:auto 1fr;min-height:0}
+    main{display:flex;flex-direction:column;min-height:0}
 
     .player-wrap{
-      background:#000;border-bottom:1px solid var(--border);padding:0;position:relative;min-height:260px;
+      background:#000;border-bottom:1px solid var(--border);padding:0;position:relative;
+      /* Lock player height so it NEVER jumps and never overlaps the EPG panel */
+      height:var(--player-h);
+      min-height:var(--player-h);
+      max-height:var(--player-h);
+      flex:0 0 var(--player-h);
+      overflow:hidden;
       display:flex;align-items:stretch;justify-content:stretch;
     }
     #jp_container{width:100%;height:100%;position:relative}
     #jquery_jplayer, #jquery_jplayer video{
       width:100% !important; height:100% !important; background:#000;
     }
+    /* --- Lock jPlayer size classes so the player never resizes on load/change --- */
+    #jp_container.jp-video,
+    #jp_container.jp-video-270p,
+    #jp_container.jp-video-360p,
+    #jp_container.jp-video-full,
+    #jp_container.jp-video-screen{
+      width:100% !important;
+      height:100% !important;
+      max-height:100% !important;
+    }
+    #jp_container .jp-type-single{height:100% !important;}
+
     #jp_container .jp-gui{
       position:absolute;left:0;right:0;bottom:0;padding:8px;
       background:linear-gradient(180deg,rgba(0,0,0,0),rgba(0,0,0,.7));
@@ -176,9 +195,10 @@ function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
       white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;
     }
 
-    .info{padding:12px;color:var(--muted);font-size:13px;overflow:auto}
+    .info{padding:12px;color:var(--muted);font-size:13px;overflow:auto;flex:1 1 auto;min-height:0}
 
     @media (max-width:900px){
+      :root{--player-h: clamp(240px, 38vh, 460px);}
       body{grid-template-columns:1fr;grid-template-rows:auto auto 1fr}
       aside{height:48vh;border-right:none;border-bottom:1px solid var(--border)}
     }
@@ -196,7 +216,7 @@ function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
     .epg-time{font-size:12px; color:var(--muted)}
     .epg-desc{font-size:12px; color:#c7cbd6; margin-top:4px}
 
-  
+ 
     /* --- Header tabs --- */
     .tabs{display:flex;gap:8px;align-items:center}
     .tab{
@@ -310,6 +330,28 @@ function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
       border-color:var(--border);background:transparent;font-weight:700
     }
 
+/* --- Auth (Login) modal --- */
+body.auth-open{overflow:hidden}
+.auth-modal{
+  position:fixed;inset:0;z-index:10000;display:none;
+  background:rgba(0,0,0,.72);
+  backdrop-filter:blur(10px);
+}
+.auth-modal .inner{
+  width:min(520px, calc(100% - 24px));
+  margin:10vh auto 0;
+  border:1px solid var(--border);
+  border-radius:16px;
+  background:linear-gradient(180deg,#0f1320,#0b0d12);
+  padding:14px;
+  box-shadow:0 20px 80px rgba(0,0,0,.55);
+  overflow:hidden;
+}
+.auth-title{font-weight:900;letter-spacing:.4px;font-size:16px}
+.auth-sub{font-size:12px;color:var(--muted);margin-top:4px;margin-bottom:10px}
+.auth-actions{display:flex;gap:6px;margin-top:10px}
+.auth-actions button{flex:1}
+
   </style>
 </head>
 <body>
@@ -325,31 +367,14 @@ function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
   </header>
 
   <aside class="ui">
-    <div class="section">
-      <h2>Login</h2>
-      <div class="login-grid">
-        <div>
-          <label>Username</label>
-          <input id="username" placeholder="your username" autocomplete="username">
-        </div>
-        <div>
-          <label>Password</label>
-          <input id="password" placeholder="your password" type="password" autocomplete="current-password">
-        </div>
-<div>
-          <label>Output (browser needs HLS)</label>
-          <select id="outputMode">
-            <option value="hls" selected>hls (web compatible)</option>
-            <option value="ts">ts (VLC / apps)</option>
-          </select>
-        </div>
-        <div style="grid-column:1/-1;display:flex;gap:6px">
-          <button id="loadBtn">Load Playlist</button>
-          <button class="secondary" id="clearBtn">Clear</button>
-        </div>
-      </div>
-      <div class="status" id="status"></div>
-    </div>
+    <div class="section" id="accountSection" style="display:none">
+  <h2>Account</h2>
+  <div style="display:flex;gap:8px;align-items:center;justify-content:space-between">
+    <div style="font-size:12px;color:var(--muted)" id="accountLabel">Signed in</div>
+    <button class="secondary" id="logoutBtn" type="button">Logout</button>
+  </div>
+  <div class="status" id="status" style="margin-top:8px"></div>
+</div>
 
     <div class="section">
       <h2>Filter</h2>
@@ -409,7 +434,7 @@ function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
       <div style="font-weight:700; margin-bottom:6px;">TV Guide (XMLTV)</div>
       <div id="epgStatus" style="font-size:12px; color:var(--muted); margin-bottom:6px;">EPG not loaded yet.</div>
       <div id="epgNow" style="margin-bottom:8px;"></div>
-      <div id="epgNext"></div>
+      <div id="epgNextList"></div>
     </div>
   </main>
 
@@ -444,6 +469,39 @@ function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
     </div>
   </div>
 
+<!-- Login modal (blocks page until validated) -->
+<div class="auth-modal" id="authModal" aria-hidden="true">
+  <div class="inner ui">
+    <div class="auth-title">Sign in</div>
+    <div class="auth-sub">Enter your account to load channels + guide.</div>
+
+    <form id="authForm" autocomplete="on">
+      <div class="login-grid">
+        <div>
+          <label>Username</label>
+          <input id="username" placeholder="your username" autocomplete="username">
+        </div>
+        <div>
+          <label>Password</label>
+          <input id="password" placeholder="your password" type="password" autocomplete="current-password">
+        </div>
+        <div style="grid-column:1/-1">
+          <label>Output (browser needs HLS)</label>
+          <select id="outputMode">
+            <option value="hls" selected>hls (web compatible)</option>
+            <option value="ts">ts (VLC / apps)</option>
+          </select>
+        </div>
+        <div class="auth-actions" style="grid-column:1/-1">
+          <button id="loadBtn" type="submit">Login</button>
+          <button class="secondary" id="clearBtn" type="button">Clear</button>
+        </div>
+      </div>
+      <div class="status" id="authStatus"></div>
+    </form>
+  </div>
+</div>
+
 <script>
 (() => {
   const els = {
@@ -452,6 +510,12 @@ function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
     loadBtn: document.getElementById('loadBtn'),
     clearBtn: document.getElementById('clearBtn'),
     status: document.getElementById('status'),
+    authModal: document.getElementById('authModal'),
+    authForm: document.getElementById('authForm'),
+    authStatus: document.getElementById('authStatus'),
+    accountSection: document.getElementById('accountSection'),
+    logoutBtn: document.getElementById('logoutBtn'),
+    accountLabel: document.getElementById('accountLabel'),
     search: document.getElementById('search'),
     groupSelect: document.getElementById('groupSelect'),
     groupChips: document.getElementById('groupChips'),
@@ -479,6 +543,7 @@ function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
   let activeChannelId = null;
   let favorites = new Set(JSON.parse(localStorage.getItem('iptv_favs') || '[]'));
   let hls = null;
+  let isAuthed = false;
 
   // ----------- base-path autodetect (get.php / xmltv.php) -----------
   let baseCache = null;
@@ -645,7 +710,7 @@ async function detectBase(){
 
   function renderEpgForChannel(ch){
     const nowBox = document.getElementById("epgNow");
-    const nextBox = document.getElementById("epgNext");
+    const nextBox = document.getElementById("epgNextList");
     if (!nowBox || !nextBox) return;
 
     nowBox.innerHTML = "";
@@ -879,6 +944,7 @@ async function detectBase(){
 
   function openEpg(){
     if (!els.epgModal) return;
+    if (!isAuthed){ showAuth("Sign in to continue."); return; }
 
     document.body.classList.add("epg-open");
     els.epgModal.style.display = "block";
@@ -925,10 +991,36 @@ async function detectBase(){
     els.outputMode.value = 'hls'; // force sane default
   }
 
-  function setStatus(msg, type='') {
+function setStatus(msg, type='') {
+  if (els.status){
     els.status.className = 'status ' + type;
     els.status.textContent = msg || '';
   }
+  if (els.authStatus){
+    els.authStatus.className = 'status ' + type;
+    els.authStatus.textContent = msg || '';
+  }
+}
+
+function showAuth(msg=''){
+  if (!els.authModal) return;
+  document.body.classList.add('auth-open');
+  els.authModal.style.display = 'block';
+  els.authModal.setAttribute('aria-hidden','false');
+  if (msg) setStatus(msg);
+  setTimeout(() => {
+    if (els.username && !els.username.value) els.username.focus();
+    else if (els.password) els.password.focus();
+  }, 0);
+}
+
+function hideAuth(){
+  if (!els.authModal) return;
+  document.body.classList.remove('auth-open');
+  els.authModal.style.display = 'none';
+  els.authModal.setAttribute('aria-hidden','true');
+  if (els.authStatus) els.authStatus.textContent = '';
+}
 
   function saveCreds() {
     localStorage.setItem('iptv_user', els.username.value.trim());
@@ -1073,10 +1165,8 @@ async function detectBase(){
     const u = els.username.value.trim();
     const p = els.password.value;    const out = els.outputMode.value;
 
-    if (!u || !p) { setStatus("Missing username or password","err"); return; }
-
-    saveCreds();
-    setStatus("Loading playlist...");
+    if (!u || !p) { setStatus("Missing username or password","err"); return false; }
+    setStatus("Validating account...");
 
     if (out !== "hls") {
       setStatus("TS output won't play in browser. Switching to HLS for you.","err");
@@ -1092,6 +1182,18 @@ async function detectBase(){
       if (!res.ok) { setStatus(text || `HTTP ${res.status}`,"err"); return; }
 
       channels = parseM3U(text);
+      if (!channels.length) {
+        setStatus("Invalid login or empty playlist (no channels parsed).", "err");
+        return false;
+      }
+
+      // validated ✅
+      isAuthed = true;
+      saveCreds();
+      if (els.accountSection) els.accountSection.style.display = "block";
+      if (els.accountLabel) els.accountLabel.textContent = `Signed in as: ${u}`;
+      if (els.counts) els.counts.style.display = "inline-flex";
+
       loadEpg(u, p);
 
       if (!channels.length) {
@@ -1105,12 +1207,20 @@ async function detectBase(){
       activeGroup = "";
       buildGroups();
       renderChannels();
+      hideAuth();
+      return true;
     } catch (e) {
       setStatus("Network error loading playlist.\n"+e.message,"err");
+      return false;
     }
   }
 
-  els.loadBtn.addEventListener("click", loadPlaylist);
+  const doLogin = async (e) => {
+    e && e.preventDefault();
+    await loadPlaylist();
+  };
+  els.authForm && els.authForm.addEventListener("submit", doLogin);
+  els.loadBtn && els.loadBtn.addEventListener("click", doLogin);
   els.clearBtn.addEventListener("click", () => {
     closeEpg();
     clearCreds();
@@ -1134,12 +1244,22 @@ async function detectBase(){
     // Wipe EPG UI
     epgXmlText = null; epgMap = null; epgAlias = null;
     const epgNow = document.getElementById("epgNow");
-    const epgNext = document.getElementById("epgNext");
+    const epgNext = document.getElementById("epgNextList");
     if (epgNow) epgNow.innerHTML = "";
     if (epgNext) epgNext.innerHTML = "";
     epgSetStatus("EPG not loaded yet.");
 
-    setStatus("Cleared. Player stopped.", "ok");
+    setStatus("Signed out.", "ok");
+    isAuthed = false;
+    if (els.accountSection) els.accountSection.style.display = "none";
+    showAuth("Sign in to continue.");
+  });
+
+
+  // Logout button (visible after login)
+  els.logoutBtn && els.logoutBtn.addEventListener("click", () => {
+    // reuse the same clear routine
+    els.clearBtn && els.clearBtn.click();
   });
 
   els.search.addEventListener("input", renderChannels);
@@ -1219,18 +1339,31 @@ async function detectBase(){
     if (e.key === "Escape" && document.body.classList.contains("epg-open")) closeEpg();
   });
 
-  // ---------- PHP session autologin ----------
-  const AUTO_USER = <?= json_encode($autoUser) ?>;
-  const AUTO_PASS = <?= json_encode($autoPass) ?>;
+// ---------- PHP session autologin ----------
+const AUTO_USER = <?= json_encode($autoUser) ?>;
+const AUTO_PASS = <?= json_encode($autoPass) ?>;
 
+// Always start blocked by the login modal, then auto-validate if creds exist
+showAuth("Sign in to continue.");
+
+(async () => {
   if (AUTO_USER && AUTO_PASS) {
     els.username.value = AUTO_USER;
     els.password.value = AUTO_PASS;
-    saveCreds();
-    loadPlaylist();
-  } else if (els.username.value && els.password.value) {
-    loadPlaylist();
   }
+
+  // LocalStorage fallback
+  if (!els.username.value) els.username.value = localStorage.getItem('iptv_user') || '';
+  if (!els.password.value) els.password.value = localStorage.getItem('iptv_pass') || '';
+  els.outputMode.value = localStorage.getItem('iptv_out') || 'hls';
+  if (els.outputMode.value !== 'hls') els.outputMode.value = 'hls';
+
+  // Auto-login if we have creds
+  if (els.username.value && els.password.value) {
+    setStatus("Validating account...");
+    await loadPlaylist();
+  }
+})();
 })();
 </script>
 </body>
