@@ -35,19 +35,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
   }
 
-  // Rename category
-  if (isset($_POST['rename_cat'])) {
+  // Update category (name + adult flag)
+  if (isset($_POST['save_cat']) || isset($_POST['rename_cat'])) {
     $cid = (int)($_POST['category_id'] ?? 0);
     $name = trim($_POST['new_name'] ?? '');
-    if ($cid > 0 && $name !== '' && $cid !== $uncat_id) {
-      $pdo->prepare("UPDATE categories SET name=? WHERE id=?")->execute([$name, $cid]);
-      // Keep channels.group_title aligned with category name for M3U group-title output.
-      $pdo->prepare("UPDATE channels SET group_title=? WHERE category_id=?")->execute([$name, $cid]);
-      flash_set("Category renamed.", "success");
+    $is_adult = isset($_POST['cat_is_adult']) ? 1 : 0;
+
+    if ($cid > 0) {
+      // Update adult flag for any category (including Uncategorized)
+      try {
+        $pdo->prepare("UPDATE categories SET is_adult=? WHERE id=?")->execute([$is_adult, $cid]);
+      } catch (Throwable $e) {}
+
+      // Rename is allowed for any category except the reserved Uncategorized bucket
+      if ($name !== '' && $cid !== $uncat_id) {
+        $pdo->prepare("UPDATE categories SET name=? WHERE id=?")->execute([$name, $cid]);
+        // Keep channels.group_title aligned with category name for M3U group-title output.
+        $pdo->prepare("UPDATE channels SET group_title=? WHERE category_id=?")->execute([$name, $cid]);
+        flash_set("Category updated.", "success");
+      } else {
+        flash_set("Category updated.", "success");
+      }
     }
     header('Location: category_manager.php?category_id=' . $cid);
     exit;
   }
+
+  // Delete ALL channels in Uncategorized
+  if (isset($_POST['purge_uncat'])) {
+    $cid = (int)($_POST['category_id'] ?? 0);
+    if ($cid <= 0) $cid = $uncat_id;
+
+    if ($cid === $uncat_id) {
+      try {
+        $pdo->beginTransaction();
+
+        // Delete channels explicitly assigned to Uncategorized
+        $pdo->prepare("DELETE FROM channels WHERE category_id=?")->execute([$uncat_id]);
+
+        // Safety: delete legacy channels that never got a category_id but still match Uncategorized
+        $pdo->prepare("DELETE FROM channels WHERE (category_id IS NULL OR category_id=0) AND IFNULL(group_title,'Uncategorized')='Uncategorized'")->execute([]);
+
+        $pdo->commit();
+        flash_set("All Uncategorized channels deleted.", "success");
+      } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        flash_set("Failed to delete Uncategorized channels.", "error");
+      }
+    }
+    header('Location: category_manager.php?category_id=' . $uncat_id);
+    exit;
+  }
+
 
   // Delete category (and all channels inside it)
   if (isset($_POST['del_cat'])) {
@@ -150,7 +189,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 /* ---------------------------
    Data load
 ---------------------------- */
-$cats = $pdo->query("SELECT c.id,c.name,(SELECT COUNT(*) FROM channels ch WHERE ch.category_id=c.id) AS cnt FROM categories c ORDER BY c.sort_order, c.id")
+$cats = $pdo->query("SELECT c.id,c.name,IFNULL(c.is_adult,0) AS is_adult,(SELECT COUNT(*) FROM channels ch WHERE ch.category_id=c.id) AS cnt FROM categories c ORDER BY c.sort_order, c.id")
   ->fetchAll(PDO::FETCH_ASSOC);
 
 $selected = (int)($_GET['category_id'] ?? 0);
@@ -215,7 +254,7 @@ $topbar = file_get_contents(__DIR__ . '/topbar.html');
         <div style="display:flex;gap:10px;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid #1f2a44;">
           <div style="display:flex;flex-direction:column;gap:4px;min-width:0;">
             <a href="category_manager.php?category_id=<?=$c['id']?>" class="link" style="font-weight:700;<?= $isSelected ? 'text-decoration:underline;' : '' ?>">
-              <?=e($c['name'])?>
+              <?=e($c['name'])?><?php if(!empty($c['is_adult'])): ?> <span style="font-size:11px;padding:2px 6px;border:1px solid #ff4d4d;border-radius:999px;color:#ffb3b3;">Adult</span><?php endif; ?>
             </a>
             <span class="muted"><?=$c['cnt']?> channel(s)</span>
           </div>
@@ -224,7 +263,10 @@ $topbar = file_get_contents(__DIR__ . '/topbar.html');
             <form method="post" style="margin:0; display:flex; gap:6px; align-items:center;">
               <input type="hidden" name="category_id" value="<?=$c['id']?>">
               <input type="text" name="new_name" value="<?=e($c['name'])?>" style="width:140px;" <?= ((int)$c['id'] === $uncat_id) ? 'disabled' : '' ?> >
-              <button class="btn gray btn-small" name="rename_cat" value="1" <?= ((int)$c['id'] === $uncat_id) ? 'disabled' : '' ?>>Rename</button>
+              <label style="display:flex;gap:6px;align-items:center;font-size:12px;" title="Mark category as Adult">
+                <input type="checkbox" name="cat_is_adult" value="1" <?= !empty($c['is_adult']) ? 'checked' : '' ?>> Adult
+              </label>
+              <button class="btn gray btn-small" name="save_cat" value="1"  >Save</button>
             </form>
             <form method="post" style="margin:0;" onsubmit="return confirm('Delete this category? All channels in this category will be deleted too.');">
               <input type="hidden" name="category_id" value="<?=$c['id']?>">

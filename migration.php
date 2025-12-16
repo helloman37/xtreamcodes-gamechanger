@@ -244,6 +244,7 @@ function db_migrate(PDO $pdo): void {
 
   /* ---------- Ordering (admin-defined sort) ---------- */
   _ensure_col($pdo, 'categories', 'sort_order', 'sort_order INT NOT NULL DEFAULT 0');
+  _ensure_col($pdo, 'categories', 'is_adult', 'is_adult TINYINT(1) NOT NULL DEFAULT 0');
 
   _ensure_col($pdo, 'channels', 'category_id', 'category_id INT NULL');
   _ensure_col($pdo, 'channels', 'sort_order', 'sort_order INT NOT NULL DEFAULT 0');

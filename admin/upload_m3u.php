@@ -161,16 +161,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $use_categories = false;
   }
 
-  // Ordering: preserve admin-defined import order in UI + user playlist.
-  // We treat stream_url as the stable key: if a channel already exists, we update it
-  // (including sort order) instead of creating duplicates.
-  $import_cat_order = [];     // category IDs in first-seen order
-  $import_cat_seen  = [];     // category ID => true
-  $per_cat_pos      = [];     // category ID => last assigned position
-  $touched_ids      = [];     // category ID => [channel_id => true]
+
+  // Ordering:
+  // - Existing channels keep their current sort_order (importing again won't reshuffle your list).
+  // - NEW channels are appended to the bottom of their category (max sort_order + 1).
+  // - If an existing channel's category changes, it is appended to the bottom of the new category.
+  $per_cat_pos = []; // category_id => last assigned position (seeded from DB max)
+  $sel_max_sort_cat = null;
 
   if ($use_categories) {
-    $sel_existing = $pdo->prepare("SELECT id FROM channels WHERE stream_url=? LIMIT 1");
+    $sel_existing = $pdo->prepare("SELECT id, category_id, sort_order FROM channels WHERE stream_url=? LIMIT 1");
+    $sel_max_sort_cat = $pdo->prepare("SELECT COALESCE(MAX(CASE WHEN sort_order=0 THEN id ELSE sort_order END),0) AS m FROM channels WHERE category_id=?");
     $upd_existing = $pdo->prepare("UPDATE channels SET
       name=?, category_id=?, group_title=?, tvg_id=?, tvg_name=?, tvg_logo=?,
       direct_play=?, container_ext=?, is_adult=?, sort_order=?
@@ -179,7 +180,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       (name,category_id,group_title,tvg_id,tvg_name,tvg_logo,stream_url,direct_play,container_ext,is_adult,sort_order)
       VALUES (?,?,?,?,?,?,?,?,?,?,?)");
   } else {
-    $sel_existing = $pdo->prepare("SELECT id FROM channels WHERE stream_url=? LIMIT 1");
+    $sel_existing = $pdo->prepare("SELECT id, sort_order FROM channels WHERE stream_url=? LIMIT 1");
     $upd_existing = $pdo->prepare("UPDATE channels SET
       name=?, group_title=?, tvg_id=?, tvg_name=?, tvg_logo=?,
       direct_play=?, container_ext=?, is_adult=?, sort_order=?
@@ -187,6 +188,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $ins_new = $pdo->prepare("INSERT INTO channels
       (name,group_title,tvg_id,tvg_name,tvg_logo,stream_url,direct_play,container_ext,is_adult,sort_order)
       VALUES (?,?,?,?,?,?,?,?,?,?)");
+
+    // Seed global position so new channels append to the bottom.
+    $max_global = (int)($pdo->query("SELECT COALESCE(MAX(CASE WHEN sort_order=0 THEN id ELSE sort_order END),0) AS m FROM channels")
+      ->fetch(PDO::FETCH_ASSOC)['m'] ?? 0);
+    $per_cat_pos[0] = $max_global;
   }
 
   $inserted = 0;
@@ -225,21 +231,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         $cid = (int)($cat_map[$group] ?? $uncat_id);
         if ($cid <= 0) $cid = $uncat_id;
-
-        // Track category order (first time encountered in this import).
-        if (!isset($import_cat_seen[$cid])) {
-          $import_cat_seen[$cid] = true;
-          $import_cat_order[] = $cid;
+        // Seed per-category position from DB once so new channels append to the bottom.
+        if (!isset($per_cat_pos[$cid])) {
+          $sel_max_sort_cat->execute([$cid]);
+          $per_cat_pos[$cid] = (int)($sel_max_sort_cat->fetch(PDO::FETCH_ASSOC)['m'] ?? 0);
         }
 
-        // Per-category channel order.
-        if (!isset($per_cat_pos[$cid])) $per_cat_pos[$cid] = 0;
-        $pos = ++$per_cat_pos[$cid];
-
-        // Upsert by stream_url.
+        // Upsert by stream_url (keep existing sort_order; only append if moved categories).
         $sel_existing->execute([$ch['stream_url']]);
-        $existing_id = (int)($sel_existing->fetch(PDO::FETCH_ASSOC)['id'] ?? 0);
+        $row = $sel_existing->fetch(PDO::FETCH_ASSOC) ?: [];
+        $existing_id = (int)($row['id'] ?? 0);
+
         if ($existing_id > 0) {
+          $current_cid  = (int)($row['category_id'] ?? 0);
+          $current_sort = (int)($row['sort_order'] ?? 0);
+          if ($current_sort <= 0) $current_sort = $existing_id;
+
+          // Only assign a new sort_order if the channel moved categories.
+          $new_sort = $current_sort;
+          if ($current_cid !== $cid) {
+            $new_sort = ++$per_cat_pos[$cid];
+          }
+
           $upd_existing->execute([
             $ch['name'],
             $cid ?: null,
@@ -250,12 +263,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $default_direct,
             $default_ext,
             $default_adult,
-            $pos,
+            $new_sort,
             $existing_id
           ]);
           $updated++;
-          $touched_ids[$cid][$existing_id] = true;
         } else {
+          // New channel: append to bottom of this category.
+          $pos = ++$per_cat_pos[$cid];
+
           $ins_new->execute([
             $ch['name'],
             $cid ?: null,
@@ -269,20 +284,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $default_adult,
             $pos
           ]);
-          $new_id = (int)$pdo->lastInsertId();
-          if ($new_id > 0) $touched_ids[$cid][$new_id] = true;
           $inserted++;
           $this_inserted++;
         }
       } else {
         // No categories table available; preserve overall import order.
         $cid = 0;
-        if (!isset($per_cat_pos[$cid])) $per_cat_pos[$cid] = 0;
-        $pos = ++$per_cat_pos[$cid];
 
+        // Upsert by stream_url (keep existing sort_order; new ones append to bottom).
         $sel_existing->execute([$ch['stream_url']]);
-        $existing_id = (int)($sel_existing->fetch(PDO::FETCH_ASSOC)['id'] ?? 0);
+        $row = $sel_existing->fetch(PDO::FETCH_ASSOC) ?: [];
+        $existing_id = (int)($row['id'] ?? 0);
+
         if ($existing_id > 0) {
+          $current_sort = (int)($row['sort_order'] ?? 0);
+          if ($current_sort <= 0) $current_sort = $existing_id;
+
           $upd_existing->execute([
             $ch['name'],
             $group,
@@ -292,11 +309,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $default_direct,
             $default_ext,
             $default_adult,
-            $pos,
+            $current_sort,
             $existing_id
           ]);
           $updated++;
         } else {
+          // New channel: append to bottom of the overall list.
+          $pos = ++$per_cat_pos[$cid];
+
           $ins_new->execute([
             $ch['name'],
             $group,
@@ -312,71 +332,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           $inserted++;
           $this_inserted++;
         }
-      }
+}
     }
 
     $file_counts[] = basename($f['name']) . ": $this_inserted";
   }
 
-    // If categories are available, rewrite category + channel sort_orders so the UI + exports
-    // reflect the admin's chosen import order.
-    if ($use_categories && $import_cat_order) {
-      // 1) Categories: imported categories first, then the rest.
-      $upd_cat_sort = $pdo->prepare("UPDATE categories SET sort_order=? WHERE id=?");
-      $pos = 1;
-      $seen = [];
-      foreach ($import_cat_order as $cid) {
-        $cid = (int)$cid;
-        if ($cid <= 0 || isset($seen[$cid])) continue;
-        $seen[$cid] = true;
-        $upd_cat_sort->execute([$pos++, $cid]);
-      }
-
-      // Remaining categories keep relative order but come after.
-      $in = implode(',', array_fill(0, count(array_keys($seen)), '?'));
-      if ($in) {
-        $st = $pdo->prepare("SELECT id FROM categories WHERE id NOT IN ($in) ORDER BY sort_order,id");
-        $st->execute(array_keys($seen));
-      } else {
-        $st = $pdo->query("SELECT id FROM categories ORDER BY sort_order,id");
-      }
-      while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
-        $upd_cat_sort->execute([$pos++, (int)$r['id']]);
-      }
-
-      // 2) Channels inside touched categories: imported/updated first (with sort_order already set to 1..N)
-      // then everything else in that category.
-      $upd_ch_sort = $pdo->prepare("UPDATE channels SET sort_order=? WHERE id=?");
-      foreach ($touched_ids as $cid => $idset) {
-        $cid = (int)$cid;
-        if ($cid <= 0) continue;
-        $max = (int)($per_cat_pos[$cid] ?? 0);
-        if ($max <= 0) continue;
-        $next = $max + 1;
-
-        $ids = array_keys($idset ?: []);
-        if ($ids) {
-          // Chunk IN() lists to avoid SQL limits.
-          $chunks = array_chunk($ids, 800);
-          $whereNot = [];
-          $params = [$cid];
-          foreach ($chunks as $ch) {
-            $whereNot[] = "id NOT IN (" . implode(',', array_fill(0, count($ch), '?')) . ")";
-            foreach ($ch as $x) $params[] = (int)$x;
-          }
-          $sql = "SELECT id FROM channels WHERE category_id=? AND " . implode(' AND ', $whereNot) . " ORDER BY sort_order,id";
-          $st2 = $pdo->prepare($sql);
-          $st2->execute($params);
-        } else {
-          $st2 = $pdo->prepare("SELECT id FROM channels WHERE category_id=? ORDER BY sort_order,id");
-          $st2->execute([$cid]);
-        }
-
-        while ($row = $st2->fetch(PDO::FETCH_ASSOC)) {
-          $upd_ch_sort->execute([$next++, (int)$row['id']]);
-        }
-      }
-    }
 
     $pdo->commit();
   } catch (Throwable $e) {

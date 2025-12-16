@@ -198,7 +198,7 @@ $sql = "
   FROM channels c
   LEFT JOIN categories cat ON cat.id=c.category_id
   WHERE 1=1
-    ".($adult_ok ? "" : " AND IFNULL(c.is_adult,0)=0 ")."
+    ".($adult_ok ? "" : " AND IFNULL(c.is_adult,0)=0 AND IFNULL(cat.is_adult,0)=0 ")."
     $pkg_sql
   ORDER BY cat_sort, ch_sort, c.id
 ";

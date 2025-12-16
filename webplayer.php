@@ -33,7 +33,6 @@ function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
 
   <style>
     :root{
-      --player-h: clamp(320px, 72vh, 760px);
       --bg:#0b0d12;
       --panel:#121621;
       --panel2:#0f1320;
@@ -52,7 +51,7 @@ function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
       height:100vh; display:grid; grid-template-columns:360px 1fr; grid-template-rows:auto 1fr;
     }
     header{
-      grid-column:1/-1; padding:12px 16px; display:flex; gap:12px; align-items:center; justify-content:space-between;
+      grid-column:1/-1; padding:12px 16px; display:flex; gap:12px; align-items:center;
       background:linear-gradient(180deg,#0f1220,#0b0d12); border-bottom:1px solid var(--border);
     }
     header h1{font-size:18px;margin:0;font-weight:700;letter-spacing:.4px}
@@ -114,34 +113,16 @@ function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
     .ch-name{font-size:14px;font-weight:700;line-height:1.1}
     .ch-meta{font-size:11px;color:var(--muted)}
 
-    main{display:flex;flex-direction:column;min-height:0}
+    main{display:grid;grid-template-rows:auto 1fr;min-height:0}
 
     .player-wrap{
-      background:#000;border-bottom:1px solid var(--border);padding:0;position:relative;
-      /* Lock player height so it NEVER jumps and never overlaps the EPG panel */
-      height:var(--player-h);
-      min-height:var(--player-h);
-      max-height:var(--player-h);
-      flex:0 0 var(--player-h);
-      overflow:hidden;
+      background:#000;border-bottom:1px solid var(--border);padding:0;position:relative;min-height:260px;
       display:flex;align-items:stretch;justify-content:stretch;
     }
     #jp_container{width:100%;height:100%;position:relative}
     #jquery_jplayer, #jquery_jplayer video{
       width:100% !important; height:100% !important; background:#000;
     }
-    /* --- Lock jPlayer size classes so the player never resizes on load/change --- */
-    #jp_container.jp-video,
-    #jp_container.jp-video-270p,
-    #jp_container.jp-video-360p,
-    #jp_container.jp-video-full,
-    #jp_container.jp-video-screen{
-      width:100% !important;
-      height:100% !important;
-      max-height:100% !important;
-    }
-    #jp_container .jp-type-single{height:100% !important;}
-
     #jp_container .jp-gui{
       position:absolute;left:0;right:0;bottom:0;padding:8px;
       background:linear-gradient(180deg,rgba(0,0,0,0),rgba(0,0,0,.7));
@@ -195,10 +176,9 @@ function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
       white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;
     }
 
-    .info{padding:12px;color:var(--muted);font-size:13px;overflow:auto;flex:1 1 auto;min-height:0}
+    .info{padding:12px;color:var(--muted);font-size:13px;overflow:auto}
 
     @media (max-width:900px){
-      :root{--player-h: clamp(240px, 38vh, 460px);}
       body{grid-template-columns:1fr;grid-template-rows:auto auto 1fr}
       aside{height:48vh;border-right:none;border-bottom:1px solid var(--border)}
     }
@@ -216,165 +196,40 @@ function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
     .epg-time{font-size:12px; color:var(--muted)}
     .epg-desc{font-size:12px; color:#c7cbd6; margin-top:4px}
 
- 
-    /* --- Header tabs --- */
-    .tabs{display:flex;gap:8px;align-items:center}
-    .tab{
-      padding:8px 10px;border-radius:999px;border:1px solid var(--border);
-      background:rgba(15,19,32,.6);color:var(--text);cursor:pointer;
-      font-weight:700;font-size:12px;letter-spacing:.3px;
-    }
-    .tab.active{
-      border-color:rgba(77,210,255,.6);
-      box-shadow:0 0 0 1px rgba(77,210,255,.15) inset;
-      color:#bfefff;
-    }
-
-    /* --- Fullscreen EPG modal --- */
-    body.epg-open{overflow:hidden}
-    .epg-modal{
-      position:fixed;inset:0;z-index:9999;display:none;
-      background:rgba(0,0,0,.72);
-      backdrop-filter:blur(10px);
-    }
-    .epg-modal .inner{
-      position:absolute;inset:12px;
-      border:1px solid var(--border);
-      border-radius:16px;
-      background:linear-gradient(180deg,#0f1320,#0b0d12);
-      display:flex;flex-direction:column;overflow:hidden;
-    }
-    .epg-topbar{
-      display:flex;gap:10px;align-items:center;
-      padding:10px;border-bottom:1px solid var(--border);
-      flex-wrap:wrap;
-    }
-    .epg-topbar .title{font-weight:800;letter-spacing:.4px}
-    .epg-topbar .mini{font-size:12px;color:var(--muted);white-space:nowrap}
-    .epg-topbar .spacer{flex:1}
-    .epg-topbar input,.epg-topbar select{
-      padding:9px 10px;border-radius:10px;border:1px solid var(--border);
-      background:var(--panel2);color:var(--text);outline:none
-    }
-    .epg-topbar button{
-      padding:9px 10px;border-radius:10px;border:1px solid var(--border);
-      background:linear-gradient(180deg,#1b2240,#10162b);
-      color:var(--text);cursor:pointer;font-weight:800
-    }
-    .epg-topbar button.ghost{background:transparent}
-    .epg-wrap{flex:1;overflow:auto;background:rgba(0,0,0,.15)}
-    .epg-table{min-width:900px}
-    .epg-head{
-      position:sticky;top:0;z-index:30;display:flex;
-      border-bottom:1px solid var(--border);
-      background:rgba(11,13,18,.95);
-      backdrop-filter:blur(8px);
-    }
-    .epg-head .left{
-      width:280px;min-width:280px;
-      position:sticky;left:0;z-index:40;
-      border-right:1px solid var(--border);
-      padding:10px;font-weight:800;
-    }
-    .epg-timebar{flex:1;display:flex}
-    .epg-time-slot{
-      height:44px;display:flex;align-items:flex-end;
-      justify-content:flex-start;padding:6px 8px;
-      border-right:1px solid rgba(255,255,255,.06);
-      font-size:12px;color:var(--muted);white-space:nowrap
-    }
-    .epg-row{display:flex;min-height:58px;border-bottom:1px solid rgba(255,255,255,.06)}
-    .epg-chcell{
-      width:280px;min-width:280px;
-      position:sticky;left:0;z-index:20;
-      border-right:1px solid var(--border);
-      background:rgba(15,19,32,.95);
-      padding:8px 10px;cursor:pointer;
-    }
-    .epg-chcell:hover{background:rgba(15,19,32,1)}
-    .epg-chname{font-weight:800;font-size:13px;line-height:1.15}
-    .epg-chmeta{font-size:11px;color:var(--muted)}
-    .epg-line{position:relative;flex:1}
-    .epg-prog{
-      position:absolute;top:7px;bottom:7px;
-      border-radius:12px;border:1px solid rgba(77,210,255,.25);
-      background:linear-gradient(180deg,rgba(77,210,255,.18),rgba(16,22,43,.8));
-      padding:8px;overflow:hidden;cursor:pointer;
-    }
-    .epg-prog:hover{transform:translateY(-1px)}
-    .epg-prog .t{
-      font-weight:800;font-size:12px;
-      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-    }
-    .epg-prog .tm{font-size:11px;color:var(--muted);margin-top:2px}
-    .epg-prog.now{
-      border-color:rgba(124,255,178,.45);
-      background:linear-gradient(180deg,rgba(124,255,178,.18),rgba(16,22,43,.8));
-    }
-    .epg-empty{position:absolute;left:8px;top:18px;font-size:12px;color:var(--muted)}
-    .epg-details{border-top:1px solid var(--border);padding:10px;display:none}
-    .epg-details .dtitle{font-weight:900}
-    .epg-details .dmeta{font-size:12px;color:var(--muted);margin-top:4px}
-    .epg-details .ddesc{
-      font-size:12px;color:#c7cbd6;margin-top:6px;
-      max-height:90px;overflow:auto;
-    }
-    .epg-details .actions{margin-top:8px;display:flex;gap:8px;flex-wrap:wrap}
-    .epg-details .actions button{
-      padding:9px 10px;border-radius:10px;
-      border:1px solid rgba(124,255,178,.35);
-      background:linear-gradient(180deg,#122b1c,#0b0d12);
-      color:var(--text);cursor:pointer;font-weight:900
-    }
-    .epg-details .actions button.secondary{
-      border-color:var(--border);background:transparent;font-weight:700
-    }
-
-/* --- Auth (Login) modal --- */
-body.auth-open{overflow:hidden}
-.auth-modal{
-  position:fixed;inset:0;z-index:10000;display:none;
-  background:rgba(0,0,0,.72);
-  backdrop-filter:blur(10px);
-}
-.auth-modal .inner{
-  width:min(520px, calc(100% - 24px));
-  margin:10vh auto 0;
-  border:1px solid var(--border);
-  border-radius:16px;
-  background:linear-gradient(180deg,#0f1320,#0b0d12);
-  padding:14px;
-  box-shadow:0 20px 80px rgba(0,0,0,.55);
-  overflow:hidden;
-}
-.auth-title{font-weight:900;letter-spacing:.4px;font-size:16px}
-.auth-sub{font-size:12px;color:var(--muted);margin-top:4px;margin-bottom:10px}
-.auth-actions{display:flex;gap:6px;margin-top:10px}
-.auth-actions button{flex:1}
-
   </style>
 </head>
 <body>
   <header>
-    <div style="display:flex;align-items:center;gap:12px;min-width:0">
-      <h1>IPTV Web Player</h1>
-      <div id="counts" class="pill" style="display:none"></div>
-    </div>
-    <div class="tabs" role="tablist" aria-label="Views">
-      <button id="tabPlayer" class="tab active" role="tab" aria-selected="true" type="button">Player</button>
-      <button id="tabEpg" class="tab" role="tab" aria-selected="false" type="button">Guide</button>
-    </div>
+    <h1>IPTV Web Player</h1>
+    <div id="counts" class="pill" style="display:none"></div>
   </header>
 
   <aside class="ui">
-    <div class="section" id="accountSection" style="display:none">
-  <h2>Account</h2>
-  <div style="display:flex;gap:8px;align-items:center;justify-content:space-between">
-    <div style="font-size:12px;color:var(--muted)" id="accountLabel">Signed in</div>
-    <button class="secondary" id="logoutBtn" type="button">Logout</button>
-  </div>
-  <div class="status" id="status" style="margin-top:8px"></div>
-</div>
+    <div class="section">
+      <h2>Login</h2>
+      <div class="login-grid">
+        <div>
+          <label>Username</label>
+          <input id="username" placeholder="your username" autocomplete="username">
+        </div>
+        <div>
+          <label>Password</label>
+          <input id="password" placeholder="your password" type="password" autocomplete="current-password">
+        </div>
+<div>
+          <label>Output (browser needs HLS)</label>
+          <select id="outputMode">
+            <option value="hls" selected>hls (web compatible)</option>
+            <option value="ts">ts (VLC / apps)</option>
+          </select>
+        </div>
+        <div style="grid-column:1/-1;display:flex;gap:6px">
+          <button id="loadBtn">Load Playlist</button>
+          <button class="secondary" id="clearBtn">Clear</button>
+        </div>
+      </div>
+      <div class="status" id="status"></div>
+    </div>
 
     <div class="section">
       <h2>Filter</h2>
@@ -434,73 +289,9 @@ body.auth-open{overflow:hidden}
       <div style="font-weight:700; margin-bottom:6px;">TV Guide (XMLTV)</div>
       <div id="epgStatus" style="font-size:12px; color:var(--muted); margin-bottom:6px;">EPG not loaded yet.</div>
       <div id="epgNow" style="margin-bottom:8px;"></div>
-      <div id="epgNextList"></div>
+      <div id="epgNext"></div>
     </div>
   </main>
-
-  <!-- Fullscreen EPG (OTT-style grid) -->
-  <div class="epg-modal" id="epgModal" aria-hidden="true">
-    <div class="inner">
-      <div class="epg-topbar">
-        <div class="title">TV Guide</div>
-        <div class="mini" id="epgRange"></div>
-        <div class="spacer"></div>
-        <input id="epgSearch" placeholder="search channels or shows...">
-        <select id="epgCategory">
-          <option value="">All Categories</option>
-        </select>
-        <button class="ghost" id="epgPrev" title="Back 30 min" type="button">◀</button>
-        <button class="ghost" id="epgNowBtn" type="button">Now</button>
-        <button class="ghost" id="epgNext" title="Forward 30 min" type="button">▶</button>
-        <button id="epgClose" title="Close" type="button">✕</button>
-      </div>
-
-      <div class="epg-wrap" id="epgWrap">
-        <div class="epg-table" id="epgTable">
-          <div class="epg-head">
-            <div class="left">Channels</div>
-            <div class="epg-timebar" id="epgTimeHeader"></div>
-          </div>
-          <div id="epgBody"></div>
-        </div>
-      </div>
-
-      <div class="epg-details" id="epgDetails"></div>
-    </div>
-  </div>
-
-<!-- Login modal (blocks page until validated) -->
-<div class="auth-modal" id="authModal" aria-hidden="true">
-  <div class="inner ui">
-    <div class="auth-title">Sign in</div>
-    <div class="auth-sub">Enter your account to load channels + guide.</div>
-
-    <form id="authForm" autocomplete="on">
-      <div class="login-grid">
-        <div>
-          <label>Username</label>
-          <input id="username" placeholder="your username" autocomplete="username">
-        </div>
-        <div>
-          <label>Password</label>
-          <input id="password" placeholder="your password" type="password" autocomplete="current-password">
-        </div>
-        <div style="grid-column:1/-1">
-          <label>Output (browser needs HLS)</label>
-          <select id="outputMode">
-            <option value="hls" selected>hls (web compatible)</option>
-            <option value="ts">ts (VLC / apps)</option>
-          </select>
-        </div>
-        <div class="auth-actions" style="grid-column:1/-1">
-          <button id="loadBtn" type="submit">Login</button>
-          <button class="secondary" id="clearBtn" type="button">Clear</button>
-        </div>
-      </div>
-      <div class="status" id="authStatus"></div>
-    </form>
-  </div>
-</div>
 
 <script>
 (() => {
@@ -510,31 +301,12 @@ body.auth-open{overflow:hidden}
     loadBtn: document.getElementById('loadBtn'),
     clearBtn: document.getElementById('clearBtn'),
     status: document.getElementById('status'),
-    authModal: document.getElementById('authModal'),
-    authForm: document.getElementById('authForm'),
-    authStatus: document.getElementById('authStatus'),
-    accountSection: document.getElementById('accountSection'),
-    logoutBtn: document.getElementById('logoutBtn'),
-    accountLabel: document.getElementById('accountLabel'),
     search: document.getElementById('search'),
     groupSelect: document.getElementById('groupSelect'),
     groupChips: document.getElementById('groupChips'),
     channelList: document.getElementById('channelList'),
     nowPlaying: document.getElementById('nowPlaying'),
     counts: document.getElementById('counts'),
-    tabPlayer: document.getElementById('tabPlayer'),
-    tabEpg: document.getElementById('tabEpg'),
-    epgModal: document.getElementById('epgModal'),
-    epgSearch: document.getElementById('epgSearch'),
-    epgCategory: document.getElementById('epgCategory'),
-    epgPrev: document.getElementById('epgPrev'),
-    epgNext: document.getElementById('epgNext'),
-    epgNowBtn: document.getElementById('epgNowBtn'),
-    epgClose: document.getElementById('epgClose'),
-    epgRange: document.getElementById('epgRange'),
-    epgTimeHeader: document.getElementById('epgTimeHeader'),
-    epgBody: document.getElementById('epgBody'),
-    epgDetails: document.getElementById('epgDetails'),
   };
 
   let channels = [];
@@ -543,7 +315,6 @@ body.auth-open{overflow:hidden}
   let activeChannelId = null;
   let favorites = new Set(JSON.parse(localStorage.getItem('iptv_favs') || '[]'));
   let hls = null;
-  let isAuthed = false;
 
   // ----------- base-path autodetect (get.php / xmltv.php) -----------
   let baseCache = null;
@@ -679,7 +450,6 @@ async function detectBase(){
       epgMap = built.map;
       epgAlias = built.alias;
       epgSetStatus("EPG loaded.");
-      if (document.body.classList.contains("epg-open")) { renderEpgGrid(); }
     }catch(e){
       epgSetStatus("EPG load error: " + e.message, "err");
     }
@@ -710,7 +480,7 @@ async function detectBase(){
 
   function renderEpgForChannel(ch){
     const nowBox = document.getElementById("epgNow");
-    const nextBox = document.getElementById("epgNextList");
+    const nextBox = document.getElementById("epgNext");
     if (!nowBox || !nextBox) return;
 
     nowBox.innerHTML = "";
@@ -764,209 +534,6 @@ async function detectBase(){
     `).join("");
   }
   // -------------- /XMLTV EPG --------------
-  // ---------------- Fullscreen OTT-style EPG ----------------
-  const EPG_SLOT_MIN = 30;      // step
-  const EPG_WINDOW_MIN = 240;   // 4 hours visible
-  const EPG_PPM = 4;            // pixels per minute (controls density)
-  const EPG_MAX_ROWS = 220;
-
-  let epgViewStart = null;
-
-  function setActiveTab(which){
-    if (!els.tabPlayer || !els.tabEpg) return;
-    const isPlayer = which === 'player';
-    els.tabPlayer.classList.toggle('active', isPlayer);
-    els.tabEpg.classList.toggle('active', !isPlayer);
-    els.tabPlayer.setAttribute('aria-selected', isPlayer ? 'true' : 'false');
-    els.tabEpg.setAttribute('aria-selected', !isPlayer ? 'true' : 'false');
-  }
-
-  function floorToStep(d, stepMin){
-    const ms = d.getTime();
-    const step = stepMin * 60_000;
-    return new Date(Math.floor(ms / step) * step);
-  }
-  function addMinutes(d, mins){ return new Date(d.getTime() + mins*60_000); }
-  function minsBetween(a,b){ return (a.getTime() - b.getTime()) / 60_000; }
-
-  function renderTimeHeader(start){
-    if (!els.epgTimeHeader) return;
-    const slotW = EPG_SLOT_MIN * EPG_PPM;
-    let html = "";
-    for (let m = 0; m < EPG_WINDOW_MIN; m += EPG_SLOT_MIN){
-      const t = addMinutes(start, m);
-      const label = (t.getMinutes() === 0)
-        ? t.toLocaleTimeString([], {hour:'numeric'})
-        : "";
-      html += `<div class="epg-time-slot" style="width:${slotW}px">${escapeHtml(label)}</div>`;
-    }
-    els.epgTimeHeader.innerHTML = html;
-  }
-
-  function filterEpgChannels(start, end){
-    const q = (els.epgSearch?.value || "").toLowerCase().trim();
-    const g = (els.epgCategory?.value || "");
-    let list = channels;
-
-    if (g) list = list.filter(c => c.group === g);
-    if (!q) return list;
-
-    return list.filter(c => {
-      if ((c.name||"").toLowerCase().includes(q)) return true;
-
-      if (!epgMap) return false;
-      const id = findBestEpgIdForChannel(c);
-      if (!id) return false;
-
-      const arr = epgMap.get(id) || [];
-      for (const it of arr){
-        if (!it.start || !it.stop) continue;
-        if (it.stop < start) continue;
-        if (it.start > end) break; // list is sorted
-        if ((it.title||"").toLowerCase().includes(q)) return true;
-      }
-      return false;
-    });
-  }
-
-  function renderEpgGrid(){
-    if (!els.epgBody) return;
-
-    if (!epgViewStart) epgViewStart = floorToStep(new Date(), EPG_SLOT_MIN);
-    const start = epgViewStart;
-    const end = addMinutes(start, EPG_WINDOW_MIN);
-    const now = new Date();
-
-    if (els.epgRange){
-      const day = start.toLocaleDateString([], {weekday:'short', month:'short', day:'numeric'});
-      const a = start.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-      const b = end.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-      els.epgRange.textContent = `${day} • ${a} - ${b}`;
-    }
-
-    renderTimeHeader(start);
-
-    if (!epgMap){
-      els.epgBody.innerHTML = `<div style="padding:14px;color:var(--muted)">EPG not loaded yet. Load the playlist first (or wait a second).</div>`;
-      return;
-    }
-
-    const visible = filterEpgChannels(start, end);
-    const list = visible.slice(0, EPG_MAX_ROWS);
-    const trimmed = visible.length > list.length;
-
-    const lineW = EPG_WINDOW_MIN * EPG_PPM;
-
-    els.epgBody.innerHTML = list.map(c => {
-      const epgId = findBestEpgIdForChannel(c);
-      const arr = epgId ? (epgMap.get(epgId) || []) : [];
-      const blocks = [];
-
-      if (epgId && arr.length){
-        for (const it of arr){
-          if (!it.start || !it.stop) continue;
-          if (it.stop <= start) continue;
-          if (it.start >= end) break;
-
-          const s = it.start < start ? start : it.start;
-          const e = it.stop  > end   ? end   : it.stop;
-
-          const left = Math.max(0, minsBetween(s, start) * EPG_PPM);
-          const width = Math.max(12, minsBetween(e, s) * EPG_PPM);
-
-          const isNow = it.start <= now && it.stop >= now;
-          const timeStr = (it.start && it.stop) ? fmtTimeRange(it.start, it.stop) : "";
-
-          blocks.push(`
-            <div class="epg-prog ${isNow?'now':''}"
-                 style="left:${left}px;width:${width}px"
-                 data-ch="${c.id}"
-                 data-epgid="${escapeAttr(epgId)}"
-                 data-s="${it.start.getTime()}"
-                 data-e="${it.stop.getTime()}">
-              <div class="t">${escapeHtml(it.title || 'Untitled')}</div>
-              <div class="tm">${escapeHtml(timeStr)}</div>
-            </div>
-          `);
-        }
-      }
-
-      const empty = (!blocks.length)
-        ? `<div class="epg-empty">${epgId ? "No data in this window" : "No EPG match"}</div>`
-        : "";
-
-      return `
-        <div class="epg-row" data-id="${c.id}">
-          <div class="epg-chcell" title="Click to play">
-            <div class="epg-chname">${escapeHtml(c.name)}</div>
-            <div class="epg-chmeta">${escapeHtml(c.group || '')}</div>
-          </div>
-          <div class="epg-line" style="width:${lineW}px">
-            ${empty}
-            ${blocks.join("")}
-          </div>
-        </div>
-      `;
-    }).join('') + (trimmed ? `<div style="padding:10px;color:var(--muted);font-size:12px">Showing first ${EPG_MAX_ROWS} channels (use search/category to narrow).</div>` : "");
-  }
-
-  function showEpgDetails(channelObj, programme){
-    if (!els.epgDetails) return;
-
-    if (!channelObj){
-      els.epgDetails.style.display = "none";
-      return;
-    }
-
-    const title = programme?.title ? programme.title : "No programme info";
-    const meta = (programme?.start && programme?.stop) ? fmtTimeRange(programme.start, programme.stop) : "";
-    const desc = programme?.desc ? programme.desc : "";
-
-    els.epgDetails.innerHTML = `
-      <div class="dtitle">${escapeHtml(title)}</div>
-      <div class="dmeta">${escapeHtml(channelObj.name)} • ${escapeHtml(meta)}</div>
-      ${desc ? `<div class="ddesc">${escapeHtml(desc)}</div>` : `<div class="ddesc" style="color:var(--muted)">No description.</div>`}
-      <div class="actions">
-        <button type="button" id="epgPlayBtn">Play Channel</button>
-        <button type="button" class="secondary" id="epgHideBtn">Hide</button>
-      </div>
-    `;
-    els.epgDetails.style.display = "block";
-
-    const playBtn = document.getElementById("epgPlayBtn");
-    const hideBtn = document.getElementById("epgHideBtn");
-    playBtn && playBtn.addEventListener("click", () => {
-      playChannel(channelObj);
-      closeEpg();
-    });
-    hideBtn && hideBtn.addEventListener("click", () => { els.epgDetails.style.display = "none"; });
-  }
-
-  function openEpg(){
-    if (!els.epgModal) return;
-    if (!isAuthed){ showAuth("Sign in to continue."); return; }
-
-    document.body.classList.add("epg-open");
-    els.epgModal.style.display = "block";
-    els.epgModal.setAttribute("aria-hidden", "false");
-    setActiveTab("epg");
-
-    if (!epgViewStart) epgViewStart = floorToStep(new Date(), EPG_SLOT_MIN);
-    renderEpgGrid();
-  }
-
-  function closeEpg(){
-    if (!els.epgModal) return;
-
-    document.body.classList.remove("epg-open");
-    els.epgModal.style.display = "none";
-    els.epgModal.setAttribute("aria-hidden", "true");
-    setActiveTab("player");
-
-    if (els.epgDetails) els.epgDetails.style.display = "none";
-  }
-  // -------------- /Fullscreen OTT-style EPG --------------
-
 
   // Init jPlayer once
   $("#jquery_jplayer").jPlayer({
@@ -991,36 +558,10 @@ async function detectBase(){
     els.outputMode.value = 'hls'; // force sane default
   }
 
-function setStatus(msg, type='') {
-  if (els.status){
+  function setStatus(msg, type='') {
     els.status.className = 'status ' + type;
     els.status.textContent = msg || '';
   }
-  if (els.authStatus){
-    els.authStatus.className = 'status ' + type;
-    els.authStatus.textContent = msg || '';
-  }
-}
-
-function showAuth(msg=''){
-  if (!els.authModal) return;
-  document.body.classList.add('auth-open');
-  els.authModal.style.display = 'block';
-  els.authModal.setAttribute('aria-hidden','false');
-  if (msg) setStatus(msg);
-  setTimeout(() => {
-    if (els.username && !els.username.value) els.username.focus();
-    else if (els.password) els.password.focus();
-  }, 0);
-}
-
-function hideAuth(){
-  if (!els.authModal) return;
-  document.body.classList.remove('auth-open');
-  els.authModal.style.display = 'none';
-  els.authModal.setAttribute('aria-hidden','true');
-  if (els.authStatus) els.authStatus.textContent = '';
-}
 
   function saveCreds() {
     localStorage.setItem('iptv_user', els.username.value.trim());
@@ -1086,12 +627,6 @@ function hideAuth(){
     els.groupChips.innerHTML = groups.map(g => `
       <div class="group-chip ${g===activeGroup?'active':''}" data-group="${escapeHtml(g)}">${escapeHtml(g)}</div>
     `).join('');
-
-    // Fill categories in fullscreen Guide
-    if (els.epgCategory){
-      els.epgCategory.innerHTML = `<option value="">All Categories</option>` +
-        groups.map(g => `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`).join('');
-    }
   }
 
   function filterChannels() {
@@ -1165,8 +700,10 @@ function hideAuth(){
     const u = els.username.value.trim();
     const p = els.password.value;    const out = els.outputMode.value;
 
-    if (!u || !p) { setStatus("Missing username or password","err"); return false; }
-    setStatus("Validating account...");
+    if (!u || !p) { setStatus("Missing username or password","err"); return; }
+
+    saveCreds();
+    setStatus("Loading playlist...");
 
     if (out !== "hls") {
       setStatus("TS output won't play in browser. Switching to HLS for you.","err");
@@ -1182,18 +719,6 @@ function hideAuth(){
       if (!res.ok) { setStatus(text || `HTTP ${res.status}`,"err"); return; }
 
       channels = parseM3U(text);
-      if (!channels.length) {
-        setStatus("Invalid login or empty playlist (no channels parsed).", "err");
-        return false;
-      }
-
-      // validated ✅
-      isAuthed = true;
-      saveCreds();
-      if (els.accountSection) els.accountSection.style.display = "block";
-      if (els.accountLabel) els.accountLabel.textContent = `Signed in as: ${u}`;
-      if (els.counts) els.counts.style.display = "inline-flex";
-
       loadEpg(u, p);
 
       if (!channels.length) {
@@ -1207,22 +732,13 @@ function hideAuth(){
       activeGroup = "";
       buildGroups();
       renderChannels();
-      hideAuth();
-      return true;
     } catch (e) {
       setStatus("Network error loading playlist.\n"+e.message,"err");
-      return false;
     }
   }
 
-  const doLogin = async (e) => {
-    e && e.preventDefault();
-    await loadPlaylist();
-  };
-  els.authForm && els.authForm.addEventListener("submit", doLogin);
-  els.loadBtn && els.loadBtn.addEventListener("click", doLogin);
+  els.loadBtn.addEventListener("click", loadPlaylist);
   els.clearBtn.addEventListener("click", () => {
-    closeEpg();
     clearCreds();
 
     // Stop playback (jPlayer) and any HLS instance
@@ -1244,22 +760,12 @@ function hideAuth(){
     // Wipe EPG UI
     epgXmlText = null; epgMap = null; epgAlias = null;
     const epgNow = document.getElementById("epgNow");
-    const epgNext = document.getElementById("epgNextList");
+    const epgNext = document.getElementById("epgNext");
     if (epgNow) epgNow.innerHTML = "";
     if (epgNext) epgNext.innerHTML = "";
     epgSetStatus("EPG not loaded yet.");
 
-    setStatus("Signed out.", "ok");
-    isAuthed = false;
-    if (els.accountSection) els.accountSection.style.display = "none";
-    showAuth("Sign in to continue.");
-  });
-
-
-  // Logout button (visible after login)
-  els.logoutBtn && els.logoutBtn.addEventListener("click", () => {
-    // reuse the same clear routine
-    els.clearBtn && els.clearBtn.click();
+    setStatus("Cleared. Player stopped.", "ok");
   });
 
   els.search.addEventListener("input", renderChannels);
@@ -1282,88 +788,18 @@ function hideAuth(){
     playChannel(ch);
   });
 
+  // ---------- PHP session autologin ----------
+  const AUTO_USER = <?= json_encode($autoUser) ?>;
+  const AUTO_PASS = <?= json_encode($autoPass) ?>;
 
-  // ---------- Fullscreen EPG events ----------
-  els.tabPlayer && els.tabPlayer.addEventListener("click", closeEpg);
-  els.tabEpg && els.tabEpg.addEventListener("click", openEpg);
-  els.epgClose && els.epgClose.addEventListener("click", closeEpg);
-
-  els.epgPrev && els.epgPrev.addEventListener("click", () => {
-    epgViewStart = addMinutes(epgViewStart || floorToStep(new Date(), EPG_SLOT_MIN), -EPG_SLOT_MIN);
-    renderEpgGrid();
-  });
-  els.epgNext && els.epgNext.addEventListener("click", () => {
-    epgViewStart = addMinutes(epgViewStart || floorToStep(new Date(), EPG_SLOT_MIN), +EPG_SLOT_MIN);
-    renderEpgGrid();
-  });
-  els.epgNowBtn && els.epgNowBtn.addEventListener("click", () => {
-    epgViewStart = floorToStep(new Date(), EPG_SLOT_MIN);
-    renderEpgGrid();
-  });
-
-  els.epgSearch && els.epgSearch.addEventListener("input", () => {
-    renderEpgGrid();
-  });
-  els.epgCategory && els.epgCategory.addEventListener("change", () => {
-    renderEpgGrid();
-  });
-
-  if (els.epgBody){
-    els.epgBody.addEventListener("click", (e) => {
-      const prog = e.target.closest(".epg-prog");
-      if (prog){
-        const chId = Number(prog.dataset.ch);
-        const epgId = prog.dataset.epgid || "";
-        const s = Number(prog.dataset.s || 0);
-        const ee = Number(prog.dataset.e || 0);
-
-        const ch = channels.find(x => x.id === chId) || null;
-        const arr = (epgMap && epgId) ? (epgMap.get(epgId) || []) : [];
-        const item = arr.find(it => it.start && it.stop && it.start.getTime() === s && it.stop.getTime() === ee) || null;
-
-        showEpgDetails(ch, item);
-        return;
-      }
-
-      const cell = e.target.closest(".epg-chcell");
-      if (cell){
-        const row = cell.closest(".epg-row");
-        const id = row ? Number(row.dataset.id) : null;
-        const ch = channels.find(x => x.id === id) || null;
-        if (ch){ playChannel(ch); closeEpg(); }
-      }
-    });
-  }
-
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && document.body.classList.contains("epg-open")) closeEpg();
-  });
-
-// ---------- PHP session autologin ----------
-const AUTO_USER = <?= json_encode($autoUser) ?>;
-const AUTO_PASS = <?= json_encode($autoPass) ?>;
-
-// Always start blocked by the login modal, then auto-validate if creds exist
-showAuth("Sign in to continue.");
-
-(async () => {
   if (AUTO_USER && AUTO_PASS) {
     els.username.value = AUTO_USER;
     els.password.value = AUTO_PASS;
+    saveCreds();
+    loadPlaylist();
+  } else if (els.username.value && els.password.value) {
+    loadPlaylist();
   }
-
-  // LocalStorage fallback
-  if (!els.username.value) els.username.value = localStorage.getItem('iptv_user') || '';
-  if (!els.password.value) els.password.value = localStorage.getItem('iptv_pass') || '';
-  els.outputMode.value = localStorage.getItem('iptv_out') || 'hls';
-  if (els.outputMode.value !== 'hls') els.outputMode.value = 'hls';
-
-  // Auto-login if we have creds
-  if (els.username.value && els.password.value) {
-    setStatus("Validating account...");
-    await loadPlaylist();
-  }
-})();
 })();
 </script>
 </body>

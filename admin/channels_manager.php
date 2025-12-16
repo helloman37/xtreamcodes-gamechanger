@@ -6,10 +6,37 @@ require_admin();
 
 $pdo = db();
 
+// Ensure categories exist (for Uncategorized purge)
+try { ensure_categories($pdo); } catch (Throwable $e) {}
+$pdo->prepare("INSERT IGNORE INTO categories (name) VALUES (?)")->execute(['Uncategorized']);
+$uncat_id = (int)($pdo->query("SELECT id FROM categories WHERE name='Uncategorized' LIMIT 1")->fetch(PDO::FETCH_ASSOC)['id'] ?? 0);
+
+
 /* ---------------------------
    CREATE / UPDATE CHANNEL
 ---------------------------- */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+
+  // Delete ALL Uncategorized channels (bulk)
+  if (isset($_POST['purge_uncat'])) {
+    try {
+      $pdo->beginTransaction();
+      // Category-based uncategorized
+      if ($uncat_id > 0) {
+        $pdo->prepare("DELETE FROM channels WHERE category_id=?")->execute([$uncat_id]);
+      }
+      // Legacy uncategorized (no category_id + empty/Uncategorized group_title)
+      $pdo->prepare("DELETE FROM channels WHERE (category_id IS NULL OR category_id=0) AND IFNULL(group_title,'') IN ('','Uncategorized')")->execute([]);
+      $pdo->commit();
+      flash_set("All Uncategorized channels deleted.", "success");
+    } catch (Throwable $e) {
+      if ($pdo->inTransaction()) $pdo->rollBack();
+      flash_set("Failed to delete Uncategorized channels.", "error");
+    }
+    header('Location: channels_manager.php?group=' . urlencode(''));
+    exit;
+  }
+
   $id = $_POST['id'] ?? null;
 
   $data = [
