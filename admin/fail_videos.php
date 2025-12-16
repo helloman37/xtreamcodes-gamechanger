@@ -15,12 +15,14 @@ $fields = [
   'fail_video_live_expired'       => ['Live: Expired subscription', 'Video URL (.mp4/.m3u8/.ts) played when subscription is expired / inactive.'],
   'fail_video_live_banned'        => ['Live: Blocked/banned', 'Video URL (.mp4/.m3u8/.ts) played when the request is blocked (ban / IP deny).'],
   'fail_video_live_limit'         => ['Live: Limit reached', 'Video URL (.mp4/.m3u8/.ts) played when max connections/devices is reached.'],
+  'fail_video_live_offline'       => ['Live: Channel offline', 'Video URL (.mp4/.m3u8/.ts) played when the channel upstream is offline/unreachable (dead link, 4xx/5xx, timeout).'],
 
   // VOD / Series
   'fail_video_vod_invalid_login'  => ['VOD/Series: Invalid login', 'Video URL (.mp4/.m3u8/.ts) played when username/password/token is invalid.'],
   'fail_video_vod_expired'        => ['VOD/Series: Expired subscription', 'Video URL (.mp4/.m3u8/.ts) played when subscription is expired / inactive.'],
   'fail_video_vod_banned'         => ['VOD/Series: Blocked/banned', 'Video URL (.mp4/.m3u8/.ts) played when the request is blocked (ban / IP deny).'],
   'fail_video_vod_limit'          => ['VOD/Series: Limit reached', 'Video URL (.mp4/.m3u8/.ts) played when max connections/devices is reached.'],
+  'fail_video_vod_offline'        => ['VOD/Series: Source offline', 'Video URL (.mp4/.m3u8/.ts) played when the VOD/episode source is offline/unreachable (dead link, 4xx/5xx, timeout).'],
 ];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -71,7 +73,7 @@ $topbar = file_get_contents(__DIR__ . '/topbar.html');
   <?php flash_show(); ?>
 
   <p class="muted">
-    When a stream request fails (invalid login, expired subscription, ban, or connection/device limit),
+    When a stream request fails (invalid login, expired subscription, ban, connection/device limit, or source offline),
     the server can <span class="pill">redirect</span> the player to a video URL instead of returning a text error.
   </p>
 

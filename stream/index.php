@@ -9,7 +9,7 @@ header("Access-Control-Allow-Origin: *");
 // -----------------------------------------------------------------------------
 // Optional "fail video" redirects: if configured in admin, redirect failed
 // stream attempts to a custom video URL instead of returning a text/JSON error.
-// Keys: fail_video_{live|vod}_{invalid_login|expired|banned|limit}
+// Keys: fail_video_{live|vod}_{invalid_login|expired|banned|limit|offline}
 // -----------------------------------------------------------------------------
 function _fail_video_url(PDO $pdo, string $type, string $reason): string {
   // Prefer the matching kind (live vs vod), but if it's not set, fall back to the other kind.
@@ -575,6 +575,30 @@ function fetch_url(string $url, array $headers, string $ua, int $timeout=20): ar
   return ['body'=>$body, 'code'=>$code, 'effective'=>$eff ?: $url, 'error'=>$err];
 }
 
+// Tiny probe for non-HLS sources (keeps "channel offline" detection fast without downloading full media)
+function probe_url(string $url, array $headers, string $ua, int $timeout=10): array {
+  $ch = curl_init($url);
+  $h = $headers;
+  // Request just a couple bytes where supported (MP4/VOD); safe if ignored (live TS)
+  $h[] = 'Range: bytes=0-1';
+  curl_setopt_array($ch, [
+    CURLOPT_FOLLOWLOCATION => true,
+    CURLOPT_RETURNTRANSFER => true,
+    CURLOPT_SSL_VERIFYPEER => false,
+    CURLOPT_SSL_VERIFYHOST => false,
+    CURLOPT_ENCODING => "",
+    CURLOPT_USERAGENT => $ua,
+    CURLOPT_HTTPHEADER => $h,
+    CURLOPT_TIMEOUT => $timeout
+  ]);
+  $body = curl_exec($ch);
+  $code = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+  $eff  = (string)(curl_getinfo($ch, CURLINFO_EFFECTIVE_URL) ?: $url);
+  $err  = (string)curl_error($ch);
+  curl_close($ch);
+  return ['body'=>$body, 'code'=>$code, 'effective'=>$eff, 'error'=>$err];
+}
+
 /* choose working source (failover) */
 $chosen = $sources[0] ?? '';
 $playlist = null;
@@ -599,6 +623,8 @@ foreach ($sources as $src) {
 
 if ($chosen === '') {
   telemetry_reason('no_upstream');
+  $url = _fail_video_url($pdo, $type, 'offline');
+  if ($url !== '') _redirect_fail_video($url);
   http_response_code(502);
   exit("No upstream");
 }
@@ -620,6 +646,19 @@ if (preg_match('/\.ts(\?|$)/i', $chosen)) {
   header('Content-Type: video/mp2t');
 }
 if (!preg_match('/\.m3u8(\?|$)/i', $chosen)) {
+  // Optional: if admin configured "Channel offline" fail video, probe the upstream first.
+  $offline_url = _fail_video_url($pdo, $type, 'offline');
+  if ($offline_url !== '') {
+    $pr = probe_url($chosen, $up_headers, $client_ua, 12);
+    $pc = (int)($pr['code'] ?? 0);
+    $perr = (string)($pr['error'] ?? '');
+    // Treat any 4xx/5xx/timeout as offline/unreachable for this feature.
+    if ($pc === 0 || $pc >= 400) {
+      telemetry_reason('upstream_offline', ['code'=>$pc, 'err'=>$perr]);
+      _redirect_fail_video($offline_url);
+    }
+  }
+
   // Keep last_seen fresh for long-running non-HLS streams (near real-time max streams/devices)
   $__sid = (int)$session_id;
   $__ip = $ip;
@@ -680,6 +719,9 @@ if ($playlist === null) {
   $playlist = (string)($r['body'] ?? '');
   $effective = (string)($r['effective'] ?? $chosen);
   if (trim($playlist) === '') {
+    telemetry_reason('upstream_offline', ['code'=>(int)($r['code'] ?? 0), 'err'=>(string)($r['error'] ?? '')]);
+    $url = _fail_video_url($pdo, $type, 'offline');
+    if ($url !== '') _redirect_fail_video($url);
     header("Location: ".$chosen, true, 302);
     exit;
   }
