@@ -8,6 +8,7 @@ $baseFile = basename($_SERVER['PHP_SELF']);
     <a href="index.php" <?= $baseFile==='index.php'?'style="color:#111;"':''; ?>>Home</a>
     <a href="plans.php" <?= $baseFile==='plans.php'?'style="color:#111;"':''; ?>>Plans</a>
     <?php if(!empty($_SESSION['store_user'])): ?>
+      <a href="/portal/" <?= $baseFile==='portal'?'style="color:#111;"':''; ?>>Portal</a>
       <a href="dashboard.php" <?= $baseFile==='dashboard.php'?'style="color:#111;"':''; ?>>My Account</a>
       <a href="logout.php">Logout</a>
     <?php else: ?>

@@ -88,10 +88,16 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
 $sources=$pdo->query("SELECT * FROM epg_sources ORDER BY created_at DESC")->fetchAll();
 $channels=$pdo->query("SELECT c.id,c.name,c.tvg_id,c.tvg_name,c.epg_url, IFNULL(cat.sort_order, 999999) AS cat_sort, IFNULL(c.sort_order, c.id) AS ch_sort FROM channels c LEFT JOIN categories cat ON cat.id=c.category_id ORDER BY cat_sort, ch_sort, c.id")->fetchAll();
 $topbar = file_get_contents(__DIR__ . '/topbar.html');
+$topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'), $topbar);
 ?>
 <!doctype html>
 <html>
 <head>
+  <link rel="icon" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+
   <meta charset="utf-8">
   <title>EPG Manager</title>
   <link rel="stylesheet" href="panel.css">

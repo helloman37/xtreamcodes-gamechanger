@@ -46,7 +46,16 @@ $defaults = [
 
   // anti-restream: max unique IPs in window
   'max_ip_changes' => 3,
-  'max_ip_window'  => 600
+  'max_ip_window'  => 600,
+
+  // TMDB API key used by the subscriber portal for Movies/Series browse + search.
+  // You can override this in config.local.php, system_settings('tmdb_api_key'), or per-user.
+  'tmdb_api_key' => '59a35acc07b72f0e91aa657cdb259beb',
+  'tmdb_region'  => 'US',
+  'tmdb_language'=> 'en-US',
+
+  // Default region for TMDB requests (used for some endpoints like discover).
+  'tmdb_region' => 'US'
 ];
 
 // Optional local overrides written by /install

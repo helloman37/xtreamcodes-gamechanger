@@ -1,0 +1,202 @@
+<div class="app reseller-app">
+  <main class="main reseller-main">
+
+    <!-- XTREAM-style header (menu moved to top, like the mockup) -->
+    <header class="xt-head" role="banner">
+      <!-- Top gradient bar -->
+      <div class="xt-head-top">
+        <div class="xt-head-top-inner">
+          <div class="xt-logo" aria-label="XTREAM ui GAME CHANGER">
+            <span class="xt-x">X</span><span class="xt-word">TREAM</span><span class="xt-ui">ui</span>
+            <span class="xt-sub">GAME CHANGER</span>
+          </div>
+
+          <div class="xt-head-actions">
+            <a class="xt-pill credits" href="reseller_dashboard.php" title="Reseller dashboard">
+              <span class="dot-green"></span>
+              Credits <strong>{{CREDITS}}</strong>
+            </a>
+
+            <div class="xt-userlabel" title="Signed in user">{{USERNAME}}</div>
+
+            <!-- Settings opens Change Password modal -->
+            <button class="xt-iconbtn" id="xtGear" type="button" aria-haspopup="dialog" aria-expanded="false" title="Settings">⚙️</button>
+            <a class="xt-iconbtn" href="reseller_signout.php" title="Logout" aria-label="Logout">⏻</a>
+
+            <!-- (Optional) dropdown container kept for future settings; hidden unless .open -->
+            <div class="xt-dropdown" id="xtDrop" aria-label="Settings menu" style="display:none"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Menu bar (use your reseller menu, positioned like the mockup) -->
+      <nav class="xt-nav" role="navigation" aria-label="Reseller menu">
+        <div class="xt-nav-inner">
+          <a class="xt-nav-link" href="reseller_dashboard.php" data-active="reseller_dashboard.php">Dashboard</a>
+
+          <div class="xt-nav-dd">
+            <button class="xt-nav-link xt-nav-btn" type="button" aria-haspopup="true" aria-expanded="false">
+              Users <span class="xt-caret">▾</span>
+            </button>
+            <div class="xt-nav-menu" role="menu">
+              <a href="reseller_users.php" data-active="reseller_users.php">My Users</a>
+            </div>
+          </div>
+
+          <div class="xt-nav-dd">
+            <button class="xt-nav-link xt-nav-btn" type="button" aria-haspopup="true" aria-expanded="false">
+              System <span class="xt-caret">▾</span>
+            </button>
+            <div class="xt-nav-menu" role="menu">
+              <a href="reseller_signout.php">Logout</a>
+            </div>
+          </div>
+
+          <div class="xt-nav-spacer"></div>
+        </div>
+      </nav>
+    </header>
+
+    <!-- Change Password Modal (outside any dropdown so it can display) -->
+    <div class="xt-modal-overlay" id="xtPassOverlay" aria-hidden="true">
+      <div class="xt-modal" role="dialog" aria-modal="true" aria-label="Change password">
+        <div class="xt-modal-head">
+          <div class="xt-modal-title">Change password</div>
+          <button class="xt-modal-close" type="button" id="xtPassClose" aria-label="Close">✕</button>
+        </div>
+        <form class="xt-modal-body" id="xtPassForm" autocomplete="off">
+          <input type="hidden" name="change_password" value="1">
+          <input type="hidden" name="role" value="reseller">
+
+          <label class="xt-modal-label">Current password</label>
+          <input class="xt-modal-input" type="password" name="current_password" autocomplete="current-password" required>
+
+          <label class="xt-modal-label">New password</label>
+          <input class="xt-modal-input" type="password" name="new_password" autocomplete="new-password" minlength="8" required>
+
+          <label class="xt-modal-label">Confirm new password</label>
+          <input class="xt-modal-input" type="password" name="confirm_password" autocomplete="new-password" minlength="8" required>
+
+          <div class="xt-modal-msg" id="xtPassMsg" aria-live="polite"></div>
+          <div class="xt-modal-actions">
+            <button class="xt-btn xt-btn-primary" type="submit">Update</button>
+            <button class="xt-btn" type="button" id="xtPassCancel">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="container reseller-container">
+
+      <div class="notice notice-warn reseller-notice">
+        <div class="notice-icon">⚠️</div>
+        <div class="notice-body">
+          <div class="notice-title">Your Clients — do NOT give free access.</div>
+          <div class="notice-text">If you are found giving free accounts away without prior approval from the website owner, your reseller account &amp; your website account will be terminated.</div>
+        </div>
+      </div>
+
+      <script>
+        (function(){
+          function closeNav(){
+            document.querySelectorAll('.xt-nav-dd.open').forEach(function(dd){ dd.classList.remove('open'); });
+            document.querySelectorAll('.xt-nav-dd .xt-nav-btn[aria-expanded="true"]').forEach(function(btn){ btn.setAttribute('aria-expanded','false'); });
+          }
+
+          // nav dropdowns + active state
+          document.addEventListener('click', function(e){
+            var el = (e.target && e.target.nodeType === 1) ? e.target : (e.target && e.target.parentElement ? e.target.parentElement : null);
+            if(!el){ return; }
+            var dd = el.closest('.xt-nav-dd');
+            var btn = el.closest('.xt-nav-btn');
+
+            if(btn && dd){
+              e.preventDefault();
+              var isOpen = dd.classList.contains('open');
+              closeNav();
+              if(!isOpen){
+                dd.classList.add('open');
+                btn.setAttribute('aria-expanded','true');
+              }
+              return;
+            }
+
+            closeNav();
+          });
+          document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeNav(); });
+
+          var path = (window.location.pathname || '').split('/').pop() || '';
+          var links = document.querySelectorAll('.xt-nav [data-active]');
+          links.forEach(function(a){
+            var want = a.getAttribute('data-active');
+            if(want === path){
+              a.classList.add('active');
+              var wrap = a.closest('.xt-nav-dd');
+              if(wrap){
+                var b = wrap.querySelector('button');
+                if(b) b.classList.add('active');
+              }
+            }
+          });
+
+          // password modal
+          var gear = document.getElementById('xtGear');
+          var passOverlay = document.getElementById('xtPassOverlay');
+          var passClose = document.getElementById('xtPassClose');
+          var passCancel = document.getElementById('xtPassCancel');
+          var passForm = document.getElementById('xtPassForm');
+          var passMsg = document.getElementById('xtPassMsg');
+
+          function openPass(){
+            if(!passOverlay) return;
+            passOverlay.classList.add('open');
+            passOverlay.setAttribute('aria-hidden','false');
+            if(passMsg) { passMsg.textContent=''; passMsg.classList.remove('ok','err'); }
+            if(passForm) { passForm.reset(); }
+            var first = passForm ? passForm.querySelector('input[name="current_password"]') : null;
+            if(first) setTimeout(function(){ first.focus(); }, 0);
+          }
+          function closePass(){
+            if(!passOverlay) return;
+            passOverlay.classList.remove('open');
+            passOverlay.setAttribute('aria-hidden','true');
+          }
+
+          if(gear){
+            gear.addEventListener('click', function(ev){
+              ev.preventDefault();
+              closeNav();
+              openPass();
+            });
+          }
+          if(passClose){ passClose.addEventListener('click', function(){ closePass(); }); }
+          if(passCancel){ passCancel.addEventListener('click', function(){ closePass(); }); }
+          if(passOverlay){
+            passOverlay.addEventListener('click', function(ev){ if(ev.target === passOverlay){ closePass(); } });
+          }
+          document.addEventListener('keydown', function(ev){ if(ev.key === 'Escape') closePass(); });
+
+          if(passForm){
+            passForm.addEventListener('submit', function(ev){
+              ev.preventDefault();
+              if(passMsg){ passMsg.textContent=''; passMsg.classList.remove('ok','err'); }
+              var fd = new FormData(passForm);
+              fd.append('ajax','1');
+              fd.set('change_password','1');
+              fetch('change_password.php', { method:'POST', body: fd, credentials:'same-origin' })
+                .then(function(r){ return r.json(); })
+                .then(function(data){
+                  if(data && data.ok){
+                    if(passMsg){ passMsg.textContent = data.message || 'Password updated.'; passMsg.classList.add('ok'); }
+                    setTimeout(function(){ closePass(); }, 700);
+                  } else {
+                    if(passMsg){ passMsg.textContent = (data && (data.error||data.message)) ? (data.error||data.message) : 'Password update failed.'; passMsg.classList.add('err'); }
+                  }
+                })
+                .catch(function(){
+                  if(passMsg){ passMsg.textContent='Request failed.'; passMsg.classList.add('err'); }
+                });
+            });
+          }
+        })();
+      </script>

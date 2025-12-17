@@ -1,30 +1,37 @@
 <?php
-require_once 'db.php';
-require_once 'helpers.php';
-session_start();
-if(empty($_SESSION['store_user'])){ header("Location: login.php"); exit; }
+require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/helpers.php';
 
-$pdo=db();
-$userId = is_array($_SESSION['store_user']) ? (int)$_SESSION['store_user']['id'] : (int)$_SESSION['store_user'];
+if (session_status() === PHP_SESSION_NONE) {
+  session_start();
+}
 
-$uSt=$pdo->prepare("SELECT * FROM users WHERE id=?");
+if (empty($_SESSION['store_user'])) {
+  header("Location: /login.php");
+  exit;
+}
+
+$pdo = db();
+$userId = is_array($_SESSION['store_user']) ? (int)($_SESSION['store_user']['id'] ?? 0) : (int)$_SESSION['store_user'];
+
+$uSt = $pdo->prepare("SELECT * FROM users WHERE id=?");
 $uSt->execute([$userId]);
-$user=$uSt->fetch();
-if(!$user){ header("Location: logout.php"); exit; }
+$user = $uSt->fetch();
+if (!$user) { header("Location: /logout.php"); exit; }
 
 // active sub
-$subSt=$pdo->prepare("SELECT s.*, p.name plan_name, p.duration_days, p.is_trial
+$subSt = $pdo->prepare("SELECT s.*, p.name plan_name, p.duration_days, p.is_trial
                       FROM subscriptions s
                       JOIN plans p ON p.id=s.plan_id
                       WHERE s.user_id=? AND s.status='active'
                       ORDER BY s.ends_at DESC LIMIT 1");
 $subSt->execute([$userId]);
-$sub=$subSt->fetch();
+$sub = $subSt->fetch();
 
 // trial eligibility (one per account ever)
 $trialEligible = false;
 $trialPlan = $pdo->query("SELECT id,name FROM plans WHERE is_trial=1 LIMIT 1")->fetch();
-if($trialPlan){
+if ($trialPlan) {
   $stUsed = $pdo->prepare("SELECT 1
                            FROM subscriptions s
                            JOIN plans p ON p.id=s.plan_id
@@ -37,61 +44,118 @@ if($trialPlan){
   $stClaim->execute([$userId]);
   $claimed = $stClaim->fetchColumn();
 
-  if(!$hasTrial && !$claimed){
+  if (!$hasTrial && !$claimed) {
     $trialEligible = true;
   }
 }
 
-$host = (isset($_SERVER['HTTPS'])?'https':'http').'://'.$_SERVER['HTTP_HOST'];
-$topbar = file_get_contents(__DIR__.'/topbar.php'); // not used, include directly below
+$host = (isset($_SERVER['HTTPS']) ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'];
+
+$PUBLIC_TITLE = 'XTREAM ui GAME CHANGER — My Account';
+$PUBLIC_SIDEBAR = true;
+require_once __DIR__ . '/gc_public_top.php';
 ?>
-<!doctype html><html><head>
-<meta charset="utf-8"><title>My Account</title>
-<link rel="stylesheet" href="store.css"></head><body>
-<div class="wrap">
-<?php include __DIR__."/topbar.php"; ?>
 
-  <div class="card" style="max-width:720px;margin:0 auto;">
-    <h3>Welcome, <?=e($user['username'])?></h3>
-
-    <?php if($trialEligible): ?>
-      <div class="notice" style="margin-top:10px;">
-        New here? Try us free for 7 days.
-        <div style="margin-top:8px;">
-          <a class="btn" href="trial_start.php">Start 7‑Day Trial</a>
-        </div>
-      </div>
-    <?php endif; ?>
-
-    <?php if($sub): ?>
-      <p class="muted">Plan: <b><?=e($sub['plan_name'])?></b>
-      — Expires: <b><?=e($sub['ends_at'])?></b></p>
-
-      <div style="margin-top:10px;">
-        <div class="badge">Playlist</div>
-        <pre class="linkbox"><?=e($host."/get.php?username=".$user['username']."&password=YOUR_PASSWORD&type=m3u_plus")?></pre>
-      </div>
-      <p class="muted" style="font-size:12px;margin-top:6px;">Replace YOUR_PASSWORD with your actual password.</p>
-
-      <div style="margin-top:10px;">
-        <div class="badge">EPG XMLTV</div>
-        <pre class="linkbox"><?=e($host."/xmltv.php?u=".$user['username']."&p=YOUR_PASSWORD")?></pre>
-      </div>
-      <p class="muted" style="font-size:12px;margin-top:6px;">Replace YOUR_PASSWORD with your actual password.</p>
-
-      <?php if($sub['is_trial']): ?>
-        <div class="notice" style="margin-top:10px;">
-          You’re on a 7‑day trial. Upgrade anytime to keep access.
-          <div style="margin-top:8px;">
-            <a class="btn" href="plans.php">Upgrade Plan</a>
-          </div>
-        </div>
-      <?php endif; ?>
-
-    <?php else: ?>
-      <p>No active subscription found.</p>
-      <a class="btn" href="plans.php">Buy a Plan</a>
-    <?php endif; ?>
+<div class="card hero">
+  <h1>My Account</h1>
+  <p>Welcome, <b><?= e($user['username']) ?></b>. Your playlist + EPG links live here, and the portal is one click away.</p>
+  <div class="big-buttons">
+    <a class="btn primary" href="/portal/">Open Portal</a>
+    <a class="btn" href="/plans.php">Plans</a>
   </div>
+
+<?php
+$avatarUrl = gc_avatar_url((int)$userId);
+$displayName = trim((string)($user['name'] ?? ''));
+if ($displayName === '') $displayName = (string)($user['username'] ?? '');
+$initial = strtoupper(substr($displayName, 0, 1));
+?>
+
+<div class="card" style="max-width:740px;margin-top:18px;">
+  <h3 style="margin:0 0 10px;">Profile Icon</h3>
+  <div style="display:flex;gap:14px;align-items:center;">
+    <div class="avatar big<?= $avatarUrl ? '' : '' ?>">
+      <?php if ($avatarUrl): ?>
+        <img src="<?= e($avatarUrl) ?>" alt="Avatar">
+      <?php else: ?>
+        <?= e($initial) ?>
+      <?php endif; ?>
+    </div>
+    <div class="muted" style="line-height:1.35;">
+      Upload a square image (JPG/PNG/WEBP). If you don’t upload, we’ll show the first letter of your name.
+    </div>
+  </div>
+
+  <form method="post" action="/avatar_upload.php" enctype="multipart/form-data" style="margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+    <?= csrf_input() ?>
+    <input class="input" type="file" name="avatar" accept="image/png,image/jpeg,image/webp" required style="max-width:320px;">
+    <button class="btn primary" type="submit">Upload</button>
+  </form>
+
+  <?php if ($avatarUrl): ?>
+    <form method="post" action="/avatar_remove.php" style="margin-top:10px;">
+      <?= csrf_input() ?>
+      <button class="btn" type="submit">Remove Avatar</button>
+    </form>
+  <?php endif; ?>
 </div>
-</body></html>
+
+</div>
+
+<?php if ($trialEligible): ?>
+  <div class="notice" style="margin-top:18px;">
+    New here? Try us free for 7 days.
+    <div style="margin-top:10px;">
+      <a class="btn primary" href="/trial_start.php">Start 7‑Day Trial</a>
+    </div>
+  </div>
+<?php endif; ?>
+
+<div class="card row" style="margin-top:18px;">
+  <?php if ($sub): ?>
+    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+      <span class="badge good">Active</span>
+      <span class="badge">Plan: <?= e($sub['plan_name']) ?></span>
+      <?php if (!empty($sub['ends_at'])): ?>
+        <span class="badge">Expires: <?= e($sub['ends_at']) ?></span>
+      <?php else: ?>
+        <span class="badge">No expiry date</span>
+      <?php endif; ?>
+      <?php if (!empty($sub['is_trial'])): ?>
+        <span class="badge">Trial</span>
+      <?php endif; ?>
+    </div>
+
+    <div style="margin-top:16px;">
+      <div class="badge">M3U Playlist</div>
+      <pre class="linkbox"><?= e($host . "/get.php?username=" . $user['username'] . "&password=YOUR_PASSWORD&type=m3u_plus") ?></pre>
+      <div class="muted" style="font-size:12px; margin-top:6px;">Replace <b>YOUR_PASSWORD</b> with your actual password.</div>
+    </div>
+
+    <div style="margin-top:16px;">
+      <div class="badge">EPG XMLTV</div>
+      <pre class="linkbox"><?= e($host . "/xmltv.php?u=" . $user['username'] . "&p=YOUR_PASSWORD") ?></pre>
+      <div class="muted" style="font-size:12px; margin-top:6px;">Replace <b>YOUR_PASSWORD</b> with your actual password.</div>
+    </div>
+
+    <?php if (!empty($sub['is_trial'])): ?>
+      <div class="notice" style="margin-top:16px;">
+        You’re on a 7‑day trial. Upgrade anytime to keep access.
+        <div style="margin-top:10px;">
+          <a class="btn primary" href="/plans.php">Upgrade Plan</a>
+        </div>
+      </div>
+    <?php endif; ?>
+
+  <?php else: ?>
+    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+      <span class="badge bad">Inactive</span>
+      <span class="muted">No active subscription found.</span>
+    </div>
+    <div style="margin-top:14px;">
+      <a class="btn primary" href="/plans.php">Buy a Plan</a>
+    </div>
+  <?php endif; ?>
+</div>
+
+<?php require_once __DIR__ . '/gc_public_bottom.php'; ?>

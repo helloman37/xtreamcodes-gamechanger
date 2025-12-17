@@ -1,162 +1,264 @@
+/* Installer UI - uses the Admin login theme (center card + blurred background)
+ * Overrides/extends ../admin/login.css
+ */
 
-:root{
-  --bg0:#05060a;
-  --bg1:#0b0f19;
-  --card:rgba(18,22,35,.78);
-  --card2:rgba(18,22,35,.55);
-  --stroke:rgba(255,255,255,.08);
-  --text:rgba(255,255,255,.92);
-  --muted:rgba(255,255,255,.62);
-  --accent:#7c5cff;
-  --accent2:#22d3ee;
-  --good:#22c55e;
-  --bad:#ef4444;
-  --warn:#f59e0b;
-  --shadow:0 18px 60px rgba(0,0,0,.55);
-  --r:18px;
-  --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+/* Prevent long CLI command from forcing horizontal page scroll */
+.installer-bg{ overflow-x: hidden; }
+.installer-wrap{ max-width: 1040px; }
+
+.installer-brand{ padding: 26px 18px 12px; }
+
+.installer-meta{
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  align-items: center;
+  font-size: 12px;
+  color: #666;
 }
-*{box-sizing:border-box}
-html,body{height:100%}
-body{
-  margin:0;
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
-  color:var(--text);
-  background:
-    radial-gradient(900px 700px at 18% 12%, rgba(124,92,255,.35), transparent 60%),
-    radial-gradient(900px 700px at 86% 68%, rgba(34,211,238,.22), transparent 55%),
-    radial-gradient(1200px 800px at 50% 110%, rgba(16,185,129,.12), transparent 55%),
-    linear-gradient(180deg, var(--bg0), var(--bg1));
-  overflow-x:hidden;
+
+.installer-meta .pill{
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid #e2e7eb;
+  background: #f6f7f9;
+  font-weight: 700;
+  letter-spacing: .3px;
+  color: #111;
 }
-a{color:inherit}
-.wrap{max-width:1100px;margin:0 auto;padding:28px 18px 60px}
-.header{display:flex;align-items:center;gap:14px;margin-bottom:16px}
-.logo{
-  width:46px;height:46px;border-radius:16px;
-  background: radial-gradient(circle at 30% 30%, #9ae6ff 0%, #7c5cff 45%, #0ea5e9 100%);
-  box-shadow: 0 12px 30px rgba(124,92,255,.25);
+
+.installer-meta .muted{ color: #666; }
+.installer-meta code{
+  background: #f6f7f9;
+  border: 1px solid #e2e7eb;
+  border-radius: 3px;
+  padding: 2px 6px;
+  font-size: 12px;
 }
-.h1{font-size:28px;font-weight:780;letter-spacing:.2px}
-.sub{color:var(--muted);margin-top:2px}
-.pill{
-  margin-left:auto;
-  padding:8px 12px;border-radius:999px;
-  background:rgba(255,255,255,.06);
-  border:1px solid var(--stroke);
-  color:var(--muted);
-  font-size:13px;
+
+/* Stepper */
+.stepper{
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 18px;
+  background: linear-gradient(#f7f8f9, #f1f3f5);
+  border-top: 1px solid #e2e7eb;
+  border-bottom: 1px solid #e2e7eb;
 }
-.grid{display:grid;grid-template-columns:minmax(520px, 1.35fr) minmax(0, .85fr);gap:16px;margin-top:14px}
-.grid > *{min-width:0}
-@media (max-width: 980px){ .grid{grid-template-columns:1fr} .pill{margin-left:0}}
-.card{
-  background:linear-gradient(180deg, var(--card), var(--card2));
-  border:1px solid var(--stroke);
-  border-radius:var(--r);
-  box-shadow:var(--shadow);
-}
-.card .pad{padding:18px}
-.card h2{margin:0 0 8px;font-size:18px}
-.card p{margin:0 0 14px;color:var(--muted);line-height:1.45}
-.stepper{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;padding:14px 16px;border-bottom:1px solid var(--stroke)}
+
 .step{
-  display:flex;align-items:center;gap:10px;
-  padding:10px 12px;border-radius:14px;
-  background:rgba(255,255,255,.04);
-  border:1px solid var(--stroke);
-  color:var(--muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 999px;
+  border: 1px solid #e2e7eb;
+  background: #ffffff;
+  color: #111;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: .4px;
+  text-transform: uppercase;
 }
+
 .step .n{
-  width:26px;height:26px;border-radius:9px;
-  display:grid;place-items:center;
-  border:1px solid var(--stroke);
-  font-weight:800;font-size:13px;
-  color:var(--muted);
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: #f6f7f9;
+  border: 1px solid #e2e7eb;
+  font-weight: 800;
+  font-size: 12px;
 }
-.step.active{color:var(--text);border-color:rgba(124,92,255,.35);background:rgba(124,92,255,.12)}
-.step.active .n{color:var(--text);border-color:rgba(124,92,255,.55);background:rgba(124,92,255,.16)}
-.step.done{color:rgba(255,255,255,.85);border-color:rgba(34,197,94,.38);background:rgba(34,197,94,.08)}
-.step.done .n{border-color:rgba(34,197,94,.55);color:rgba(255,255,255,.9);background:rgba(34,197,94,.12)}
-.form{padding:16px}
-.row{display:grid;grid-template-columns: 1fr 1fr;gap:12px}
-@media (max-width: 720px){ .row{grid-template-columns:1fr} }
-.field{display:flex;flex-direction:column;gap:7px;margin-bottom:12px}
-label{font-size:13px;color:var(--muted)}
-input,select,textarea{
-  width:100%;
-  background:rgba(10,12,18,.65);
-  border:1px solid rgba(255,255,255,.1);
-  border-radius:14px;
-  padding:12px 12px;
-  color:var(--text);
-  outline:none;
+
+.step.done{ opacity: .78; }
+.step.todo{ opacity: .55; }
+.step.active{
+  border-color: rgba(227,90,42,.55);
+  box-shadow: 0 0 0 3px rgba(227,90,42,.12);
 }
-textarea{min-height:130px;font-family:var(--mono);font-size:12.5px;line-height:1.35}
-input::placeholder,textarea::placeholder{color:rgba(255,255,255,.35)}
-input:focus,select:focus,textarea:focus{border-color:rgba(124,92,255,.55);box-shadow:0 0 0 4px rgba(124,92,255,.14)}
-.help{font-size:12px;color:rgba(255,255,255,.45)}
-.actions{display:flex;gap:10px;justify-content:flex-end;margin-top:10px}
-.btn{
-  cursor:pointer;
-  padding:11px 14px;
-  border-radius:14px;
-  border:1px solid var(--stroke);
-  background:rgba(255,255,255,.06);
-  color:var(--text);
-  font-weight:700;
+
+/* Main layout */
+.grid{
+  display: grid;
+  grid-template-columns: 360px minmax(0, 1fr);
+  gap: 14px;
+  padding: 18px;
 }
-.btn.primary{
-  background:linear-gradient(135deg, rgba(124,92,255,.95), rgba(34,211,238,.55));
-  border-color:rgba(124,92,255,.55);
+
+@media (max-width: 920px){
+  .grid{ grid-template-columns: 1fr; }
 }
-.btn.danger{background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.35)}
-.btn:disabled{opacity:.55;cursor:not-allowed}
+
+.card{
+  background: #fff;
+  border: 1px solid #e5e9f2;
+  border-radius: 3px;
+  box-shadow: 0 10px 26px rgba(15,23,42,.08);
+  overflow: hidden;
+}
+
+.pad{ padding: 18px; }
+
+.installer-card h2{ margin: 0 0 6px; font-size: 20px; }
+.installer-card p{ margin: 0 0 12px; color: #555; }
+.small{ font-size: 12px; color: #666; }
+
+.hr{ height: 1px; background: #e2e7eb; margin: 16px 0; }
+
+.kv{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 18px;
+  border-top: 1px solid #eef1f4;
+}
+
+.k{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 13px;
+  color: #334155;
+}
+
+.v{
+  font-size: 13px;
+  color: #0f172a;
+  text-align: right;
+  word-break: break-word;
+}
+
+.dot{
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: #cbd5e1;
+  display: inline-block;
+}
+
+.dot.good{
+  background: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34,197,94,.14);
+}
+
+.dot.bad{
+  background: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239,68,68,.14);
+}
+
+/* Notices */
 .notice{
-  margin:14px 16px 0;
-  padding:12px 14px;border-radius:16px;
-  border:1px solid var(--stroke);
-  background:rgba(255,255,255,.05);
-  color:var(--muted);
+  margin: 16px 18px 0;
+  padding: 12px 14px;
+  border-radius: 3px;
+  border: 1px solid #d9dee3;
+  background: #f6f7f9;
+  color: #333;
 }
-.notice.good{border-color:rgba(34,197,94,.35);background:rgba(34,197,94,.09);color:rgba(255,255,255,.88)}
-.notice.bad{border-color:rgba(239,68,68,.35);background:rgba(239,68,68,.10);color:rgba(255,255,255,.88)}
-.notice.warn{border-color:rgba(245,158,11,.35);background:rgba(245,158,11,.10);color:rgba(255,255,255,.88)}
-.kv{display:grid;grid-template-columns: 1fr auto;gap:8px;padding:12px 14px;border-top:1px solid var(--stroke)}
-.kv:first-child{border-top:0}
-.kv .k{color:var(--muted);font-size:13px}
-.kv .v{font-size:13px}
-.dot{width:10px;height:10px;border-radius:999px;display:inline-block;margin-right:8px;vertical-align:middle;background:rgba(255,255,255,.2)}
-.dot.good{background:var(--good)}
-.dot.bad{background:var(--bad)}
-.dot.warn{background:var(--warn)}
-code{
-  font-family:var(--mono);
-  font-size:12.5px;
-  background:rgba(255,255,255,.06);
-  border:1px solid var(--stroke);
-  padding:2px 6px;border-radius:10px;
+
+.notice.bad{ border-color: rgba(239,68,68,.35); background: rgba(239,68,68,.08); }
+.notice.good{ border-color: rgba(34,197,94,.35); background: rgba(34,197,94,.08); }
+.notice.warn{ border-color: rgba(245,158,11,.35); background: rgba(245,158,11,.08); }
+
+/* Forms + inputs */
+.installer-card .form{ padding: 0; }
+
+.row{
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
 }
+
+@media (max-width: 760px){
+  .row{ grid-template-columns: 1fr; }
+}
+
+.field{ margin-top: 10px; }
+
+.help{
+  margin-top: 6px;
+  font-size: 12px;
+  color: #666;
+}
+
+/* Extend login.css input style to selects, numbers, textarea */
+select,
+textarea,
+input[type="email"],
+input[type="number"]{
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid #d9dee3;
+  border-radius: 3px;
+  font-size: 13px;
+  outline: none;
+  box-sizing: border-box;
+  background: #fff;
+}
+
+select:focus,
+textarea:focus,
+input[type="email"]:focus,
+input[type="number"]:focus{
+  border-color: #aab4bf;
+  box-shadow: 0 0 0 3px rgba(160, 175, 190, 0.18);
+}
+
+textarea{ min-height: 170px; resize: vertical; }
+
+/* Buttons: don't force full-width inside the installer */
+.installer-card .btn{
+  width: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 0;
+  text-decoration: none;
+}
+
+.btn.secondary{
+  background: #3b434b;
+  border-color: #2f363d;
+}
+
+.btn.danger{
+  background: #b91c1c;
+  border-color: #991b1b;
+}
+
+/* Action row */
+.actions{
+  margin-top: 14px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Logs / CLI */
 pre.log{
-  max-width:100%;
-  min-width:0;
-  margin:0;
-  padding:12px 12px;
-  background:rgba(0,0,0,.35);
-  border:1px solid rgba(255,255,255,.08);
-  border-radius:14px;
-  overflow:auto;
-  max-height:260px;
-  font-family:var(--mono);
-  font-size:12px;
-  line-height:1.35;
-  color:rgba(255,255,255,.78);
+  margin: 10px 0 0;
+  padding: 12px;
+  border: 1px solid #d9dee3;
+  background: #f6f7f9;
+  border-radius: 3px;
+  font-size: 12px;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-width: 100%;
 }
-.small{font-size:12px;color:var(--muted)}
-.hr{height:1px;background:var(--stroke);margin:14px 0}
 
-
-/* keep long CLI command from breaking layout */
-#cli{white-space:pre;overflow-x:auto;}
-
-.card{min-width:0}

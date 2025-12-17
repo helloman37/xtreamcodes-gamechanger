@@ -65,48 +65,63 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
   exit;
 }
 ?>
-<!doctype html><html><head>
-<meta charset="utf-8"><title>Checkout</title>
-<link rel="stylesheet" href="store.css"></head><body>
-<div class="wrap">
-  <?php include __DIR__."/topbar.php"; ?>
-<div class="card" style="max-width:560px;margin:0 auto;">
-    <h3>Checkout — <?=e($plan['name'])?></h3>
-    <p class="muted">
-      <?php if($loggedInUser): ?>
-        You’re logged in as <b><?=e($loggedInUser['username'])?></b>. Just choose payment and continue.
-      <?php else: ?>
-        Create your account, then pay. PayPal = instant activation. CashApp = offline QR.
-      <?php endif; ?>
-    </p>
+<?php
+$PUBLIC_TITLE = 'XTREAM ui GAME CHANGER — Checkout';
+$PUBLIC_SIDEBAR = false;
+require_once __DIR__ . '/gc_public_top.php';
+?>
 
-    <form method="post">
-      <?php if(!$loggedInUser): ?>
+<div class="card hero">
+  <h1>Checkout</h1>
+  <p class="muted">Plan: <b><?= e($plan['name']) ?></b> — $<?= number_format((float)$plan['price'], 2) ?></p>
+</div>
+
+<form method="post" style="margin:0;">
+  <div class="grid" style="grid-template-columns: 1fr 1fr; gap:18px;">
+
+    <div class="card">
+      <h3 style="margin:0 0 10px;">Account</h3>
+
+      <?php if ($loggedInUser): ?>
+        <div class="notice">You’re logged in as <b><?= e($loggedInUser['username']) ?></b>.</div>
+        <div class="muted" style="margin-top:12px;">Choose payment to continue.</div>
+      <?php else: ?>
+        <div class="muted" style="margin-bottom:10px;">Create your account during checkout:</div>
+
         <label>Email</label>
-        <input class="input" name="email" type="email" required>
+        <input class="input" name="email" value="<?= e($_POST['email'] ?? '') ?>" required>
 
         <label style="margin-top:10px;">Username</label>
-        <input class="input" name="username" required>
+        <input class="input" name="username" value="<?= e($_POST['username'] ?? '') ?>" required>
 
         <label style="margin-top:10px;">Password</label>
-        <input class="input" name="password" type="password" required>
+        <input class="input" type="password" name="password" required>
+
+        <label style="margin-top:10px;display:flex;gap:8px;align-items:center;">
+          <input type="checkbox" name="allow_adult" value="1" <?= !empty($_POST['allow_adult']) ? 'checked' : '' ?>>
+          Allow adult content on this account (optional)
+        </label>
+
+        <div class="muted" style="margin-top:12px;">
+          Prefer to register first? <a href="/register.php">Register</a> or <a href="/login.php">Login</a>.
+        </div>
       <?php endif; ?>
+    </div>
 
-      
-      <label style="margin-top:10px; display:block;">
-        <input type="checkbox" name="allow_adult" value="1">
-        Enable adult content (18+)
-      </label>
-<label style="margin-top:14px;">Payment Method</label>
-      <select class="input" name="provider" id="provider">
-        <option value="paypal">PayPal (instant)</option>
-        <option value="cashapp">CashApp (offline QR)</option>
-      </select>
+    <div class="card">
+      <h3 style="margin:0 0 10px;">Choose Payment</h3>
 
-      <div style="margin-top:14px;">
-        <button class="btn green" type="submit">Continue — $<?=e($plan['price'])?></button>
+      <div class="grid" style="grid-template-columns: 1fr; gap:10px;">
+        <button class="btn primary" type="submit" name="provider" value="paypal" style="width:100%;">Pay with PayPal</button>
+        <button class="btn" type="submit" name="provider" value="cashapp" style="width:100%;">Pay with CashApp</button>
       </div>
-    </form>
+
+      <div class="muted" style="margin-top:12px;font-size:12px;line-height:1.35;">
+        CashApp payments require manual verification. PayPal activates automatically.
+      </div>
+    </div>
+
   </div>
-</div>
-</body></html>
+</form>
+
+<?php require_once __DIR__ . '/gc_public_bottom.php'; ?>

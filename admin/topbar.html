@@ -1,191 +1,243 @@
-<div class="app">
-  <aside class="sidebar">
-    <div class="sidebar-brand">
-      <div class="logo"></div>
-      IPTV PLATFORM
-    </div>
+<div class="app admin-app">
+  <main class="main admin-main">
 
-    <div class="sidebar-user">
-      <div class="avatar">A</div>
-      <div class="role">ADMIN</div>
-    </div>
+    <!-- XTREAM-style header (menu moved to top, like the mockup) -->
+    <header class="xt-head" role="banner">
+      <!-- Top gradient bar -->
+      <div class="xt-head-top">
+        <div class="xt-head-top-inner">
+          <div class="xt-logo" aria-label="XTREAM ui GAME CHANGER">
+            <span class="xt-x">X</span><span class="xt-word">TREAM</span><span class="xt-ui">ui</span>
+            <span class="xt-sub">GAME CHANGER</span>
+          </div>
 
-    <nav class="side-nav" id="sideNav">
-      <details class="nav-group" data-group="overview" open>
-        <summary class="nav-group-summary"><span class="icon">🧭</span><span>Overview</span><span class="chev">▸</span></summary>
-        <div class="nav-sub">
-          <a class="nav-item" href="dashboard.php"><span class="icon">🏠</span><span>Dashboard</span></a>
-        </div>
-      </details>
+          <div class="xt-head-actions">
+            <a class="xt-pill credits" href="billing_reports.php" title="Billing / Reports">
+              <span class="dot-green"></span>
+              Credits
+            </a>
 
-      <details class="nav-group" data-group="content">
-        <summary class="nav-group-summary"><span class="icon">📺</span><span>Content</span><span class="chev">▸</span></summary>
-        <div class="nav-sub">
-          <a class="nav-item" href="channels_manager.php"><span class="icon">📺</span><span>Contents</span></a>
-          <a class="nav-item" href="category_manager.php"><span class="icon">🗂️</span><span>Categories</span></a>
-          <a class="nav-item" href="vod_manager.php"><span class="icon">🎬</span><span>VOD</span></a>
-          <a class="nav-item" href="series_manager.php"><span class="icon">📺</span><span>Series</span></a>
-          <a class="nav-item" href="upload_m3u.php"><span class="icon">⬆️</span><span>Import M3U</span></a>
-          <a class="nav-item" href="m3u_editor.php"><span class="icon">🛠️</span><span>M3U Editor</span></a>
-          <a class="nav-item" href="checker.php"><span class="icon">✅</span><span>Checker</span></a>
-        </div>
-      </details>
+            <div class="xt-userlabel" title="Signed in user">{{USERNAME}}</div>
 
-      <details class="nav-group" data-group="epg">
-        <summary class="nav-group-summary"><span class="icon">🗓️</span><span>EPG</span><span class="chev">▸</span></summary>
-        <div class="nav-sub">
-          <a class="nav-item" href="epg_manager.php"><span class="icon">🗓️</span><span>Sources</span></a>
-          <a class="nav-item" href="epg_upload.php"><span class="icon">⬆️</span><span>Upload XMLTV</span></a>
-          <a class="nav-item" href="epg_import.php"><span class="icon">⏬</span><span>Import / Run</span></a>
-          <a class="nav-item" href="epg_extract.php"><span class="icon">🧩</span><span>Extract / Filter</span></a>
-          <a class="nav-item" href="epg_sync.php"><span class="icon">🔁</span><span>Synchronizer</span></a>
-        </div>
-      </details>
+            <!-- Settings opens Change Password modal -->
+            <button class="xt-iconbtn" id="xtGear" type="button" aria-haspopup="dialog" aria-expanded="false" title="Settings">⚙️</button>
+            <a class="xt-iconbtn" href="signout.php" title="Logout" aria-label="Logout">⏻</a>
 
-      <details class="nav-group" data-group="users">
-        <summary class="nav-group-summary"><span class="icon">👥</span><span>Users</span><span class="chev">▸</span></summary>
-        <div class="nav-sub">
-          <a class="nav-item" href="user_accounts.php"><span class="icon">👥</span><span>Clients</span></a>
-          <a class="nav-item" href="packages.php"><span class="icon">📦</span><span>Packages</span></a>
-          <a class="nav-item" href="resellers.php"><span class="icon">🧑‍💼</span><span>Resellers</span></a>
-        </div>
-      </details>
-
-      <details class="nav-group" data-group="billing">
-        <summary class="nav-group-summary"><span class="icon">💳</span><span>Billing</span><span class="chev">▸</span></summary>
-        <div class="nav-sub">
-          <a class="nav-item" href="plans_subs.php"><span class="icon">💳</span><span>Plans / Subs</span></a>
-          <a class="nav-item" href="billing_reports.php"><span class="icon">📈</span><span>Reports</span></a>
-        </div>
-      </details>
-
-      <details class="nav-group" data-group="system">
-        <summary class="nav-group-summary"><span class="icon">⚙️</span><span>System</span><span class="chev">▸</span></summary>
-        <div class="nav-sub">
-          <a class="nav-item" href="sessions.php"><span class="icon">📡</span><span>Sessions</span></a>
-          <a class="nav-item" href="stream_probe.php"><span class="icon">🧪</span><span>Stream Probe</span></a>
-          <a class="nav-item" href="health.php"><span class="icon">❤️</span><span>Health</span></a>
-          <a class="nav-item" href="backup_restore.php"><span class="icon">💾</span><span>Backup &amp; Restore</span></a>
-          <a class="nav-item" href="maintenance.php"><span class="icon">🚧</span><span>Maintenance</span></a>
-          <a class="nav-item" href="audit_logs.php"><span class="icon">🧾</span><span>Audit Logs</span></a>
-          <a class="nav-item" href="telemetry.php"><span class="icon">📈</span><span>Telemetry</span></a>
-          <a class="nav-item" href="abuse_bans.php"><span class="icon">⛔</span><span>Abuse Bans</span></a>
-          <a class="nav-item" href="bulk_delete.php"><span class="icon">🧨</span><span>Bulk Delete</span></a>
-          <a class="nav-item" href="fail_videos.php"><span class="icon">🎞️</span><span>Fail Videos</span></a>
-          <a class="nav-item" href="signout.php"><span class="icon">🚪</span><span>Logout</span></a>
-        </div>
-      </details>
-    </nav>
-
-    <script>
-      (function(){
-        // highlight active item + open its group
-        var path = (window.location.pathname || '').split('/').pop() || '';
-        var nav = document.getElementById('sideNav');
-        if(!nav) return;
-        var links = nav.querySelectorAll('a.nav-item[href]');
-        var active = null;
-        links.forEach(function(a){
-          var href = (a.getAttribute('href') || '').split('/').pop();
-          if(href && href === path){
-            active = a;
-          }
-        });
-        if(active){
-          active.classList.add('active');
-          var grp = active.closest('details.nav-group');
-          if(grp) grp.open = true;
-        }
-      })();
-    </script>
-  
-    <script>
-      // Sidebar accordion: keep only one group open at a time
-      (function iptvAccordion(){
-        var nav = document.getElementById('sideNav');
-        if(!nav) return;
-        var groups = Array.prototype.slice.call(nav.querySelectorAll('details.nav-group'));
-        function closeOthers(openEl){
-          groups.forEach(function(g){
-            if(g !== openEl) g.removeAttribute('open');
-          });
-        }
-        groups.forEach(function(g){
-          g.addEventListener('toggle', function(){
-            if(g.open) closeOthers(g);
-          });
-          // Fallback for browsers that don't fire toggle reliably
-          var s = g.querySelector('summary');
-          if(s){
-            s.addEventListener('click', function(){
-              // allow native toggle first; then close others on next tick
-              setTimeout(function(){ if(g.open) closeOthers(g); }, 0);
-            });
-          }
-        });
-      })();
-    </script>
-
-  </aside>
-
-  <main class="main">
-    <header class="header">
-      <div class="header-left">
-        <span class="header-title">IPTV PLATFORM</span>
-      </div>
-      <div class="header-right">
-        <a class="credits" href="#"><span class="dot-green"></span>Credits</a>
-        <div class="user-menu-wrap" data-role="admin">
-          <div class="user-menu" role="button" tabindex="0" aria-haspopup="true" aria-expanded="false">ADMIN ▾</div>
-          <div class="user-dropdown" aria-label="User menu">
-            <div class="ud-title">Change password</div>
-            <form method="post" action="change_password.php" autocomplete="off">
-              <input type="hidden" name="role" value="admin">
-              <label class="ud-label">Current</label>
-              <input class="ud-input" type="password" name="current_password" autocomplete="current-password" required>
-              <label class="ud-label">New</label>
-              <input class="ud-input" type="password" name="new_password" autocomplete="new-password" required>
-              <label class="ud-label">Confirm</label>
-              <input class="ud-input" type="password" name="confirm_password" autocomplete="new-password" required>
-              <button class="ud-btn" type="submit" name="change_password" value="1">Update</button>
-            </form>
+            <!-- (Optional) dropdown container kept for future settings; hidden unless .open -->
+            <div class="xt-dropdown" id="xtDrop" aria-label="Settings menu" style="display:none"></div>
           </div>
         </div>
       </div>
+
+      <!-- Menu bar -->
+      <nav class="xt-nav" role="navigation" aria-label="Admin menu">
+        <div class="xt-nav-inner">
+          <a class="xt-nav-link" href="dashboard.php" data-active="dashboard.php">Dashboard</a>
+
+          <div class="xt-nav-dd">
+            <button class="xt-nav-link xt-nav-btn" type="button" aria-haspopup="true" aria-expanded="false">
+              Content <span class="xt-caret">▾</span>
+            </button>
+            <div class="xt-nav-menu" role="menu">
+              <a href="channels_manager.php" data-active="channels_manager.php">Contents</a>
+              <a href="category_manager.php" data-active="category_manager.php">Categories</a>
+              <a href="vod_manager.php" data-active="vod_manager.php">VOD</a>
+              <a href="series_manager.php" data-active="series_manager.php">Series</a>
+              <div class="xt-dd-sep"></div>
+              <a href="upload_m3u.php" data-active="upload_m3u.php">Import M3U</a>
+              <a href="m3u_editor.php" data-active="m3u_editor.php">M3U Editor</a>
+              <a href="checker.php" data-active="checker.php">Checker</a>
+            </div>
+          </div>
+
+          <div class="xt-nav-dd">
+            <button class="xt-nav-link xt-nav-btn" type="button" aria-haspopup="true" aria-expanded="false">
+              EPG <span class="xt-caret">▾</span>
+            </button>
+            <div class="xt-nav-menu" role="menu">
+              <a href="epg_manager.php" data-active="epg_manager.php">Sources</a>
+              <a href="epg_upload.php" data-active="epg_upload.php">Upload XMLTV</a>
+              <a href="epg_import.php" data-active="epg_import.php">Import / Run</a>
+              <a href="epg_extract.php" data-active="epg_extract.php">Extract / Filter</a>
+              <a href="epg_sync.php" data-active="epg_sync.php">Synchronizer</a>
+            </div>
+          </div>
+
+          <div class="xt-nav-dd">
+            <button class="xt-nav-link xt-nav-btn" type="button" aria-haspopup="true" aria-expanded="false">
+              Users <span class="xt-caret">▾</span>
+            </button>
+            <div class="xt-nav-menu" role="menu">
+              <a href="user_accounts.php" data-active="user_accounts.php">Clients</a>
+              <a href="packages.php" data-active="packages.php">Packages</a>
+              <a href="resellers.php" data-active="resellers.php">Resellers</a>
+              <a href="sessions.php" data-active="sessions.php">Sessions</a>
+            </div>
+          </div>
+
+          <div class="xt-nav-dd">
+            <button class="xt-nav-link xt-nav-btn" type="button" aria-haspopup="true" aria-expanded="false">
+              Billing <span class="xt-caret">▾</span>
+            </button>
+            <div class="xt-nav-menu" role="menu">
+              <a href="plans_subs.php" data-active="plans_subs.php">Plans / Subs</a>
+              <a href="billing_reports.php" data-active="billing_reports.php">Reports</a>
+            </div>
+          </div>
+
+          <div class="xt-nav-dd">
+            <button class="xt-nav-link xt-nav-btn" type="button" aria-haspopup="true" aria-expanded="false">
+              System <span class="xt-caret">▾</span>
+            </button>
+            <div class="xt-nav-menu" role="menu">
+              <a href="stream_probe.php" data-active="stream_probe.php">Stream Probe</a>
+              <a href="health.php" data-active="health.php">Health</a>
+              <a href="backup_restore.php" data-active="backup_restore.php">Backup &amp; Restore</a>
+              <a href="maintenance.php" data-active="maintenance.php">Maintenance</a>
+              <a href="audit_logs.php" data-active="audit_logs.php">Audit Logs</a>
+              <a href="telemetry.php" data-active="telemetry.php">Telemetry</a>
+              <a href="abuse_bans.php" data-active="abuse_bans.php">Abuse Bans</a>
+              <a href="bulk_delete.php" data-active="bulk_delete.php">Bulk Delete</a>
+              <a href="fail_videos.php" data-active="fail_videos.php">Fail Videos</a>
+              <div class="xt-dd-sep"></div>
+              <a href="signout.php">Logout</a>
+            </div>
+          </div>
+
+          <div class="xt-nav-spacer"></div>
+        </div>
+      </nav>
     </header>
 
-    <div class="container">
+    <!-- Change Password Modal (MUST be outside any dropdown so it can display) -->
+    <div class="xt-modal-overlay" id="xtPassOverlay" aria-hidden="true">
+      <div class="xt-modal" role="dialog" aria-modal="true" aria-label="Change password">
+        <div class="xt-modal-head">
+          <div class="xt-modal-title">Change password</div>
+          <button class="xt-modal-close" type="button" id="xtPassClose" aria-label="Close">✕</button>
+        </div>
+        <form class="xt-modal-body" id="xtPassForm" autocomplete="off">
+          <input type="hidden" name="change_password" value="1">
+
+          <label class="xt-modal-label">Current password</label>
+          <input class="xt-modal-input" type="password" name="current_password" autocomplete="current-password" required>
+
+          <label class="xt-modal-label">New password</label>
+          <input class="xt-modal-input" type="password" name="new_password" autocomplete="new-password" minlength="8" required>
+
+          <label class="xt-modal-label">Confirm new password</label>
+          <input class="xt-modal-input" type="password" name="confirm_password" autocomplete="new-password" minlength="8" required>
+
+          <div class="xt-modal-msg" id="xtPassMsg" aria-live="polite"></div>
+          <div class="xt-modal-actions">
+            <button class="xt-btn xt-btn-primary" type="submit">Update</button>
+            <button class="xt-btn" type="button" id="xtPassCancel">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
 
     <script>
-      // Top-right user menu: click ADMIN to open "change password" dropdown
       (function(){
-        var wrap = document.querySelector('.user-menu-wrap');
-        if(!wrap) return;
-        var btn = wrap.querySelector('.user-menu');
-        var dd  = wrap.querySelector('.user-dropdown');
-        if(!btn || !dd) return;
-
-        function close(){ dd.classList.remove('open'); btn.setAttribute('aria-expanded','false'); }
-        function toggle(){
-          var open = dd.classList.toggle('open');
-          btn.setAttribute('aria-expanded', open ? 'true' : 'false');
-          if(open){
-            var first = dd.querySelector('input');
-            if(first) setTimeout(function(){ first.focus(); }, 0);
-          }
+        function closeNav(){
+          document.querySelectorAll('.xt-nav-dd.open').forEach(function(dd){ dd.classList.remove('open'); });
+          document.querySelectorAll('.xt-nav-dd .xt-nav-btn[aria-expanded="true"]').forEach(function(btn){ btn.setAttribute('aria-expanded','false'); });
         }
 
-        btn.addEventListener('click', function(e){ e.preventDefault(); e.stopPropagation(); toggle(); });
-        btn.addEventListener('keydown', function(e){
-          if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); toggle(); }
-          if(e.key === 'Escape'){ close(); }
+        // nav dropdowns
+        document.addEventListener('click', function(e){
+          var el = (e.target && e.target.nodeType === 1) ? e.target : (e.target && e.target.parentElement ? e.target.parentElement : null);
+          if(!el){ return; }
+          var dd = el.closest('.xt-nav-dd');
+          var btn = el.closest('.xt-nav-btn');
+          if(btn && dd){
+            e.preventDefault();
+            var isOpen = dd.classList.contains('open');
+            closeNav();
+            if(!isOpen){
+              dd.classList.add('open');
+              btn.setAttribute('aria-expanded','true');
+            }
+            return;
+          }
+          closeNav();
+        });
+        document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeNav(); });
+
+        // active state by filename
+        var path = (window.location.pathname || '').split('/').pop() || '';
+        var links = document.querySelectorAll('.xt-nav [data-active]');
+        links.forEach(function(a){
+          var want = a.getAttribute('data-active');
+          if(want === path){
+            a.classList.add('active');
+            var wrap = a.closest('.xt-nav-dd');
+            if(wrap){
+              var b = wrap.querySelector('button');
+              if(b) b.classList.add('active');
+            }
+          }
         });
 
-        document.addEventListener('click', function(e){
-          if(!wrap.contains(e.target)) close();
-        });
-        document.addEventListener('keydown', function(e){
-          if(e.key === 'Escape') close();
-        });
+        // password modal
+        var gear = document.getElementById('xtGear');
+        var passOverlay = document.getElementById('xtPassOverlay');
+        var passClose = document.getElementById('xtPassClose');
+        var passCancel = document.getElementById('xtPassCancel');
+        var passForm = document.getElementById('xtPassForm');
+        var passMsg = document.getElementById('xtPassMsg');
+
+        function openPass(){
+          if(!passOverlay) return;
+          passOverlay.classList.add('open');
+          passOverlay.setAttribute('aria-hidden','false');
+          if(passMsg) { passMsg.textContent=''; passMsg.classList.remove('ok','err'); }
+          if(passForm) { passForm.reset(); }
+          // focus first input
+          var first = passForm ? passForm.querySelector('input[name="current_password"]') : null;
+          if(first) setTimeout(function(){ first.focus(); }, 0);
+        }
+        function closePass(){
+          if(!passOverlay) return;
+          passOverlay.classList.remove('open');
+          passOverlay.setAttribute('aria-hidden','true');
+        }
+
+        if(gear){
+          gear.addEventListener('click', function(ev){
+            ev.preventDefault();
+            closeNav();
+            openPass();
+          });
+        }
+        if(passClose){ passClose.addEventListener('click', function(){ closePass(); }); }
+        if(passCancel){ passCancel.addEventListener('click', function(){ closePass(); }); }
+        if(passOverlay){
+          passOverlay.addEventListener('click', function(ev){ if(ev.target === passOverlay){ closePass(); } });
+        }
+        document.addEventListener('keydown', function(ev){ if(ev.key === 'Escape') closePass(); });
+
+        if(passForm){
+          passForm.addEventListener('submit', function(ev){
+            ev.preventDefault();
+            if(passMsg){ passMsg.textContent=''; passMsg.classList.remove('ok','err'); }
+            var fd = new FormData(passForm);
+            fd.append('ajax','1');
+            fd.set('change_password','1');
+            fetch('change_password.php', { method:'POST', body: fd, credentials:'same-origin' })
+              .then(function(r){ return r.json(); })
+              .then(function(data){
+                if(data && data.ok){
+                  if(passMsg){ passMsg.textContent = data.message || 'Password updated.'; passMsg.classList.add('ok'); }
+                  setTimeout(function(){ closePass(); }, 700);
+                } else {
+                  if(passMsg){ passMsg.textContent = (data && (data.error||data.message)) ? (data.error||data.message) : 'Password update failed.'; passMsg.classList.add('err'); }
+                }
+              })
+              .catch(function(){
+                if(passMsg){ passMsg.textContent='Request failed.'; passMsg.classList.add('err'); }
+              });
+          });
+        }
       })();
     </script>

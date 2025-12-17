@@ -1,29 +1,33 @@
-<?php require_once __DIR__ . '/helpers.php'; ?>
-<!doctype html>
-<html><head>
-  <meta charset="utf-8">
-  <title>IPTV PLATFORM Store</title>
-  <link rel="stylesheet" href="store.css">
-</head><body>
-<div class="wrap">
-  <?php include __DIR__."/topbar.php"; ?>
-<div class="hero">
-    <div>
-      <h1>IPTV PLATFORM — Instant Activation</h1>
-      <p>Pick a plan, pay, and your line opens automatically. No waiting. Your playlist and login show up instantly in your account dashboard.</p>
-      <div style="display:flex;gap:10px;max-width:420px;"><a class="btn green" href="plans.php">View Plans</a><a class="btn gray" href="trial_start.php">Start 7‑Day Trial</a></div>
-    </div>
-    <div class="box">
-      <div class="badge">What you get</div>
-      <ul>
-        <li>Fast activation after payment</li>
-        <li>M3U + XMLTV included</li>
-        <li>Works on any IPTV app</li>
-        <li>Renew anytime</li>
-      </ul>
-    </div>
+<?php
+$PUBLIC_TITLE = 'XTREAM ui GAME CHANGER — Store';
+$PUBLIC_SIDEBAR = false;
+require_once __DIR__ . '/gc_public_top.php';
+?>
+
+<div class="card hero">
+  <h1>Instant Activation</h1>
+  <p>Pick a plan, pay, and your line opens automatically. Your playlist and login show up instantly in your account dashboard.</p>
+  <div class="big-buttons">
+    <a class="btn primary" href="/plans.php">View Plans</a>
+    <a class="btn ghost" href="/trial_start.php">Start 7‑Day Trial</a>
+    <?php if (!empty($_SESSION['store_user'])): ?>
+      <a class="btn" href="/portal/">Open Portal</a>
+    <?php else: ?>
+      <a class="btn" href="/login.php">Customer Login</a>
+    <?php endif; ?>
   </div>
 
-  <?php include __DIR__.'/plans_grid.php'; ?>
+  <div class="hero-sub">
+    <span class="chip">⚡ Fast activation</span>
+    <span class="chip">📺 Works on any IPTV app</span>
+    <span class="chip">🧾 M3U + XMLTV</span>
+    <span class="chip">🔁 Renew anytime</span>
+  </div>
 </div>
-</body></html>
+
+<div class="card row" style="margin-top:18px;">
+  <h2>Plans</h2>
+  <?php include __DIR__ . '/plans_grid.php'; ?>
+</div>
+
+<?php require_once __DIR__ . '/gc_public_bottom.php'; ?>

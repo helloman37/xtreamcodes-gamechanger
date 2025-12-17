@@ -183,23 +183,35 @@ $baseUrl = (string)($_SESSION['base_url'] ?? '');
 ?><!doctype html>
 <html lang="en">
 <head>
+  <link rel="icon" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>IPTV Panel Installer</title>
-  <link rel="stylesheet" href="assets/app.css?v=6" />
+  <!-- Match the Admin login theme (blurred background + centered card) -->
+  <link rel="stylesheet" href="../admin/login.css?v=1" />
+  <link rel="stylesheet" href="assets/app.css?v=9" />
 </head>
 <body>
-  <div class="wrap">
-    <div class="header">
-      <div class="logo" aria-hidden="true"></div>
-      <div>
-        <div class="h1">IPTV Panel Installer</div>
-        <div class="sub">No code editing. ~60 seconds. Writes <code>config.php</code>.</div>
-      </div>
-      <div class="pill"><?= $installed ? 'Installed' : 'Not installed' ?></div>
-    </div>
+  <div class="login-bg installer-bg">
+    <div class="login-wrap installer-wrap">
+      <div class="login-card installer-card">
+        <div class="brand installer-brand">
+          <div class="xtream-logo" aria-label="XTREAM ui GAME CHANGER Installer">
+            <span class="x">X</span><span class="tream">TREAM</span><span class="ui">ui</span>
+          </div>
+          <div class="gc">GAME CHANGER</div>
+          <div class="installer-meta">
+            <span class="pill"><?= $installed ? '✓ Installed' : 'Installer' ?></span>
+            <span class="muted">No code editing. ~60 seconds. Writes <code>config.php</code>.</span>
+          </div>
+        </div>
 
-    <div class="card">
+        <div class="subhead">INSTALLER</div>
+
       <div class="stepper">
         <div class="step <?= step_state(0) ?>"><div class="n">1</div>Pre-flight</div>
         <div class="step <?= step_state(1) ?>"><div class="n">2</div>Connection</div>
@@ -263,7 +275,7 @@ $baseUrl = (string)($_SESSION['base_url'] ?? '');
                 <div class="field">
                   <label>Base URL (no trailing slash)</label>
                   <input name="base_url" placeholder="https://yourdomain.com" value="<?= h($_SESSION['base_url'] ?? '') ?>">
-                  <div class="help">Example: <code>https://test.iptvnetworking.com</code></div>
+                  <div class="help">Example: <code>https://example.com</code></div>
                 </div>
 
                 <div class="hr"></div>
@@ -423,22 +435,14 @@ $baseUrl = (string)($_SESSION['base_url'] ?? '');
               <div class="v"><?= h((string)$c['value']) ?></div>
             </div>
           <?php endforeach; ?>
-
-          <div class="pad">
-            <div class="hr"></div>
-            <h2>CLI installer</h2>
-            <p class="small">Terminal option (writes <code>config.php</code> too):</p>
-            <pre class="log" id="cli">php scripts/install_cli.php --db_host=localhost --db_name=iptv --db_user=user --db_pass=pass --base_url=https://test.iptvnetworking.com --admin_user=admin --admin_pass=yourpass --paypal_client="" --paypal_secret="" --paypal_sandbox=1 --cashapp="$yourtag"</pre>
-            <div class="actions" style="justify-content:flex-start">
-              <button class="btn" type="button" data-copy="#cli">Copy</button>
-            </div>
           </div>
         </div>
 
       </div>
+
+      <script src="assets/app.js?v=7"></script>
     </div>
   </div>
-
-<script src="assets/app.js?v=6"></script>
+</div>
 </body>
 </html>

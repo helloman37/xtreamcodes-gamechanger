@@ -3,6 +3,10 @@ require_once __DIR__ . '/../db.php';
 require_once __DIR__ . '/../auth.php';
 require_once __DIR__ . '/../helpers.php';
 
+if (!empty($_SESSION['admin_id'])) { header('Location: dashboard.php'); exit; }
+if (!empty($_SESSION['reseller_id'])) { header('Location: reseller_dashboard.php'); exit; }
+
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $u = trim($_POST['username'] ?? '');
   $p = $_POST['password'] ?? '';
@@ -11,43 +15,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     header("Location: dashboard.php");
     exit;
   }
+  // Try reseller login as a fallback (so resellers can use /admin/signin.php too)
+  if (reseller_login($u, $p)) {
+    flash_set("Welcome back, $u", "success");
+    header("Location: reseller_dashboard.php");
+    exit;
+  }
   flash_set("Invalid login", "error");
 }
-
-$topbar = <<<HTML
-<div class="topbar">
-  <div class="brand"><div class="dot"></div> IPTV CONTROL PANEL</div>
-  <div class="topnav">
-    <a href="signin.php">Login</a>
-  </div>
-</div>
-<div class="container">
-HTML;
 ?>
 <!doctype html>
-<html>
+<html lang="en">
 <head>
+  <link rel="icon" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+
   <meta charset="utf-8">
-  <title>Admin Login</title>
-  <link rel="stylesheet" href="panel.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Xtream UI Game Changer - Admin Login</title>
+  <link rel="stylesheet" href="login.css?v=1">
 </head>
 <body>
-<div class="auth-wrap"><div class="auth-card">
-<?= $topbar ?>
-<div class="card" style="max-width:420px;margin:0 auto;">
-  <h2>IPTV Admin Login</h2>
-  <?php flash_show(); ?>
-  <form method="post">
-    <label>Username</label>
-    <input name="username" autocomplete="username" required>
-    <label>Password</label>
-    <input type="password" name="password" autocomplete="current-password" required>
-    <div style="margin-top:12px;">
-      <button type="submit" style="width:100%;">Login</button>
+  <div class="login-bg">
+    <div class="login-wrap">
+      <div class="login-card">
+        <div class="brand">
+          <div class="xtream-logo" aria-label="XTREAM UI Game Changer">
+            <span class="x">X</span><span class="tream">TREAM</span><span class="ui">ui</span>
+          </div>
+          <div class="gc">GAME CHANGER</div>
+        </div>
+
+        <div class="subhead">ADMIN &amp; RESELLER INTERFACE</div>
+
+        <div class="form">
+          <div class="flash-wrap"><?php flash_show(); ?></div>
+          <form method="post" autocomplete="on">
+            <label for="username">Username</label>
+            <input id="username" name="username" type="text" autocomplete="username" placeholder="Enter Your Username" required>
+
+            <label for="password">Password</label>
+            <input id="password" name="password" type="password" autocomplete="current-password" placeholder="Enter Your Password" required>
+
+            <button class="btn" type="submit">Login</button>
+          </form>
+        </div>
+      </div>
     </div>
-  </form>
-</div>
-</div>
-</div></div>
+  </div>
 </body>
 </html>

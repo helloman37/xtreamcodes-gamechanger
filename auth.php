@@ -70,7 +70,7 @@ if (!function_exists('require_login')) {
 if (!function_exists('require_reseller')) {
     function require_reseller() {
         if (empty($_SESSION['reseller_id'])) {
-            header("Location: reseller_signin.php");
+            header("Location: signin.php?role=reseller");
             exit;
         }
     }

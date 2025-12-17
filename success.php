@@ -8,18 +8,27 @@ $st=$pdo->prepare("SELECT o.*, p.name plan_name FROM orders o JOIN plans p ON p.
 $st->execute([$orderId]);
 $o=$st->fetch();
 ?>
-<!doctype html><html><head>
-<meta charset="utf-8"><title>Success</title>
-<link rel="stylesheet" href="store.css"></head><body>
-<div class="wrap">
-  <?php include __DIR__."/topbar.php"; ?>
-<div class="card" style="max-width:560px;margin:0 auto;">
-    <h3>Payment Successful</h3>
-    <p class="muted">Your account is active.</p>
-    <?php if($o): ?>
-      <p>Order #<?=$o['id']?> — Plan: <?=e($o['plan_name'])?></p>
-    <?php endif; ?>
-    <a class="btn green" href="dashboard.php">Go to My Account</a>
+<?php
+$PUBLIC_TITLE = 'XTREAM ui GAME CHANGER — Success';
+$PUBLIC_SIDEBAR = false;
+require_once __DIR__ . '/gc_public_top.php';
+?>
+
+<div class="card hero">
+  <h1>Payment Successful</h1>
+  <p class="muted">Your account is active.</p>
+  <div class="big-buttons">
+    <a class="btn primary" href="/dashboard.php">Go to My Account</a>
+    <a class="btn" href="/portal/">Open Portal</a>
   </div>
 </div>
-</body></html>
+
+<?php if ($o): ?>
+  <div class="card" style="max-width:640px;">
+    <h3 style="margin:0 0 10px;">Order #<?= (int)$o['id'] ?></h3>
+    <div class="muted">Plan</div>
+    <div style="font-size:18px;font-weight:900;margin-top:2px;"><?= e($o['plan_name'] ?? '') ?></div>
+  </div>
+<?php endif; ?>
+
+<?php require_once __DIR__ . '/gc_public_bottom.php'; ?>

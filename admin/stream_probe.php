@@ -11,6 +11,7 @@ if ($limit < 1) $limit = 200;
 if ($limit > 2000) $limit = 2000;
 
 $topbar = file_get_contents(__DIR__ . '/topbar.html');
+$topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'), $topbar);
 
 // Build argv for the underlying probe script
 $argv = ['stream_probe.php', '--limit=' . $limit];
@@ -23,6 +24,11 @@ $out = ob_get_clean();
 <!doctype html>
 <html>
 <head>
+  <link rel="icon" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+
   <meta charset="utf-8">
   <title>Stream Probe</title>
   <link rel="stylesheet" href="panel.css">

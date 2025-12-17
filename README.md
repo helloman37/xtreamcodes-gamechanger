@@ -6,6 +6,7 @@
 Pure PHP + MySQL IPTV panel + companion Android app. No frameworks. No Composer. Shared-hosting friendly.
 
 **Xtream-style Player API is working/fixed** and the Android client consumes it cleanly.
+
 ---
 
 ## Android App Download (Released)
@@ -427,9 +428,3 @@ This project is a starting point for IPTV tools. Only load streams/EPG data you 
 ## Support / Updates
 
 If this saves you time and you want to support the work (especially the Android client), use the button at the top.
-
-![screenshot](/Screenshot%202025-12-16%20210544.png)
-![screenshot](/Screenshot%202025-12-16%20210629.png)
-![screenshot](/Screenshot%202025-12-16%20210650.png)
-![screenshot](/Screenshot%202025-12-16%20210722.png)
-![screenshot](/Screenshot%202025-12-16%20210752.png)

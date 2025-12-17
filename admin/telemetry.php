@@ -90,6 +90,7 @@ $st->execute($params);
 $rows = $st->fetchAll(PDO::FETCH_ASSOC);
 
 $topbar = file_get_contents(__DIR__ . '/topbar.html');
+$topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'), $topbar);
 
 function pill(string $t, string $kind=''): string {
   $t = e($t);
@@ -101,6 +102,11 @@ function pill(string $t, string $kind=''): string {
 <!doctype html>
 <html>
 <head>
+  <link rel="icon" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+
   <meta charset="utf-8">
   <title>Telemetry</title>
   <link rel="stylesheet" href="panel.css">

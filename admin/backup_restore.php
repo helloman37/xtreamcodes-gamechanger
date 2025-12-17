@@ -6,6 +6,7 @@ require_admin();
 
 $pdo = db();
 $topbar = file_get_contents(__DIR__ . '/topbar.html');
+$topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'), $topbar);
 
 $BACKUP_DIR = realpath(__DIR__ . '/../storage') . DIRECTORY_SEPARATOR . 'backups';
 if (!is_dir($BACKUP_DIR)) {
@@ -459,6 +460,11 @@ if (is_dir($BACKUP_DIR)) {
 <!doctype html>
 <html>
 <head>
+  <link rel="icon" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+
   <meta charset="utf-8">
   <title>Backup & Restore</title>
   <link rel="stylesheet" href="panel.css">

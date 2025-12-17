@@ -94,6 +94,36 @@ function csrf_validate(): void {
   }
 }
 // --- end CSRF helpers ---
+
+
+/* ---------- AVATAR HELPERS (PORTAL + STOREFRONT) ---------- */
+function gc_avatar_dir(): string {
+  return __DIR__ . '/uploads/avatars';
+}
+function gc_avatar_url(int $userId): ?string {
+  if ($userId <= 0) return null;
+  $dir = gc_avatar_dir();
+  $candidates = ['webp','png','jpg','jpeg'];
+  foreach ($candidates as $ext) {
+    $fs = $dir . '/u' . $userId . '.' . $ext;
+    if (is_file($fs)) {
+      $v = @filemtime($fs) ?: time();
+      return '/uploads/avatars/u' . $userId . '.' . $ext . '?v=' . $v;
+    }
+  }
+  return null;
+}
+function gc_delete_avatar_files(int $userId): void {
+  if ($userId <= 0) return;
+  $dir = gc_avatar_dir();
+  foreach (['webp','png','jpg','jpeg'] as $ext) {
+    $fs = $dir . '/u' . $userId . '.' . $ext;
+    if (is_file($fs)) @unlink($fs);
+  }
+}
+/* ---------- end AVATAR HELPERS ---------- */
+
+
 /* ---------- CREDENTIAL + LINK UTILITIES (ADMIN) ---------- */
 function iptv_config(): array {
   static $cfg = null;

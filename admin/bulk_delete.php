@@ -30,8 +30,22 @@ switch ($action) {
     break;
 
   case 'delete_categories':
-    $pdo->exec("UPDATE channels SET group_title=NULL");
-    flash_set("All categories cleared (group_title reset)", "success");
+    try {
+      $pdo->beginTransaction();
+      // Support both legacy (group_title) and newer schema (category_id).
+      // Clearing categories should:
+      // 1) remove channel->category assignment
+      // 2) remove saved categories (so dropdowns are empty)
+      $pdo->exec("UPDATE channels SET category_id=NULL, group_title=NULL");
+      try { $pdo->exec("TRUNCATE TABLE categories"); } catch (Throwable $e) {
+        // categories table may not exist in older installs
+      }
+      $pdo->commit();
+      flash_set("All categories cleared", "success");
+    } catch (Throwable $e) {
+      if ($pdo->inTransaction()) $pdo->rollBack();
+      flash_set("Clear categories failed: " . $e->getMessage(), "error");
+    }
     break;
 
   case 'delete_series':
