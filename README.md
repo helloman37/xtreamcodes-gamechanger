@@ -39,6 +39,19 @@ So if an admin imports files in the order:
 
 ## ✅ What’s New (Recent Work)
 
+### ✅ Today’s Work (Dec 16, 2025)
+
+#### ✅ Fixed Fatal: “There is no active transaction” (Reseller)
+- Guarded `rollBack()` so it only runs when a transaction is actually active (prevents reseller dashboard crashes).
+
+#### ✅ Installer Cleanup
+- Removed the “CLI installer” block from the installer UI.
+- Removed the hardcoded demo base URL (`test.iptvnetworking.com`) from installer output and replaced it with a neutral placeholder.
+
+#### ✅ Global Favicon (Every Page)
+- Added a custom favicon and linked it globally across the panel (admin, reseller, installer, public).
+
+
 ### ✅ Today’s Work (Dec 15, 2025)
 
 #### ✅ Fixed “Forbidden (CSRF)” on EPG XML Uploads
