@@ -441,3 +441,12 @@ This project is a starting point for IPTV tools. Only load streams/EPG data you 
 ## Support / Updates
 
 If this saves you time and you want to support the work (especially the Android client), use the button at the top.
+
+Put your TMDB api key in config.local.php
+
+ ![screenshot](1.png) 
+  ![screenshot](2.png) 
+   ![screenshot](3.png) 
+    ![screenshot](4.png) 
+     ![screenshot](5.png) 
+
