@@ -6,8 +6,8 @@
 Pure PHP + MySQL IPTV panel + companion Android app. No frameworks. No Composer. Shared-hosting friendly.
 
 **Xtream-style Player API is working/fixed** and the Android client consumes it cleanly.
-![plot](.https://raw.githubusercontent.com/helloman37/xtreamcodes-gamechanger/refs/heads/main/Screenshot%202025-12-16%20210544.png)
-
+![screenshot](/Screenshot%202025-12-16%20210544.png)
+https://github.com/helloman37/xtreamcodes-gamechanger/blob/main/Screenshot%202025-12-16%20210544.png?raw=true
 ---
 
 ## Android App Download (Released)
