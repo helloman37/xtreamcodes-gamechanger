@@ -32,6 +32,45 @@ $avatarUrl = $user ? gc_avatar_url((int)($user['id'] ?? 0)) : null;
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jplayer@2.9.2/dist/skin/blue.monday/jplayer.blue.monday.min.css">
   <!-- HLS.js (bridge for .m3u8 in non-Safari browsers) -->
   <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+<?php
+// Expose plugin config to portal JS (for iframe-based players like LegalVOD)
+$__legalvod = ['enabled'=>false,'base_url'=>'','movie_template'=>'/movie/{id}/','tv_template'=>'/tv/{id}/{season}/{episode}/'];
+// Also used to conditionally show portal navigation entries (ex: Support Desk)
+$__supportdesk_enabled = false;
+$__epgguide_enabled = false;
+try {
+  if (isset($pdo) && $pdo instanceof PDO) {
+    require_once __DIR__ . '/../plugins_core.php';
+    gc_plugins_db_init($pdo);
+    $st = $pdo->prepare("SELECT enabled FROM plugins WHERE id=? LIMIT 1");
+    $st->execute(['legalvod']);
+    $en = (int)($st->fetchColumn() ?: 0);
+    $__legalvod['enabled'] = ($en === 1);
+    $__legalvod['base_url'] = (string)gc_plugin_settings_get($pdo, 'legalvod', 'base_url', '');
+    $__legalvod['movie_template'] = (string)gc_plugin_settings_get($pdo, 'legalvod', 'movie_template', '/movie/{id}/');
+    $__legalvod['tv_template'] = (string)gc_plugin_settings_get($pdo, 'legalvod', 'tv_template', '/tv/{id}/{season}/{episode}/');
+
+    // Support Desk (portal link)
+    $st = $pdo->prepare("SELECT enabled FROM plugins WHERE id=? LIMIT 1");
+    $st->execute(['supportdesk']);
+    $__supportdesk_enabled = ((int)($st->fetchColumn() ?: 0) === 1);
+  
+
+    // EPG Guide (portal link)
+    $st = $pdo->prepare("SELECT enabled FROM plugins WHERE id=? LIMIT 1");
+    $st->execute(['epgguide']);
+    $__epgguide_enabled = ((int)($st->fetchColumn() ?: 0) === 1);
+}
+} catch (Throwable $t) {
+  // ignore
+}
+?>
+<script>
+window.GC_PLUGINS = window.GC_PLUGINS || {};
+window.GC_PLUGINS.legalvod = <?= json_encode($__legalvod, JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE) ?>;
+window.__legalvod = window.GC_PLUGINS.legalvod;
+</script>
+
 </head>
 <body data-page="<?= e($PORTAL_PAGE ?? '') ?>">
 
@@ -50,6 +89,19 @@ $avatarUrl = $user ? gc_avatar_url((int)($user['id'] ?? 0)) : null;
       <a class="<?= _portal_active('live.php') ?>" href="/portal/live.php">Live TV</a>
       <a class="<?= _portal_active('movies.php') ?>" href="/portal/movies.php">Movies</a>
       <a class="<?= _portal_active('series.php') ?>" href="/portal/series.php">Series</a>
+      <?php if ($__epgguide_enabled):
+        $req = (string)($_SERVER['REQUEST_URI'] ?? '');
+        $isGuide = (strpos($req, '/portal/guide') === 0);
+      ?>
+        <a class="<?= $isGuide ? 'active' : '' ?>" href="/portal/guide/">Guide</a>
+      <?php endif; ?>
+
+      <?php if ($__supportdesk_enabled):
+        $req = (string)($_SERVER['REQUEST_URI'] ?? '');
+        $isSupport = (strpos($req, '/portal/support') === 0);
+      ?>
+        <a class="<?= $isSupport ? 'active' : '' ?>" href="/portal/support/">Support</a>
+      <?php endif; ?>
       <a href="/dashboard.php">My Account</a>
     </div>
 

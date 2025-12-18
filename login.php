@@ -16,6 +16,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $u = $st->fetch();
   if ($u && password_verify($password, $u['password_hash'])) {
     $_SESSION['store_user'] = (int)$u['id'];
+    // Store plain portal creds for internal XMLTV fetch (server-side only)
+    $_SESSION['store_user_username'] = $username;
+    $_SESSION['store_user_pass'] = $password;
+
 
     // If they have an active subscription, send them straight to the portal.
     try {

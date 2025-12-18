@@ -58,10 +58,33 @@
           </div>
         </div>
       </div>
+
+      <!-- Iframe Player (for LegalVOD / plugin playback)
+           IMPORTANT: this MUST be a sibling of #jp_container.
+           If it is nested inside, hiding #jp_container also hides the iframe. -->
+      <div id="gc_iframe_wrap" style="display:none; width:100%; aspect-ratio: 16 / 9; background:#000; border-radius:12px; overflow:hidden;">
+        <iframe id="gc_iframe_player" src="about:blank" allowfullscreen loading="lazy"
+                referrerpolicy="no-referrer"
+                style="width:100%; height:100%; border:0;" class="js-modal-iframe"></iframe>
+      </div>
+
       <div class="desc js-modal-desc" style="margin-top:10px;"></div>
     </div>
   </div>
 </div>
+
+<?php
+// Expose LegalVOD settings to portal JS (only if enabled)
+if (!empty($GC_LEGALVOD_CFG) && !empty($GC_LEGALVOD_CFG['enabled'])): ?>
+<script>
+window.__legalvod = <?= json_encode([
+  'enabled' => true,
+  'base_url' => (string)($GC_LEGALVOD_CFG['base_url'] ?? ''),
+  'movie_template' => (string)($GC_LEGALVOD_CFG['movie_template'] ?? '/movie/{id}/'),
+  'tv_template' => (string)($GC_LEGALVOD_CFG['tv_template'] ?? '/tv/{id}/{season}/{episode}/'),
+]); ?>;
+</script>
+<?php endif; ?>
 
 <script src="/portal/assets/portal.js"></script>
 </body>

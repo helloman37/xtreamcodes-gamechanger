@@ -261,7 +261,8 @@ if ($pkg_ids) {
 $pdo->exec("DELETE FROM stream_sessions WHERE last_seen < (NOW() - INTERVAL 2 DAY)");
 
 /* ---------- active device/stream enforcement ---------- */
-$dev_win  = (int)($config['device_window'] ?? 120);
+$dev_win  = (int)($config['device_window'] ?? 300);
+if ($dev_win < 120) $dev_win = 120;
 
 /*
   CONCURRENT LIMIT MODEL (FIXES CHANNEL-SWITCH FALSE POSITIVES):

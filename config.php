@@ -42,8 +42,11 @@ $defaults = [
   'webhook_url' => '',
 
   // device/connection window in seconds
-  'device_window' => 30,
+  'device_window' => 300,
 
+
+  // segment session window in seconds (HLS segment auth grace; keep >= device_window)
+  'segment_window' => 1800,
   // anti-restream: max unique IPs in window
   'max_ip_changes' => 3,
   'max_ip_window'  => 600,

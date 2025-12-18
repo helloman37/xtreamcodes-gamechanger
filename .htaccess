@@ -1,6 +1,18 @@
 # Apache rewrite example (place as .htaccess in your web root)
 RewriteEngine On
 
+# Plugin routes (keep these ABOVE the generic /movie and /series rules)
+RewriteRule ^movie/[0-9]+/?$ plugins.php [L,QSA]
+RewriteRule ^tv/[0-9]+/[0-9]+/[0-9]+/?$ plugins.php [L,QSA]
+
+# Portal plugin routes (ex: Support Desk)
+RewriteRule ^portal/support/?$ plugins.php [L,QSA]
+RewriteRule ^portal/support/.*$ plugins.php [L,QSA]
+
+# Portal plugin routes (EPG Guide)
+RewriteRule ^portal/guide/?$ plugins.php [L,QSA]
+RewriteRule ^portal/guide/.*$ plugins.php [L,QSA]
+
 # Token mode: /live/user/token/id.m3u8?exp=...
 RewriteRule ^live/.*$ live.php [L,QSA]
 

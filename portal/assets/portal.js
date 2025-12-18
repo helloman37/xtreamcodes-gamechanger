@@ -4,6 +4,38 @@
 
   const PAGE = (document.body && document.body.getAttribute('data-page')) || '';
 
+  function legalvodCfg(){
+    const cfg = (window.GC_PLUGINS && window.GC_PLUGINS.legalvod) ? window.GC_PLUGINS.legalvod : null;
+    if (!cfg || !cfg.enabled) return null;
+    const base = String(cfg.base_url || '').replace(/\/+$/, '').trim();
+    if (!base) return null;
+    return {
+      base,
+      movie_template: String(cfg.movie_template || '/movie/{id}/'),
+      tv_template: String(cfg.tv_template || '/tv/{id}/{season}/{episode}/')
+    };
+  }
+
+  function legalvodBuildMovie(id){
+    const cfg = legalvodCfg();
+    if (!cfg) return '';
+    let path = cfg.movie_template.replace('{id}', encodeURIComponent(String(id)));
+    path = '/' + path.replace(/^\/+/, '');
+    return cfg.base + path;
+  }
+
+  function legalvodBuildTv(id, season, episode){
+    const cfg = legalvodCfg();
+    if (!cfg) return '';
+    let path = cfg.tv_template
+      .replace('{id}', encodeURIComponent(String(id)))
+      .replace('{season}', encodeURIComponent(String(season)))
+      .replace('{episode}', encodeURIComponent(String(episode)));
+    path = '/' + path.replace(/^\/+/, '');
+    return cfg.base + path;
+  }
+
+
   // DEFAULT_MODE_BY_PAGE
   if (!window.__portalMode) {
     window.__portalMode = (PAGE === 'movies' || PAGE === 'series') ? 'tmdb' : 'library';
@@ -100,7 +132,7 @@
     return document.getElementById('portalModal');
   }
 
-  function openModal({title, desc, badges, url}){
+  function openModal({title, desc, badges, url, iframeUrl}){
     const m = modal();
     if (!m) return;
     m.classList.add('on');
@@ -118,10 +150,31 @@
     });
 
     const player = document.getElementById('jp_container');
-    if (!url) {
+    const iwrap = document.getElementById('gc_iframe_wrap');
+    const iframe = document.getElementById('gc_iframe_player');
+
+    // reset iframe
+    if (iframe) iframe.src = 'about:blank';
+    if (iwrap) iwrap.style.display = 'none';
+    if (!url && !iframeUrl) {
       // Info-only modal (TMDB browse)
       jpStop();
       if (player) player.style.display = 'none';
+      if (iwrap) iwrap.style.display = 'none';
+      if (iframe) iframe.src = 'about:blank';
+      return;
+    }
+
+    if (iframeUrl) {
+      // Iframe playback mode
+      jpStop();
+      if (player) player.style.display = 'none';
+      if (iwrap) iwrap.style.display = '';
+      if (iframe) iframe.src = iframeUrl;
+
+      // LegalVOD TV: show Season/Episode dropdowns in the badge row (updates iframe src live)
+      try { legalvodMaybeControls(m, iframeUrl); } catch(e) {}
+
       return;
     }
     if (player) player.style.display = '';
@@ -132,19 +185,39 @@
     }
   }
 
+  // Expose a tiny API for pages that want to trigger the modal programmatically
+  // (ex: Series page dropdown Play button)
+  try {
+    window.GC_OPEN_MODAL = openModal;
+    window.GC_CLOSE_MODAL = closeModal;
+  } catch(e) {}
+
   function closeModal(){
     const m = modal();
     if (!m) return;
     jpStop();
+    const iwrap = document.getElementById('gc_iframe_wrap');
+    const iframe = document.getElementById('gc_iframe_player');
+    if (iframe) iframe.src = 'about:blank';
+    if (iwrap) iwrap.style.display = 'none';
     m.classList.remove('on');
   }
 
   function wireClicks(){
     $$('.js-play').forEach(el => {
       el.addEventListener('click', () => {
-        const url = el.getAttribute('data-play-url') || '';
-        if (!url) return;
+        const raw = el.getAttribute('data-play-url') || '';
+        if (!raw) return;
         const title = el.getAttribute('data-title') || 'Now Playing';
+
+        // Iframe mode: prefix with "iframe:"
+        if (raw.startsWith('iframe:')) {
+          const iframeUrl = raw.slice('iframe:'.length);
+          openModal({title, desc, badges: [], url: '', iframeUrl});
+          return;
+        }
+
+        const url = raw;
         const desc = el.getAttribute('data-desc') || '';
         const badges = [];
         const rating = el.getAttribute('data-rating');
@@ -180,7 +253,19 @@
         const year = el.getAttribute('data-year');
         if (year) badges.push({text: year});
         badges.push({text:'TMDB'});
-        openModal({title, desc, badges, url: ''});
+        const tid = el.getAttribute('data-tmdb-id') || '';
+        const kind = el.getAttribute('data-kind') || (PAGE === 'series' ? 'tv' : 'movie');
+        let iframeUrl = '';
+        if (tid) {
+          if (kind === 'movie') {
+            iframeUrl = legalvodBuildMovie(tid);
+          } else if (kind === 'tv') {
+            const season = parseInt(el.getAttribute('data-season') || '1', 10) || 1;
+            const episode = parseInt(el.getAttribute('data-episode') || '1', 10) || 1;
+            iframeUrl = legalvodBuildTv(tid, season, episode);
+          }
+        }
+        openModal({title, desc, badges, url: '', iframeUrl});
       });
     });
   }
@@ -263,6 +348,7 @@
     div.setAttribute('data-desc', it.plot || '');
     div.setAttribute('data-rating', it.rating || '');
     div.setAttribute('data-year', it.year || '');
+    div.setAttribute('data-tmdb-id', (it.tmdb_id || it.id || ''));
     div.innerHTML = `
       <img class="thumb" src="${it.poster_url || '/tv_icon.png'}" alt="">
       <div class="tpad">
@@ -275,12 +361,53 @@
       if (it.rating) badges.push({text: '★ ' + it.rating, kind:'good'});
       if (it.year) badges.push({text: it.year});
       badges.push({text: 'TMDB', kind: ''});
-      openModal({title: it.title, desc: it.plot, badges, url: ''});
+
+      // LegalVOD: movies + series can play immediately in iframe (TMDB browse)
+      if ((window.__legalvod && window.__legalvod.enabled) && it.tmdb_id) {
+        let iframeUrl = '';
+        if (it.type === 'movie') iframeUrl = buildLegalvodUrl('movie', it.tmdb_id);
+        if (it.type === 'tv') iframeUrl = buildLegalvodUrl('tv', it.tmdb_id, 1, 1);
+        if (iframeUrl) {
+          badges.push({text: 'LegalVOD', kind: 'good'});
+          openModal({title: it.title, desc: it.plot, badges, url: '', iframeUrl});
+          return;
+        }
+      }
+
+      const tid = it.tmdb_id || it.id || '';
+      let iframeUrl = '';
+      // If LegalVOD is enabled and we can build an iframe URL, prefer iframe playback
+      if (tid && (it.type === 'movie' || PAGE === 'movies')) iframeUrl = legalvodBuildMovie(tid);
+      if (tid && (it.type === 'tv' || PAGE === 'series')) iframeUrl = legalvodBuildTv(tid, 1, 1);
+      openModal({title: it.title, desc: it.plot, badges, url: '', iframeUrl});
     });
     return div;
   }
 
-  function escapeHtml(s){
+  
+  function buildLegalvodUrl(kind, id, season, episode){
+    try {
+      const cfg = window.__legalvod || null;
+      if (!cfg || !cfg.enabled) return '';
+      const base = (cfg.base_url || '').replace(/\/+$/, '');
+      if (!base) return '';
+      let tpl = (kind === 'tv') ? (cfg.tv_template || '/tv/{id}/{season}/{episode}/') : (cfg.movie_template || '/movie/{id}/');
+      tpl = (tpl || '').trim();
+      if (!tpl) tpl = (kind === 'tv') ? '/tv/{id}/{season}/{episode}/' : '/movie/{id}/';
+      let path = tpl;
+      path = path.replace('{id}', encodeURIComponent(String(id || '')));
+      if (kind === 'tv') {
+        path = path.replace('{season}', encodeURIComponent(String(season || 1)));
+        path = path.replace('{episode}', encodeURIComponent(String(episode || 1)));
+      }
+      if (!path.startsWith('/')) path = '/' + path;
+      return base + path;
+    } catch(e) {
+      return '';
+    }
+  }
+
+function escapeHtml(s){
     return String(s || '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
 
@@ -391,4 +518,202 @@
     wireTmdb();
     enrichTmdb();
   });
+
+  function legalvodParseTvUrl(url){
+    if (!url) return null;
+    try {
+      const u = String(url);
+      // match /tv/{id}/{season}/{episode}/ (allow missing trailing slash)
+      const m = u.match(/\/tv\/([^\/]+)\/(\d+)\/(\d+)(?:\/|\?|$)/i);
+      if (!m) return null;
+      return { id: m[1], season: parseInt(m[2],10)||1, episode: parseInt(m[3],10)||1 };
+    } catch(e){
+      return null;
+    }
+  }
+
+  function legalvodMaybeControls(modalEl, iframeUrl){
+    const cfg = legalvodCfg();
+    const b = $('.js-modal-badges', modalEl);
+    if (!b) return;
+
+    // remove old controls
+    $$('.js-lv-control', b).forEach(n => n.remove());
+
+    if (!cfg || !iframeUrl) return;
+
+    const tv = legalvodParseTvUrl(iframeUrl);
+    if (!tv) return;
+
+    const makeLabel = (txt) => {
+      const s = document.createElement('span');
+      s.className = 'badge js-lv-control';
+      s.textContent = txt;
+      return s;
+    };
+
+    const makeSelect = () => {
+      const sel = document.createElement('select');
+      sel.className = 'badge js-lv-control';
+      sel.style.border = '1px solid rgba(255,255,255,.16)';
+      sel.style.background = 'rgba(255,255,255,.04)';
+      sel.style.color = 'rgba(255,255,255,.92)';
+      sel.style.cursor = 'pointer';
+      sel.style.outline = 'none';
+      sel.style.colorScheme = 'dark';
+      sel.style.padding = '6px 10px';
+      sel.style.borderRadius = '999px';
+      return sel;
+    };
+
+    const selSeason = makeSelect();
+    const selEp = makeSelect();
+    selSeason.disabled = true;
+    selEp.disabled = true;
+
+    const setLoading = (sel, label) => {
+      sel.innerHTML = '';
+      const o = document.createElement('option');
+      o.value = '';
+      o.textContent = label;
+      o.style.background = '#0b0f14';
+      o.style.color = 'rgba(255,255,255,.92)';
+      sel.appendChild(o);
+    };
+
+    const setOptions = (sel, opts, value) => {
+      sel.innerHTML = '';
+      (opts || []).forEach(x => {
+        const o = document.createElement('option');
+        o.value = String(x.value);
+        o.textContent = String(x.label || x.value);
+        o.style.background = '#0b0f14';
+        o.style.color = 'rgba(255,255,255,.92)';
+        sel.appendChild(o);
+      });
+      if (value !== undefined && value !== null && value !== '') {
+        sel.value = String(value);
+      }
+    };
+
+    const fetchJson = async (url) => {
+      const r = await fetch(url, { credentials: 'same-origin' });
+      if (!r.ok) throw new Error('http_' + r.status);
+      const t = await r.text();
+      return JSON.parse(t);
+    };
+
+    let seasonsMeta = null;
+
+    const updateIframe = () => {
+      const s = parseInt(selSeason.value, 10) || 1;
+      const e = parseInt(selEp.value, 10) || 1;
+      const newUrl = legalvodBuildTv(tv.id, s, e);
+      if (!newUrl) return;
+      const iframe = $('.js-modal-iframe', modalEl);
+      if (iframe) iframe.src = newUrl;
+    };
+
+    const fillEpisodesNumeric = (episodeCount, pickEpisode) => {
+      const n = Math.max(1, parseInt(episodeCount, 10) || 1);
+      const opts = [];
+      for (let i = 1; i <= n; i++) opts.push({ value: i, label: 'E' + i });
+      setOptions(selEp, opts, pickEpisode);
+      selEp.disabled = false;
+    };
+
+    const loadEpisodes = async (seasonNumber, pickEpisode) => {
+      const sNum = parseInt(seasonNumber, 10) || 1;
+      selEp.disabled = true;
+      setLoading(selEp, 'Loading…');
+
+      // Find episode_count from seasons meta as fallback
+      let epCount = 50;
+      if (Array.isArray(seasonsMeta)) {
+        const sm = seasonsMeta.find(x => (parseInt(x.season_number, 10) || 0) === sNum);
+        if (sm && sm.episode_count) epCount = parseInt(sm.episode_count, 10) || epCount;
+      }
+
+      try {
+        const j = await fetchJson('/portal/tmdb_tvepisodes.php?id=' + encodeURIComponent(tv.id) + '&season=' + encodeURIComponent(String(sNum)));
+        const eps = (j && j.ok && Array.isArray(j.episodes)) ? j.episodes : [];
+        if (eps.length) {
+          const opts = eps
+            .filter(e => e && e.episode_number != null)
+            .map(e => ({
+              value: e.episode_number,
+              label: 'E' + e.episode_number + (e.name ? (' • ' + e.name) : '')
+            }));
+          setOptions(selEp, opts, pickEpisode);
+          selEp.disabled = false;
+          return;
+        }
+      } catch (e) {
+        // fall through to numeric
+      }
+
+      fillEpisodesNumeric(epCount, pickEpisode);
+    };
+
+    const loadSeasons = async () => {
+      selSeason.disabled = true;
+      selEp.disabled = true;
+      setLoading(selSeason, 'Loading…');
+      setLoading(selEp, 'Loading…');
+
+      try {
+        const j = await fetchJson('/portal/tmdb_tvmeta.php?id=' + encodeURIComponent(tv.id));
+        const seasons = (j && j.ok && Array.isArray(j.seasons)) ? j.seasons : [];
+        if (!seasons.length) throw new Error('no_seasons');
+
+        // Keep full meta for episode_count fallback
+        seasonsMeta = seasons.slice();
+
+        // Build season options (skip negatives; allow 0 Specials)
+        const opts = seasons
+          .filter(s => s && s.season_number != null && parseInt(s.season_number, 10) >= 0)
+          .map(s => ({
+            value: parseInt(s.season_number, 10),
+            label: 'S' + s.season_number + (s.name ? (' • ' + s.name) : '')
+          }));
+
+        if (!opts.length) throw new Error('no_opts');
+
+        const preferred = opts.some(o => parseInt(o.value,10) === tv.season) ? tv.season : opts[0].value;
+        setOptions(selSeason, opts, preferred);
+        selSeason.disabled = false;
+
+        // Episodes for selected season
+        const pickEp = (parseInt(selSeason.value, 10) === tv.season) ? tv.episode : 1;
+        await loadEpisodes(parseInt(selSeason.value, 10) || 1, pickEp);
+        return;
+      } catch (e) {
+        // Fallback: numeric seasons/episodes
+        seasonsMeta = null;
+        const maxSeasons = 50;
+        const opts = [];
+        for (let i = 1; i <= maxSeasons; i++) opts.push({ value: i, label: 'S' + i });
+        setOptions(selSeason, opts, tv.season);
+        selSeason.disabled = false;
+        await loadEpisodes(tv.season, tv.episode);
+      }
+    };
+
+    selSeason.addEventListener('change', async () => {
+      const s = parseInt(selSeason.value, 10) || 1;
+      await loadEpisodes(s, 1);
+      updateIframe();
+    });
+    selEp.addEventListener('change', updateIframe);
+
+    b.appendChild(makeLabel('Season'));
+    b.appendChild(selSeason);
+    b.appendChild(makeLabel('Episode'));
+    b.appendChild(selEp);
+
+    // kick off TMDB-backed population
+    loadSeasons();
+  }
+
+
 })();

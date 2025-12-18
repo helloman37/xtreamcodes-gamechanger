@@ -180,7 +180,7 @@ if ($tmdbSeries) {
       $cls = $playUrl !== '' ? 'js-play' : 'js-tmdb-open';
       $meta = trim(($it['year'] ?? '') . ($playUrl !== '' ? ' · In Library' : ' · TMDB'));
     ?>
-      <div class="tile <?= $cls ?>" data-play-url="<?= e($playUrl) ?>" data-title="<?= e($it['title'] ?? '') ?>" data-desc="<?= e($it['plot'] ?? '') ?>" data-rating="<?= e($it['rating'] ?? '') ?>" data-year="<?= e($it['year'] ?? '') ?>">
+      <div class="tile <?= $cls ?>" data-tmdb-id="<?= (int)$tid ?>" data-kind="movie" data-play-url="<?= e($playUrl) ?>" data-title="<?= e($it['title'] ?? '') ?>" data-desc="<?= e($it['plot'] ?? '') ?>" data-rating="<?= e($it['rating'] ?? '') ?>" data-year="<?= e($it['year'] ?? '') ?>">
         <img class="thumb" src="<?= e($poster) ?>" alt="">
         <div class="tpad">
           <div class="tname"><?= e($it['title'] ?? '') ?></div>
@@ -215,7 +215,7 @@ if ($tmdbSeries) {
           </div>
         </a>
       <?php else: ?>
-        <div class="tile js-tmdb-open" data-title="<?= e($it['title'] ?? '') ?>" data-desc="<?= e($it['plot'] ?? '') ?>" data-rating="<?= e($it['rating'] ?? '') ?>" data-year="<?= e($it['year'] ?? '') ?>">
+        <div class="tile js-tmdb-open" data-tmdb-id="<?= (int)$tid ?>" data-kind="tv" data-title="<?= e($it['title'] ?? '') ?>" data-desc="<?= e($it['plot'] ?? '') ?>" data-rating="<?= e($it['rating'] ?? '') ?>" data-year="<?= e($it['year'] ?? '') ?>">
           <img class="thumb" src="<?= e($poster) ?>" alt="">
           <div class="tpad">
             <div class="tname"><?= e($it['title'] ?? '') ?></div>

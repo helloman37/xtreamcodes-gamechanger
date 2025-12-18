@@ -164,7 +164,8 @@ function iptv_write_config_php(string $path, array $vals): void {
     'token_ttl' => (int)($vals['token_ttl'] ?? 3600),
     'strict_device_id' => (bool)($vals['strict_device_id'] ?? false),
     'webhook_url' => (string)($vals['webhook_url'] ?? ''),
-    'device_window' => (int)($vals['device_window'] ?? 120),
+    'device_window' => (int)($vals['device_window'] ?? 300),
+    'segment_window' => (int)($vals['segment_window'] ?? 1800),
     'max_ip_changes' => (int)($vals['max_ip_changes'] ?? 3),
     'max_ip_window'  => (int)($vals['max_ip_window'] ?? 600),
   ];

@@ -167,8 +167,10 @@ if ($pkg_ids) {
 
 /* Require an active recent session for this DEVICE (anti-hotlink + fixes channel switch) */
 $config = require __DIR__ . '/../config.php';
-$dev_win = (int)($config['device_window'] ?? 120);
-
+$dev_win = (int)($config['device_window'] ?? 300);
+if ($dev_win < 120) $dev_win = 120;
+$seg_win = (int)($config['segment_window'] ?? max($dev_win * 6, 900));
+if ($seg_win < $dev_win) $seg_win = $dev_win;
 if ($stoken === '') {
   http_response_code(401);
   exit('missing_session_token');
@@ -185,7 +187,7 @@ try {
         AND last_seen > (NOW() - INTERVAL ? SECOND)
       ORDER BY last_seen DESC LIMIT 1
     ");
-    $st->execute([(int)$user['id'], $device_fp, $stoken, $dev_win]);
+    $st->execute([(int)$user['id'], $device_fp, $stoken, $seg_win]);
   } else {
     $st = $pdo->prepare("
       SELECT id FROM stream_sessions
@@ -197,7 +199,7 @@ try {
         AND last_seen > (NOW() - INTERVAL ? SECOND)
       ORDER BY last_seen DESC LIMIT 1
     ");
-    $st->execute([(int)$user['id'], $ip, $ua, $stoken, $dev_win]);
+    $st->execute([(int)$user['id'], $ip, $ua, $stoken, $seg_win]);
   }
 
   $session = $st->fetch(PDO::FETCH_ASSOC);

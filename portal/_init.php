@@ -4,6 +4,7 @@
 
 require_once __DIR__ . '/../db.php';
 require_once __DIR__ . '/../helpers.php';
+require_once __DIR__ . '/../plugins_core.php';
 require_once __DIR__ . '/../api_common.php';
 
 session_start();
@@ -15,6 +16,32 @@ if (empty($_SESSION['store_user'])) {
 }
 
 $pdo = db();
+
+// Plugin bridge (for portal UX)
+$GC_LEGALVOD_CFG = null;
+try {
+  if (function_exists('gc_plugins_db_init')) {
+    gc_plugins_db_init($pdo);
+    $enabled = false;
+    foreach (gc_plugins_enabled($pdo) as $prow) {
+      if (($prow['id'] ?? '') === 'legalvod') { $enabled = true; break; }
+    }
+    if ($enabled) {
+      $base = (string)gc_plugin_settings_get($pdo, 'legalvod', 'base_url', '');
+      $movie_tpl = (string)gc_plugin_settings_get($pdo, 'legalvod', 'movie_template', '/movie/{id}/');
+      $tv_tpl = (string)gc_plugin_settings_get($pdo, 'legalvod', 'tv_template', '/tv/{id}/{season}/{episode}/');
+      $GC_LEGALVOD_CFG = [
+        'enabled' => true,
+        'base_url' => $base,
+        'movie_template' => $movie_tpl,
+        'tv_template' => $tv_tpl,
+      ];
+    }
+  }
+} catch (Throwable $t) {
+  $GC_LEGALVOD_CFG = null;
+}
+
 
 // Normalize store_user session (some pages store just id).
 $userId = is_array($_SESSION['store_user']) ? (int)($_SESSION['store_user']['id'] ?? 0) : (int)$_SESSION['store_user'];

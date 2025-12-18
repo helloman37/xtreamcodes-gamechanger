@@ -69,6 +69,16 @@ $heroRating = (!empty($hero['ok']) && !empty($hero['rating'])) ? (string)$hero['
     <div class="grid">
       <?php foreach ($movies as $m):
         [$playUrl] = portal_make_play_url((string)$user['username'], (int)$m['id'], 'movie', 'm3u8');
+        // LegalVOD: use iframe when plugin enabled and TMDB id is present
+        if (!empty($GC_LEGALVOD_CFG) && !empty($GC_LEGALVOD_CFG['enabled']) && !empty($m['tmdb_id'])) {
+          $base = rtrim((string)($GC_LEGALVOD_CFG['base_url'] ?? ''), '/');
+          $tpl  = (string)($GC_LEGALVOD_CFG['movie_template'] ?? '/movie/{id}/');
+          if ($base !== '') {
+            $path = str_replace('{id}', rawurlencode((string)$m['tmdb_id']), $tpl);
+            $path = '/' . ltrim($path, '/');
+            $playUrl = 'iframe:' . $base . $path;
+          }
+        }
         $poster = trim((string)($m['poster_url'] ?? ''));
         $missing = ($poster === '' && !empty($m['tmdb_id']));
         if ($poster === '') $poster = '/tv_icon.png';

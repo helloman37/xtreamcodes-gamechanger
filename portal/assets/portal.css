@@ -453,3 +453,63 @@ body::after{
 .avatar img{width:100%;height:100%;object-fit:cover;border-radius:999px;display:block}
 .avatar.guest img{width:60%;height:60%;object-fit:contain;opacity:.9}
 .avatar.big{width:72px;height:72px;font-size:28px}
+
+
+/* LegalVOD Season/Episode selects (modal badge row) */
+.lv-select{
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.14);
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 12px;
+  outline: none;
+}
+.lv-select option{
+  color: #111;
+}
+
+
+/* LegalVOD dropdown theme */
+.js-lv-control{ color-scheme: dark; }
+
+
+/* LegalVOD Season/Episode dropdowns in modal */
+.js-modal-badges select.js-lv-control{
+  background: rgba(255,255,255,.04);
+  color: rgba(255,255,255,.92);
+  border: 1px solid rgba(255,255,255,.16);
+  border-radius: 999px;
+}
+.js-modal-badges select.js-lv-control option{
+  background: #0b0f14;
+  color: rgba(255,255,255,.92);
+}
+
+/* ================================
+   Global Portal Dropdown Styling
+   ================================ */
+:root{
+  color-scheme: dark;
+}
+select{
+  background: rgba(255,255,255,.04);
+  color: rgba(255,255,255,.92);
+  border: 1px solid rgba(255,255,255,.16);
+  border-radius: 12px;
+}
+select:focus{
+  outline: none;
+  border-color: rgba(255,255,255,.30);
+  box-shadow: 0 0 0 3px rgba(179,0,0,.18);
+}
+select:disabled{
+  opacity: .6;
+  cursor: not-allowed;
+}
+select option,
+select optgroup{
+  background: #0b0f14;
+  color: rgba(255,255,255,.92);
+}
