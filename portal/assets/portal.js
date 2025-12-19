@@ -337,7 +337,20 @@
 
     const cat = document.getElementById('cat');
     if (cat) {
-      cat.addEventListener('change', () => applyLocalFilters());
+      cat.addEventListener('change', () => {
+        // Live TV can have huge lists; switching categories should reload server-side.
+        if (PAGE === 'live') {
+          const v = (cat.value || 'all').trim();
+          const base = '/portal/live.php';
+          if (!v || v === 'all') {
+            window.location.href = base;
+          } else {
+            window.location.href = base + '?cat=' + encodeURIComponent(v);
+          }
+          return;
+        }
+        applyLocalFilters();
+      });
     }
   }
 

@@ -7,18 +7,129 @@ require_once __DIR__ . '/_layout_top.php';
 // Categories
 $cats = $pdo->query("SELECT id, name, IFNULL(is_adult,0) AS is_adult FROM categories ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
 
+// Selected category: numeric category id OR 'all'
+$selectedCat = isset($_GET['cat']) ? trim((string)$_GET['cat']) : 'all';
+if ($selectedCat === '') $selectedCat = 'all';
+if ($selectedCat !== 'all' && !preg_match('/^\d+$/', $selectedCat)) {
+  $selectedCat = 'all';
+}
+
 [$pkgSql, $pkgParams] = package_filter_sql($pkg_ids, 'c');
-$sql = "SELECT c.id, c.name, c.tvg_id, c.tvg_logo, c.category_id, COALESCE(cat.name, 'Uncategorized') AS category
-        FROM channels c
-        LEFT JOIN categories cat ON cat.id=c.category_id
-        WHERE 1=1 {$pkgSql}";
-if (!$allowAdult) $sql .= " AND IFNULL(c.is_adult,0)=0 AND IFNULL(cat.is_adult,0)=0";
-$sql .= " ORDER BY cat.name, c.name";
 
-$st = $pdo->prepare($sql);
-$st->execute($pkgParams);
+// Base WHERE (packages + adult gating)
+$where = " WHERE 1=1 {$pkgSql}";
+if (!$allowAdult) $where .= " AND IFNULL(c.is_adult,0)=0 AND IFNULL(cat.is_adult,0)=0";
 
-$channels = $st->fetchAll(PDO::FETCH_ASSOC);
+// Live TV listing behavior:
+// - All Categories: show a mixed/rotating set of up to 42 channels across categories.
+// - Specific category: show all channels in that category.
+$channels = [];
+
+if ($selectedCat !== 'all') {
+  $cid = (int)$selectedCat;
+  $sql = "SELECT c.id, c.name, c.tvg_id, c.tvg_logo, c.category_id, COALESCE(cat.name, 'Uncategorized') AS category
+          FROM channels c
+          LEFT JOIN categories cat ON cat.id=c.category_id
+          {$where} AND IFNULL(c.category_id,0) = {$cid}
+          ORDER BY c.name";
+  $st = $pdo->prepare($sql);
+  $st->execute($pkgParams);
+  $channels = $st->fetchAll(PDO::FETCH_ASSOC);
+} else {
+  // Try a true round-robin mix (1 channel per category per pass) for variety.
+  // If window functions / SQL features are limited on the host, fall back to simple random LIMIT 42.
+  try {
+    $sqlCnt = "SELECT IFNULL(c.category_id,0) AS cid, COUNT(*) AS cnt
+               FROM channels c
+               LEFT JOIN categories cat ON cat.id=c.category_id
+               {$where}
+               GROUP BY IFNULL(c.category_id,0)";
+    $stCnt = $pdo->prepare($sqlCnt);
+    $stCnt->execute($pkgParams);
+    $rows = $stCnt->fetchAll(PDO::FETCH_ASSOC);
+
+    $catsWithCounts = [];
+    foreach ($rows as $r) {
+      $cid = (int)($r['cid'] ?? 0);
+      $cnt = (int)($r['cnt'] ?? 0);
+      if ($cnt > 0) $catsWithCounts[] = ['cid' => $cid, 'cnt' => $cnt];
+    }
+
+    if ($catsWithCounts) {
+      // Shuffle categories for rotation each refresh.
+      shuffle($catsWithCounts);
+
+      $need = 42;
+      $picked = [];
+      $passes = 0;
+      while (count($picked) < $need && $passes < 5) {
+        foreach ($catsWithCounts as $meta) {
+          if (count($picked) >= $need) break;
+          $cid = (int)$meta['cid'];
+          $cnt = (int)$meta['cnt'];
+          if ($cnt <= 0) continue;
+
+          // Random offset inside this category
+          $off = 0;
+          if ($cnt > 1) {
+            $off = random_int(0, $cnt - 1);
+          }
+
+          $sqlOne = "SELECT c.id, c.name, c.tvg_id, c.tvg_logo, c.category_id, COALESCE(cat.name, 'Uncategorized') AS category
+                     FROM channels c
+                     LEFT JOIN categories cat ON cat.id=c.category_id
+                     {$where} AND IFNULL(c.category_id,0) = {$cid}
+                     ORDER BY c.id
+                     LIMIT 1 OFFSET {$off}";
+          $stOne = $pdo->prepare($sqlOne);
+          $stOne->execute($pkgParams);
+          $one = $stOne->fetch(PDO::FETCH_ASSOC);
+          if (!$one) continue;
+          $id = (int)($one['id'] ?? 0);
+          if ($id && !isset($picked[$id])) {
+            $picked[$id] = $one;
+          }
+        }
+        $passes++;
+      }
+      $channels = array_values($picked);
+
+      // Top-up to 42 if we couldn't reach it (e.g., very few categories or lots of duplicates)
+      if (count($channels) < 42) {
+        $sqlExtra = "SELECT c.id, c.name, c.tvg_id, c.tvg_logo, c.category_id, COALESCE(cat.name, 'Uncategorized') AS category
+                     FROM channels c
+                     LEFT JOIN categories cat ON cat.id=c.category_id
+                     {$where}
+                     ORDER BY RAND()
+                     LIMIT 200";
+        $stEx = $pdo->prepare($sqlExtra);
+        $stEx->execute($pkgParams);
+        foreach ($stEx->fetchAll(PDO::FETCH_ASSOC) as $one) {
+          $id = (int)($one['id'] ?? 0);
+          if (!$id || isset($picked[$id])) continue;
+          $picked[$id] = $one;
+          if (count($picked) >= 42) break;
+        }
+        $channels = array_values($picked);
+      }
+    }
+  } catch (Throwable $e) {
+    // fall through
+  }
+
+  // Fallback: simple random sample (still limited to 42)
+  if (!$channels) {
+    $sql = "SELECT c.id, c.name, c.tvg_id, c.tvg_logo, c.category_id, COALESCE(cat.name, 'Uncategorized') AS category
+            FROM channels c
+            LEFT JOIN categories cat ON cat.id=c.category_id
+            {$where}
+            ORDER BY RAND()
+            LIMIT 42";
+    $st = $pdo->prepare($sql);
+    $st->execute($pkgParams);
+    $channels = $st->fetchAll(PDO::FETCH_ASSOC);
+  }
+}
 
 // EPG "Now" titles (batch by tvg_id)
 $epgNowMap = [];
@@ -83,12 +194,16 @@ $heroYear  = (!empty($hero['ok']) && !empty($hero['year']))  ? (string)$hero['ye
   <div class="toolbar">
     <input id="q" class="input" placeholder="Search channels..." style="min-width:240px;">
     <select id="cat" class="input select">
-      <option value="all">All Categories</option>
+      <option value="all" <?= $selectedCat === 'all' ? 'selected' : '' ?>>All Categories</option>
       <?php foreach ($cats as $c): ?>
-        <option value="<?= (int)$c['id'] ?>" data-adult="<?= (int)($c['is_adult'] ?? 0) ?>"><?= e($c['name']) ?></option>
+        <option value="<?= (int)$c['id'] ?>" data-adult="<?= (int)($c['is_adult'] ?? 0) ?>" <?= ($selectedCat !== 'all' && (int)$selectedCat === (int)$c['id']) ? 'selected' : '' ?>><?= e($c['name']) ?></option>
       <?php endforeach; ?>
     </select>
   </div>
+
+  <?php if ($selectedCat === 'all'): ?>
+    <div class="notice muted" style="margin:8px 0 0;">Showing a rotating mix of up to 42 channels. Pick a category to browse the full list.</div>
+  <?php endif; ?>
 
   <div class="grid channel-grid">
     <?php foreach ($channels as $c):

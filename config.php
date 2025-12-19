@@ -53,7 +53,7 @@ $defaults = [
 
   // TMDB API key used by the subscriber portal for Movies/Series browse + search.
   // You can override this in config.local.php, system_settings('tmdb_api_key'), or per-user.
-  'tmdb_api_key' => 'YOUR API KEY HERE',
+  'tmdb_api_key' => '59a35acc07b72f0e91aa657cdb259beb',
   'tmdb_region'  => 'US',
   'tmdb_language'=> 'en-US',
 

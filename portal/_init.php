@@ -74,10 +74,35 @@ $token_ttl = (int)($config['token_ttl'] ?? 3600);
 // Convenience flags
 $allowAdult = !empty($user['allow_adult']);
 // Cookie-based adult gate: verified users can temporarily view adult content.
+// Supports legacy "age" cookie and new "dob" cookie (YYYY-MM-DD).
 $cookieVerified = false;
 $cookieAge = 0;
-if (isset($_COOKIE['gc_adult_verified'])) { $cookieVerified = ($_COOKIE['gc_adult_verified'] === '1'); $cookieAge = (int)($_COOKIE['gc_adult_age'] ?? 0); }
-if (!$cookieVerified && isset($_COOKIE['adult_verified'])) { $cookieVerified = ($_COOKIE['adult_verified'] === '1'); $cookieAge = (int)($_COOKIE['adult_age'] ?? 0); }
+$cookieDob = '';
+
+if (isset($_COOKIE['gc_adult_verified'])) {
+  $cookieVerified = ($_COOKIE['gc_adult_verified'] === '1');
+  $cookieAge = (int)($_COOKIE['gc_adult_age'] ?? 0);
+  $cookieDob = (string)($_COOKIE['gc_adult_dob'] ?? '');
+}
+if (!$cookieVerified && isset($_COOKIE['adult_verified'])) {
+  $cookieVerified = ($_COOKIE['adult_verified'] === '1');
+  $cookieAge = (int)($_COOKIE['adult_age'] ?? 0);
+  $cookieDob = (string)($_COOKIE['adult_dob'] ?? '');
+}
+
+if ($cookieDob !== '') {
+  try {
+    $dob = DateTime::createFromFormat('Y-m-d', $cookieDob);
+    if ($dob instanceof DateTime) {
+      $today = new DateTime('today');
+      $ageFromDob = (int)$dob->diff($today)->y;
+      if ($ageFromDob > $cookieAge) $cookieAge = $ageFromDob;
+    }
+  } catch (Throwable $t) {
+    // ignore
+  }
+}
+
 if ($cookieVerified && $cookieAge >= 18) { $allowAdult = true; }
 
 // Package restrictions (empty => no restriction)
