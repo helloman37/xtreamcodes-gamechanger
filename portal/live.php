@@ -5,14 +5,14 @@ $PORTAL_PAGE = 'live';
 require_once __DIR__ . '/_layout_top.php';
 
 // Categories
-$cats = $pdo->query("SELECT id, name FROM categories ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
+$cats = $pdo->query("SELECT id, name, IFNULL(is_adult,0) AS is_adult FROM categories ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
 
 [$pkgSql, $pkgParams] = package_filter_sql($pkg_ids, 'c');
 $sql = "SELECT c.id, c.name, c.tvg_id, c.tvg_logo, c.category_id, COALESCE(cat.name, 'Uncategorized') AS category
         FROM channels c
         LEFT JOIN categories cat ON cat.id=c.category_id
         WHERE 1=1 {$pkgSql}";
-if (!$allowAdult) $sql .= " AND IFNULL(c.is_adult,0)=0";
+if (!$allowAdult) $sql .= " AND IFNULL(c.is_adult,0)=0 AND IFNULL(cat.is_adult,0)=0";
 $sql .= " ORDER BY cat.name, c.name";
 
 $st = $pdo->prepare($sql);
@@ -85,7 +85,7 @@ $heroYear  = (!empty($hero['ok']) && !empty($hero['year']))  ? (string)$hero['ye
     <select id="cat" class="input select">
       <option value="all">All Categories</option>
       <?php foreach ($cats as $c): ?>
-        <option value="<?= (int)$c['id'] ?>"><?= e($c['name']) ?></option>
+        <option value="<?= (int)$c['id'] ?>" data-adult="<?= (int)($c['is_adult'] ?? 0) ?>"><?= e($c['name']) ?></option>
       <?php endforeach; ?>
     </select>
   </div>
@@ -103,6 +103,7 @@ $heroYear  = (!empty($hero['ok']) && !empty($hero['year']))  ? (string)$hero['ye
       $desc = $nowTitle ? ('Now: ' . $nowTitle) : $catName;
     ?>
       <div class="tile channel js-play js-filter"
+           data-kind="live" data-id="<?= (int)$c['id'] ?>"
            data-cat="<?= (int)($c['category_id'] ?? 0) ?>"
            data-filter="<?= e($filter) ?>"
            data-play-url="<?= e($playUrl) ?>"

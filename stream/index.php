@@ -737,9 +737,18 @@ foreach ($lines as $line) {
     $trim = $base_dir . ltrim($trim, '/');
   }
 
-  $q = "src=" . rawurlencode(b64url_encode_str($trim));
+  $src_enc = b64url_encode_str($trim);
+  $q = "src=" . rawurlencode($src_enc);
   if ($seg_tail !== '') $q .= "&" . $seg_tail;
   if ($token_ok) $q .= "&token=" . rawurlencode($token);
+
+  // Signed segment URLs to avoid DB hits per segment (verified in stream/segment.php)
+  if (!empty($config['secret_key'])) {
+    $seg_cred = $token_ok ? $token : $p;
+    $payload = $u . "|" . $seg_cred . "|" . (string)$id . "|" . $type . "|" . $session_token . "|" . (string)$exp . "|" . (string)$device_id_raw . "|" . (string)$device_fp . "|" . $src_enc;
+    $sig = rtrim(strtr(base64_encode(hash_hmac('sha256', $payload, $config['secret_key'], true)), '+/', '-_'), '=');
+    $q .= "&sig=" . rawurlencode($sig);
+  }
 
   $out[] = $seg_base . "?" . $q;
 }

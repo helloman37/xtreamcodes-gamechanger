@@ -73,6 +73,12 @@ $token_ttl = (int)($config['token_ttl'] ?? 3600);
 
 // Convenience flags
 $allowAdult = !empty($user['allow_adult']);
+// Cookie-based adult gate: verified users can temporarily view adult content.
+$cookieVerified = false;
+$cookieAge = 0;
+if (isset($_COOKIE['gc_adult_verified'])) { $cookieVerified = ($_COOKIE['gc_adult_verified'] === '1'); $cookieAge = (int)($_COOKIE['gc_adult_age'] ?? 0); }
+if (!$cookieVerified && isset($_COOKIE['adult_verified'])) { $cookieVerified = ($_COOKIE['adult_verified'] === '1'); $cookieAge = (int)($_COOKIE['adult_age'] ?? 0); }
+if ($cookieVerified && $cookieAge >= 18) { $allowAdult = true; }
 
 // Package restrictions (empty => no restriction)
 $pkg_ids = user_package_ids($pdo, $userId);

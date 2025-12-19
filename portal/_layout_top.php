@@ -14,6 +14,27 @@ $initial = strtoupper(substr($displayName, 0, 1));
 
 
 $avatarUrl = $user ? gc_avatar_url((int)($user['id'] ?? 0)) : null;
+
+
+// Plugin nav flags
+$__supportdesk_enabled = false;
+$__epgguide_enabled = false;
+$__watchlist_enabled = false;
+try {
+  if (isset($pdo) && $pdo instanceof PDO) {
+    require_once __DIR__ . '/../plugins_core.php';
+    gc_plugins_db_init($pdo);
+    $st = $pdo->prepare("SELECT enabled FROM plugins WHERE id=? LIMIT 1");
+    $st->execute(['supportdesk']);
+    $__supportdesk_enabled = ((int)($st->fetchColumn() ?: 0) === 1);
+    $st = $pdo->prepare("SELECT enabled FROM plugins WHERE id=? LIMIT 1");
+    $st->execute(['epgguide']);
+    $__epgguide_enabled = ((int)($st->fetchColumn() ?: 0) === 1);
+    $st = $pdo->prepare("SELECT enabled FROM plugins WHERE id=? LIMIT 1");
+    $st->execute(['watchlist']);
+    $__watchlist_enabled = ((int)($st->fetchColumn() ?: 0) === 1);
+  }
+} catch (Throwable $t) { /* ignore */ }
 ?><!doctype html>
 <html>
 <head>
@@ -26,6 +47,9 @@ $avatarUrl = $user ? gc_avatar_url((int)($user['id'] ?? 0)) : null;
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>XTREAM ui GAME CHANGER</title>
   <link rel="stylesheet" href="/portal/assets/portal.css">
+  <?php if (!empty($__watchlist_enabled)): ?>
+  <link rel="stylesheet" href="/plugins/watchlist/assets/watchlist.css?v=3">
+  <?php endif; ?>
   <!-- jQuery + jPlayer (player UI) -->
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jplayer@2.9.2/dist/jplayer/jquery.jplayer.min.js"></script>
@@ -69,6 +93,8 @@ try {
 window.GC_PLUGINS = window.GC_PLUGINS || {};
 window.GC_PLUGINS.legalvod = <?= json_encode($__legalvod, JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE) ?>;
 window.__legalvod = window.GC_PLUGINS.legalvod;
+window.__allowAdult = <?= $allowAdult ? 'true' : 'false' ?>;
+window.__watchlist = {enabled: <?= !empty($__watchlist_enabled) ? 'true' : 'false' ?>, api: '/plugins/watchlist/api.php'};
 </script>
 
 </head>
@@ -89,6 +115,9 @@ window.__legalvod = window.GC_PLUGINS.legalvod;
       <a class="<?= _portal_active('live.php') ?>" href="/portal/live.php">Live TV</a>
       <a class="<?= _portal_active('movies.php') ?>" href="/portal/movies.php">Movies</a>
       <a class="<?= _portal_active('series.php') ?>" href="/portal/series.php">Series</a>
+      <?php if (!empty($__watchlist_enabled)): ?>
+      <a class="<?= _portal_active('watchlist.php') ?>" href="/portal/watchlist.php">Watchlist</a>
+      <?php endif; ?>
       <?php if ($__epgguide_enabled):
         $req = (string)($_SERVER['REQUEST_URI'] ?? '');
         $isGuide = (strpos($req, '/portal/guide') === 0);
@@ -143,6 +172,12 @@ window.__legalvod = window.GC_PLUGINS.legalvod;
         <span class="icon">📼</span>
         Series
       </a>
+      <?php if (!empty($__watchlist_enabled)): ?>
+      <a class="sideitem <?= _portal_active('watchlist.php') ?>" href="/portal/watchlist.php">
+        <span class="icon">⭐</span>
+        Watchlist
+      </a>
+      <?php endif; ?>
     </div>
 
     <div class="sidegroup">

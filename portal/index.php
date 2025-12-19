@@ -141,6 +141,7 @@ if ($tmdbSeries) {
       $desc = $nowTitle ? ('Now: ' . $nowTitle) : $catName;
     ?>
       <div class="tile channel js-play"
+           data-kind="live" data-id="<?= (int)$c['id'] ?>"
            data-play-url="<?= e($playUrl) ?>"
            data-title="<?= e($c['name']) ?>"
            data-desc="<?= e($desc) ?>">
@@ -180,7 +181,7 @@ if ($tmdbSeries) {
       $cls = $playUrl !== '' ? 'js-play' : 'js-tmdb-open';
       $meta = trim(($it['year'] ?? '') . ($playUrl !== '' ? ' · In Library' : ' · TMDB'));
     ?>
-      <div class="tile <?= $cls ?>" data-tmdb-id="<?= (int)$tid ?>" data-kind="movie" data-play-url="<?= e($playUrl) ?>" data-title="<?= e($it['title'] ?? '') ?>" data-desc="<?= e($it['plot'] ?? '') ?>" data-rating="<?= e($it['rating'] ?? '') ?>" data-year="<?= e($it['year'] ?? '') ?>">
+      <div class="tile <?= $cls ?>" data-tmdb-id="<?= (int)$tid ?>" data-kind="movie" <?= $libId > 0 ? 'data-id="' . (int)$libId . '"' : '' ?> data-play-url="<?= e($playUrl) ?>" data-title="<?= e($it['title'] ?? '') ?>" data-desc="<?= e($it['plot'] ?? '') ?>" data-rating="<?= e($it['rating'] ?? '') ?>" data-year="<?= e($it['year'] ?? '') ?>">
         <img class="thumb" src="<?= e($poster) ?>" alt="">
         <div class="tpad">
           <div class="tname"><?= e($it['title'] ?? '') ?></div>
@@ -207,7 +208,7 @@ if ($tmdbSeries) {
       $meta = trim(($it['year'] ?? '') . ($libId > 0 ? ' · In Library' : ' · TMDB'));
     ?>
       <?php if ($libId > 0): ?>
-        <a class="tile" href="/portal/series_view.php?id=<?= (int)$libId ?>" style="text-decoration:none;color:inherit;">
+        <a class="tile" data-kind="series" data-id="<?= (int)$libId ?>" href="/portal/series_view.php?id=<?= (int)$libId ?>" style="text-decoration:none;color:inherit;">
           <img class="thumb" src="<?= e($poster) ?>" alt="">
           <div class="tpad">
             <div class="tname"><?= e($it['title'] ?? '') ?></div>
