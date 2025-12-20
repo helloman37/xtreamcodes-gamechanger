@@ -51,12 +51,183 @@ function flash_set($msg, $type='info') {
 }
 
 function flash_show() {
+  if (session_status() !== PHP_SESSION_ACTIVE) session_start();
+
+  // Bootstrap-style Toasts (lightweight, no Bootstrap dependency)
+  static $toast_inited = false;
+  if (!$toast_inited) {
+    $toast_inited = true;
+    echo <<<HTML
+<div id="iptvToastHost" class="iptv-toast-host" aria-live="polite" aria-atomic="true"></div>
+<style>
+  /* --- Bootstrap-ish Toasts (scoped) --- */
+  #iptvToastHost.iptv-toast-host{
+    position:fixed; top:14px; right:14px; z-index:99999;
+    display:flex; flex-direction:column; gap:10px;
+    pointer-events:none;
+    max-width: min(92vw, 440px);
+  }
+  #iptvToastHost .iptv-toast{
+    pointer-events:auto;
+    width: min(420px, 92vw);
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,.12);
+    background: rgba(13,15,20,.98);
+    color: #e6f1ff;
+    box-shadow: 0 12px 34px rgba(0,0,0,.55);
+    overflow: hidden;
+    opacity: 0;
+    transform: translateY(-6px);
+    transition: opacity .16s ease, transform .16s ease;
+  }
+  #iptvToastHost .iptv-toast.show{ opacity:1; transform: translateY(0); }
+  #iptvToastHost .iptv-toast .row{
+    display:flex; align-items:flex-start;
+  }
+  #iptvToastHost .iptv-toast .body{
+    padding: 12px 12px;
+    font-size: 14px;
+    line-height: 1.35;
+    flex: 1;
+    word-break: break-word;
+  }
+  #iptvToastHost .iptv-toast .close{
+    appearance:none; border:0; background:transparent;
+    color: rgba(230,241,255,.9);
+    font-size: 18px;
+    line-height: 1;
+    padding: 10px 12px;
+    cursor: pointer;
+  }
+  #iptvToastHost .iptv-toast .bar{
+    height: 3px;
+    width: 100%;
+    background: rgba(255,255,255,.12);
+    transform-origin: left;
+  }
+  #iptvToastHost .iptv-toast.success{ border-left: 4px solid #22c55e; }
+  #iptvToastHost .iptv-toast.info{    border-left: 4px solid #60a5fa; }
+  #iptvToastHost .iptv-toast.warning{ border-left: 4px solid #f59e0b; }
+  #iptvToastHost .iptv-toast.danger{  border-left: 4px solid #ef4444; }
+  /* --- end toasts --- */
+</style>
+<script>
+(function(){
+  if (window.IPTVToast) return;
+
+  function host(){
+    var h = document.getElementById('iptvToastHost');
+    if(!h){
+      h = document.createElement('div');
+      h.id = 'iptvToastHost';
+      h.className = 'iptv-toast-host';
+      document.body.appendChild(h);
+    }
+    return h;
+  }
+
+  function normType(t){
+    t = (t || 'info').toString().toLowerCase();
+    if (t === 'error') return 'danger';
+    if (t === 'warn') return 'warning';
+    if (t === 'ok') return 'success';
+    if (t === 'primary' || t === 'secondary') return 'info';
+    if (['success','info','warning','danger'].indexOf(t) !== -1) return t;
+    return 'info';
+  }
+
+  function toast(type, message, opts){
+    type = normType(type);
+    message = (message == null) ? '' : String(message);
+    opts = opts || {};
+    var delay = Number(opts.delay || 4200);
+    if (!isFinite(delay) || delay < 800) delay = 4200;
+
+    var el = document.createElement('div');
+    el.className = 'iptv-toast ' + type;
+    el.setAttribute('role','alert');
+    el.setAttribute('aria-live','assertive');
+    el.setAttribute('aria-atomic','true');
+    el.innerHTML = '<div class="row">' +
+      '<div class="body"></div>' +
+      '<button class="close" type="button" aria-label="Close">×</button>' +
+    '</div>' +
+    '<div class="bar"></div>';
+
+    el.querySelector('.body').textContent = message;
+    var closeBtn = el.querySelector('.close');
+    var bar = el.querySelector('.bar');
+
+    host().appendChild(el);
+    // animate in
+    requestAnimationFrame(function(){ el.classList.add('show'); });
+
+    // progress bar animation (shrink to 0)
+    if (bar){
+      bar.style.transition = 'transform ' + delay + 'ms linear';
+      bar.style.transform = 'scaleX(1)';
+      requestAnimationFrame(function(){
+        requestAnimationFrame(function(){
+          bar.style.transform = 'scaleX(0)';
+        });
+      });
+    }
+
+    var killed = false;
+    function remove(){
+      if (killed) return; killed = true;
+      el.classList.remove('show');
+      setTimeout(function(){
+        if (el && el.parentNode) el.parentNode.removeChild(el);
+      }, 220);
+    }
+
+    var tmr = setTimeout(remove, delay);
+    if (closeBtn){
+      closeBtn.addEventListener('click', function(){ clearTimeout(tmr); remove(); });
+    }
+    // pause on hover
+    el.addEventListener('mouseenter', function(){ clearTimeout(tmr); if(bar){ bar.style.transition = 'none'; } });
+    el.addEventListener('mouseleave', function(){
+      if(killed) return;
+      // restart a short timeout when leaving
+      var rest = Math.max(1200, Math.round(delay * 0.35));
+      if (bar){
+        bar.style.transition = 'transform ' + rest + 'ms linear';
+        bar.style.transform = 'scaleX(0)';
+      }
+      tmr = setTimeout(remove, rest);
+    });
+  }
+
+  // global helper for AJAX / buttons
+  window.IPTVToast = toast;
+})();
+</script>
+HTML;
+  }
+
+  // Render session flash as a toast (and clear it).
   if (!empty($_SESSION['flash'])) {
-    $f = $_SESSION['flash'];
+    $flash = $_SESSION['flash'];
     unset($_SESSION['flash']);
-    echo "<div style='padding:8px;border:1px solid #333;margin:10px 0;background:#0d0f14;color:#e6f1ff'>
-      <b>".e($f['type']).":</b> ".e($f['msg'])."
-    </div>";
+
+    // Support either a single flash or an array of flashes.
+    $flashes = [];
+    if (is_array($flash) && array_key_exists('msg', $flash)) {
+      $flashes[] = $flash;
+    } elseif (is_array($flash)) {
+      foreach ($flash as $f) {
+        if (is_array($f) && array_key_exists('msg', $f)) $flashes[] = $f;
+      }
+    }
+
+    foreach ($flashes as $f) {
+      $t = (string)($f['type'] ?? 'info');
+      $m = (string)($f['msg'] ?? '');
+      $payload = json_encode(['type'=>$t,'msg'=>$m], JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE);
+      echo "<script>(function(p){ try{ if(window.IPTVToast){ window.IPTVToast(p.type, p.msg); } }catch(e){} })($payload);</script>";
+    }
   }
 }
 
