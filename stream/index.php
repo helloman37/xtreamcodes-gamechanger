@@ -4,6 +4,85 @@ require_once __DIR__ . '/../api_common.php';
 $config   = require __DIR__ . '/../config.php';
 $base_url = rtrim($config['base_url'], '/');
 
+
+
+// -----------------------------------------------------------------------------
+// Minimal cached "active subscription" helper (stream-safe).
+// We define it here to avoid requiring helpers.php in streaming hot paths.
+// Cache uses APCu when available, otherwise a temp-file cache.
+// -----------------------------------------------------------------------------
+if (!function_exists('iptv_cached_active_subscription')) {
+  function iptv_cached_active_subscription(PDO $pdo, int $user_id, int $ttl): ?array {
+    $key = "iptv:activesub:" . $user_id;
+
+    $cache_get = function(string $k) {
+      if (function_exists('apcu_fetch')) {
+        $ok = false;
+        $v = apcu_fetch($k, $ok);
+        if ($ok) return $v;
+      }
+      $dir = rtrim(sys_get_temp_dir(), '/\\') . DIRECTORY_SEPARATOR . 'iptv_cache';
+      $file = $dir . DIRECTORY_SEPARATOR . hash('sha256', $k) . '.json';
+      if (!is_file($file)) return null;
+      $raw = @file_get_contents($file);
+      if ($raw === false || $raw === '') return null;
+      $data = json_decode($raw, true);
+      if (!is_array($data)) return null;
+      $exp = (int)($data['exp'] ?? 0);
+      if ($exp > 0 && time() > $exp) return null;
+      $val = (string)($data['val'] ?? '');
+      if ($val === '') return null;
+      $ser = base64_decode($val, true);
+      if ($ser === false) return null;
+      $out = @unserialize($ser, ['allowed_classes' => false]);
+      return ($out === false) ? null : $out;
+    };
+
+    $cache_set = function(string $k, $value, int $ttl_s): void {
+      if ($ttl_s <= 0) return;
+      if (function_exists('apcu_store')) {
+        @apcu_store($k, $value, $ttl_s);
+        return;
+      }
+      $dir = rtrim(sys_get_temp_dir(), '/\\') . DIRECTORY_SEPARATOR . 'iptv_cache';
+      if (!is_dir($dir)) @mkdir($dir, 0777, true);
+      if (!is_dir($dir)) return;
+      $file = $dir . DIRECTORY_SEPARATOR . hash('sha256', $k) . '.json';
+      $data = [
+        'exp' => time() + $ttl_s,
+        'val' => base64_encode(serialize($value)),
+      ];
+      @file_put_contents($file, json_encode($data), LOCK_EX);
+    };
+
+    if ($ttl > 0) {
+      $cached = $cache_get($key);
+      // We store false to mean "no active sub" to avoid DB hits in bursts.
+      if ($cached !== null) return ($cached === false) ? null : (is_array($cached) ? $cached : null);
+    }
+
+    $sub = null;
+    try {
+      $st = $pdo->prepare("
+        SELECT s.*, p.max_streams, p.max_devices
+        FROM subscriptions s
+        JOIN plans p ON p.id = s.plan_id
+        WHERE s.user_id=? AND s.status='active' AND (s.ends_at IS NULL OR s.ends_at>NOW())
+        ORDER BY s.id DESC
+        LIMIT 1
+      ");
+      $st->execute([$user_id]);
+      $row = $st->fetch(PDO::FETCH_ASSOC);
+      $sub = $row ?: null;
+    } catch (Throwable $e) {
+      $sub = null;
+    }
+
+    if ($ttl > 0) $cache_set($key, $sub ?: false, $ttl);
+    return $sub;
+  }
+}
+
 header("Access-Control-Allow-Origin: *");
 
 // -----------------------------------------------------------------------------
@@ -138,6 +217,11 @@ if (!$sub) {
   http_response_code(403);
   exit('Expired');
 }
+
+
+// Plan limits for concurrency enforcement
+$max_streams = (int)($sub['max_streams'] ?? 0);
+$max_devices = (int)($sub['max_devices'] ?? 0);
 
 /* cleanup old sessions */
 $pdo->exec("DELETE FROM stream_sessions WHERE last_seen < (NOW() - INTERVAL 2 DAY)");
