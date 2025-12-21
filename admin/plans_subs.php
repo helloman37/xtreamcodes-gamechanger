@@ -72,6 +72,16 @@ if (isset($_POST['sub_create'])) {
     header("Location: plans_subs.php"); exit;
   }
 
+  // Enforce: one active subscription per user at a time.
+  $active = iptv_active_subscription($pdo, $user_id);
+  if ($active) {
+    $until = (string)($active['ends_at'] ?? '');
+    $untilPretty = $until ? date('M j, Y H:i', strtotime($until)) : 'never';
+    $pname = (string)($active['plan_name'] ?? 'current plan');
+    flash_set("User already has an active subscription ({$pname}) until {$untilPretty}. Expire/cancel it first.", "error");
+    header("Location: plans_subs.php"); exit;
+  }
+
   $starts = new DateTime();
   $unlimited = isset($_POST['unlimited']) && (string)$_POST['unlimited'] === '1';
   if ($unlimited) {

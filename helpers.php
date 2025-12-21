@@ -992,3 +992,46 @@ function system_setting_set(PDO $pdo, string $key, ?string $value): void {
     // ignore
   }
 }
+
+
+/* ---------- SUBSCRIPTIONS (single active subscription guard) ---------- */
+
+/**
+ * Fetch the most relevant active subscription for a user.
+ * Active = status='active' AND ends_at in the future (or NULL).
+ */
+function iptv_active_subscription(PDO $pdo, int $user_id): ?array {
+  try {
+    $st = $pdo->prepare("\n      SELECT s.*, p.name AS plan_name, p.duration_days\n      FROM subscriptions s\n      JOIN plans p ON p.id=s.plan_id\n      WHERE s.user_id=? AND s.status='active' AND (s.ends_at IS NULL OR s.ends_at>NOW())\n      ORDER BY s.ends_at DESC\n      LIMIT 1\n    ");
+    $st->execute([$user_id]);
+    $row = $st->fetch(PDO::FETCH_ASSOC);
+    return $row ? $row : null;
+  } catch (Throwable $e) {
+    return null;
+  }
+}
+
+/**
+ * Return true if a user currently has an active subscription.
+ */
+function iptv_user_has_active_subscription(PDO $pdo, int $user_id): bool {
+  return iptv_active_subscription($pdo, $user_id) !== null;
+}
+
+/**
+ * Cancel any currently-active subscriptions for a user.
+ * This is used to enforce "one active subscription at a time".
+ */
+function iptv_cancel_other_active_subscriptions(PDO $pdo, int $user_id, int $keep_sub_id = 0): void {
+  try {
+    if ($keep_sub_id > 0) {
+      $pdo->prepare("UPDATE subscriptions SET status='cancelled' WHERE user_id=? AND id<>? AND status='active' AND (ends_at IS NULL OR ends_at>NOW())")
+          ->execute([$user_id, $keep_sub_id]);
+    } else {
+      $pdo->prepare("UPDATE subscriptions SET status='cancelled' WHERE user_id=? AND status='active' AND (ends_at IS NULL OR ends_at>NOW())")
+          ->execute([$user_id]);
+    }
+  } catch (Throwable $e) {
+    // ignore
+  }
+}

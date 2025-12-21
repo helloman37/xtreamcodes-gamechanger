@@ -19,6 +19,19 @@ if(!empty($_SESSION['store_user'])){
   $loggedInUser = $uSt->fetch();
 }
 
+// Enforce: only one active subscription at a time.
+if ($loggedInUser && !empty($loggedInUser['id'])) {
+  $active = iptv_active_subscription($pdo, (int)$loggedInUser['id']);
+  if ($active) {
+    $until = (string)($active['ends_at'] ?? '');
+    $untilPretty = $until ? date('M j, Y H:i', strtotime($until)) : 'never';
+    $pname = (string)($active['plan_name'] ?? 'your current plan');
+    flash_set("You already have an active subscription ({$pname}) until {$untilPretty}.", "warning");
+    header("Location: /dashboard.php");
+    exit;
+  }
+}
+
 if($_SERVER['REQUEST_METHOD']==='POST'){
   $provider=$_POST['provider'] ?? 'paypal';
   $want_adult = isset($_POST['allow_adult']) ? 1 : 0;

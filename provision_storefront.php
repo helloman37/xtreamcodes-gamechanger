@@ -42,7 +42,44 @@ function provision_storefront_order($orderId, $providerTxn){
   $plan=$planSt->fetch();
   if(!$plan) throw new Exception("Plan missing");
 
-  $expires=date("Y-m-d H:i:s", time()+((int)$plan['duration_days']*86400));
+  try {
+    $pdo->beginTransaction();
+
+    $expires=date("Y-m-d H:i:s", time()+((int)$plan['duration_days']*86400));
+
+  // Enforce: one active subscription at a time.
+  // If the user already has active time left, we carry it forward by basing the new expiry
+  // on the latest active ends_at (renew without overlapping active subscriptions).
+  $now = date("Y-m-d H:i:s");
+  $hasUnlimited = false;
+  try {
+    $stU = $pdo->prepare("SELECT 1 FROM subscriptions WHERE user_id=? AND status='active' AND ends_at IS NULL LIMIT 1");
+    $stU->execute([$userId]);
+    $hasUnlimited = (bool)$stU->fetchColumn();
+  } catch (Throwable $e) {}
+  if ($hasUnlimited) throw new Exception("Account already has an unlimited subscription.");
+
+  $baseEnd = null;
+  try {
+    $stE = $pdo->prepare("SELECT MAX(ends_at) FROM subscriptions WHERE user_id=? AND status='active' AND ends_at>NOW()");
+    $stE->execute([$userId]);
+    $baseEnd = (string)($stE->fetchColumn() ?? '');
+  } catch (Throwable $e) {
+    $baseEnd = '';
+  }
+  if ($baseEnd === '') $baseEnd = $now;
+
+  // Guard: treat far-future sentinel as unlimited.
+  if (str_starts_with($baseEnd, '9999-')) {
+    throw new Exception("Account already has an unlimited subscription.");
+  }
+
+  $durDays = (int)($plan['duration_days'] ?? 0);
+  if ($durDays < 1) $durDays = 30;
+  $expires = date("Y-m-d H:i:s", strtotime($baseEnd . " +{$durDays} days"));
+
+  // Cancel any current active subs (if any) so there is never more than one active subscription row.
+  iptv_cancel_other_active_subscriptions($pdo, (int)$userId);
 
   $subSt=$pdo->prepare("INSERT INTO subscriptions (user_id, plan_id, starts_at, ends_at, status, order_id, source)
                         VALUES (?,?, NOW(), ?, 'active', ?, 'storefront')");
@@ -51,6 +88,12 @@ function provision_storefront_order($orderId, $providerTxn){
   // mark paid
   $pdo->prepare("UPDATE orders SET status='paid', provider_txn=?, paid_at=NOW(), user_id=? WHERE id=?")
       ->execute([$providerTxn,$userId,$orderId]);
+
+    $pdo->commit();
+  } catch (Throwable $e) {
+    if ($pdo->inTransaction()) $pdo->rollBack();
+    throw $e;
+  }
 
   unset($_SESSION['checkout_'.$orderId]);
   return $userId;

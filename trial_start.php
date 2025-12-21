@@ -15,6 +15,16 @@ if (empty($_SESSION['store_user'])) {
 // store_user may be an array or id
 $userId = is_array($_SESSION['store_user']) ? (int)$_SESSION['store_user']['id'] : (int)$_SESSION['store_user'];
 
+// Enforce: one active subscription at a time (trial only for accounts without an active sub).
+$active = iptv_active_subscription($pdo, $userId);
+if ($active) {
+  $until = (string)($active['ends_at'] ?? '');
+  $untilPretty = $until ? date('M j, Y H:i', strtotime($until)) : 'never';
+  flash_set("You already have an active subscription until {$untilPretty}.", "error");
+  header("Location: dashboard.php");
+  exit;
+}
+
 // ---- user-based one-time trial guard ----
 $usedTrial = false;
 

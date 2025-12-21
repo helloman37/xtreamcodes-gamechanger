@@ -135,6 +135,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $pdo->prepare("UPDATE subscriptions SET plan_id=?, starts_at=?, ends_at=?, status=? WHERE id=? AND user_id=?")
           ->execute([$plan_id_new, $starts_at, $ends_at, $status_new, $sub_id, $id]);
 
+      // Enforce: only one active subscription at a time per user.
+      if ($status_new === 'active') {
+        iptv_cancel_other_active_subscriptions($pdo, $id, $sub_id);
+      }
+
       flash_set("Subscription updated", "success");
     } catch (Throwable $e) {
       flash_set("Invalid date/time format", "error");
