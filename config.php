@@ -31,8 +31,12 @@ $defaults = [
   // CHANGE THIS to a long random string
   'secret_key' => 'h!}[.;RZP,4|Y(wNfdtb6fVx*.W[I[g2XKek8hu>BRNNr06JTlaNk=@YL,4~#f)I',
 
-  // token expiry in seconds (1 hour default)
-  'token_ttl' => 3600,
+  // token expiry in seconds (used when subscription has no ends_at)
+  'token_ttl' => 604800,
+
+  // Active subscription cache TTL (seconds). Used at stream start to reduce DB load.
+  // Keep small (30-120). Short TTL still allows quick bans/cancels.
+  'sub_cache_ttl' => 60,
 
   // If true, requires the client to send a stable device_id (querystring or X-Device-ID).
   // Recommended for your Android app; keep false for generic IPTV apps.

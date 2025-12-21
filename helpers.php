@@ -1009,6 +1009,78 @@ function iptv_active_subscription(PDO $pdo, int $user_id): ?array {
   } catch (Throwable $e) {
     return null;
   }
+
+/* ---------- SIMPLE CACHE (APCu / filesystem fallback) ---------- */
+/**
+ * Small cache helper to reduce DB load on hot paths (stream start).
+ * Uses APCu when available; otherwise falls back to a tiny filesystem cache in sys_get_temp_dir().
+ */
+function iptv_cache_get(string $key) {
+  // APCu first
+  if (function_exists('apcu_fetch')) {
+    $ok = false;
+    $val = apcu_fetch($key, $ok);
+    if ($ok) return $val;
+  }
+
+  $dir = rtrim(sys_get_temp_dir(), '/\\') . DIRECTORY_SEPARATOR . 'iptv_cache';
+  $file = $dir . DIRECTORY_SEPARATOR . hash('sha256', $key) . '.json';
+  if (!is_file($file)) return null;
+  $raw = @file_get_contents($file);
+  if ($raw === false || $raw === '') return null;
+  $data = json_decode($raw, true);
+  if (!is_array($data)) return null;
+  $exp = (int)($data['exp'] ?? 0);
+  if ($exp > 0 && $exp < time()) {
+    @unlink($file);
+    return null;
+  }
+  if (!array_key_exists('val', $data)) return null;
+  $ser = base64_decode((string)$data['val'], true);
+  if ($ser === false) return null;
+  $val = @unserialize($ser, ['allowed_classes' => false]);
+  return $val;
+}
+
+function iptv_cache_set(string $key, $value, int $ttl): void {
+  if ($ttl <= 0) return;
+  // APCu
+  if (function_exists('apcu_store')) {
+    @apcu_store($key, $value, $ttl);
+    return;
+  }
+
+  $dir = rtrim(sys_get_temp_dir(), '/\\') . DIRECTORY_SEPARATOR . 'iptv_cache';
+  if (!is_dir($dir)) {
+    @mkdir($dir, 0777, true);
+  }
+  if (!is_dir($dir) || !is_writable($dir)) return;
+  $file = $dir . DIRECTORY_SEPARATOR . hash('sha256', $key) . '.json';
+  $payload = [
+    'exp' => time() + $ttl,
+    'val' => base64_encode(serialize($value)),
+  ];
+  @file_put_contents($file, json_encode($payload), LOCK_EX);
+}
+
+/**
+ * Cached active subscription lookup. TTL should be small (30-120s).
+ */
+function iptv_cached_active_subscription(PDO $pdo, int $user_id, int $ttl = 60): ?array {
+  $ttl = (int)$ttl;
+  if ($ttl <= 0) return iptv_active_subscription($pdo, $user_id);
+  $key = 'iptv_active_sub_' . $user_id;
+  $cached = iptv_cache_get($key);
+  if ($cached !== null) {
+    // cached can be array or false sentinel
+    return ($cached === false) ? null : $cached;
+  }
+  $sub = iptv_active_subscription($pdo, $user_id);
+  // Use false sentinel for 'no sub' so we still cache misses.
+  iptv_cache_set($key, $sub ?? false, $ttl);
+  return $sub;
+}
+
 }
 
 /**

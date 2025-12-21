@@ -181,6 +181,18 @@ if (!$sub) {
   exit;
 }
 
+// Token expiry: keep tokens valid for the duration of the active subscription when possible.
+// If the subscription has no end (lifetime) or parsing fails, fall back to token_ttl.
+$now = time();
+$exp_global = $now + $ttl;
+if (!empty($sub['ends_at'])) {
+  $ts = strtotime((string)$sub['ends_at']);
+  if ($ts !== false && $ts > $now) {
+    $exp_global = (int)$ts;
+  }
+}
+
+
 /* app config */
 $user_tmdb = $user['tmdb_api_key'] ?? '';
 $user_logo = $user['app_logo_url'] ?? '';
@@ -243,7 +255,7 @@ foreach ($channels as $c) {
   $ext = $c['container_ext'];
   if (!$ext) $ext = preg_match('/\.m3u8(\?|$)/i', (string)$c['stream_url']) ? 'm3u8' : 'ts';
 
-  $exp   = time() + $ttl;
+  $exp = $exp_global;
   $token = make_token($username, (int)$c['id'], $exp, 'live');
 
   // Token-only URLs (no password leak)
@@ -300,7 +312,7 @@ if ($type === 'm3u_plus') {
     $ext = $m['container_ext'];
     if (!$ext) $ext = preg_match('/\.m3u8(\?|$)/i', (string)$m['stream_url']) ? 'm3u8' : 'mp4';
 
-    $exp = time() + $ttl;
+    $exp = $exp_global;
     $tok = make_token($username, (int)$m['id'], $exp, 'movie');
 
     if ($link_type === 'direct_protected') {
@@ -337,7 +349,7 @@ if ($type === 'm3u_plus') {
     echo '#EXTINF:-1'.$logo.$group.','.e($label)."\n";
 
     $ext = $e['container_ext'] ?: 'mp4';
-    $exp = time() + $ttl;
+    $exp = $exp_global;
     $tok = make_token($username, (int)$e['id'], $exp, 'episode');
 
     if ($link_type === 'direct_protected') {

@@ -127,134 +127,16 @@ if (!ip_allowed($ip, $user['ip_allowlist'] ?? null, $user['ip_denylist'] ?? null
   exit("IP not allowed");
 }
 
-/* active sub + plan */
-$st = $pdo->prepare("
-  SELECT s.*, p.max_streams, p.max_devices
-  FROM subscriptions s
-  JOIN plans p ON p.id=s.plan_id
-  WHERE s.user_id=? AND s.status='active' AND (s.ends_at IS NULL OR s.ends_at>NOW())
-  ORDER BY s.ends_at DESC LIMIT 1
-");
-$st->execute([(int)$user['id']]);
-$sub = $st->fetch(PDO::FETCH_ASSOC);
+/* active sub + plan (cached) */
+$sub_cache_ttl = (int)($config['sub_cache_ttl'] ?? 60);
+$sub = iptv_cached_active_subscription($pdo, (int)$user['id'], $sub_cache_ttl);
 if (!$sub) {
-  telemetry_reason('no_subscription');
+  audit_log('expired_block', (int)$user['id'], ['type'=>$type,'id'=>$id]);
+  telemetry_reason('expired');
   $url = _fail_video_url($pdo, $type, 'expired');
   if ($url !== '') _redirect_fail_video($url);
   http_response_code(403);
-  exit("No active subscription");
-}
-$max_streams = (int)$sub['max_streams'];
-$max_devices = (int)($sub['max_devices'] ?? 2);
-
-// Global maintenance mode: when enabled, stream requests redirect to the maintenance video (if set).
-$maint_enabled = system_setting_get($pdo, 'maintenance_mode', '0') === '1';
-if ($maint_enabled) {
-  $maint_video = trim((string)system_setting_get($pdo, 'maintenance_video_url', ''));
-  $maint_msg = system_setting_get(
-    $pdo,
-    'maintenance_message',
-    'Service is temporarily under maintenance. Please try again later.'
-  );
-
-  header('X-Maintenance-Mode: 1');
-  telemetry_reason('maintenance');
-
-  if ($maint_video !== '') {
-    http_response_code(302);
-    header('Cache-Control: no-store, no-cache, must-revalidate');
-    header('Pragma: no-cache');
-    header('Location: ' . $maint_video);
-    exit;
-  }
-
-  http_response_code(503);
-  header('Content-Type: text/plain; charset=utf-8');
-  echo $maint_msg;
-  exit;
-}
-
-// Device lock (optional): binds the account to a *set* of devices (up to plan max_devices)
-// - When unchecked: no hard binding (but we still record devices for visibility).
-// - When checked: the first N unique devices (N = plan max_devices) are "bound" and only those are allowed.
-try {
-  if ($device_fp !== '') {
-    if (!empty($user['device_lock'])) {
-      $st = $pdo->prepare("SELECT 1 FROM user_devices WHERE user_id=? AND fingerprint=? LIMIT 1");
-      $st->execute([(int)$user['id'], $device_fp]);
-      $known = (bool)$st->fetchColumn();
-
-      if (!$known) {
-        $st2 = $pdo->prepare("SELECT COUNT(*) AS c FROM user_devices WHERE user_id=?");
-        $st2->execute([(int)$user['id']]);
-        $bound = (int)($st2->fetch(PDO::FETCH_ASSOC)['c'] ?? 0);
-
-        if ($max_devices > 0 && $bound >= $max_devices) {
-          audit_log('device_lock_block', (int)$user['id'], ['ip'=>$ip,'id'=>$id,'max_devices'=>$max_devices,'bound'=>$bound]);
-          telemetry_reason('device_lock', ['max_devices'=>$max_devices,'bound'=>$bound]);
-          $url = _fail_video_url($pdo, $type, 'limit');
-          if ($url !== '') _redirect_fail_video($url);
-          http_response_code(403);
-          exit("Device limit reached");
-        }
-      }
-    }
-
-    // Record/refresh this device fingerprint (for admin visibility + last_seen)
-    $pdo->prepare("
-      INSERT INTO user_devices (user_id, fingerprint, last_seen, last_ip)
-      VALUES (?,?,NOW(),?)
-      ON DUPLICATE KEY UPDATE last_seen=NOW(), last_ip=VALUES(last_ip)
-    ")->execute([(int)$user['id'], $device_fp, $ip]);
-  }
-} catch (Throwable $e) {
-  // ignore
-}
-
-/* package/bouquet enforcement (live + VOD + Series) */
-$pkg_ids = user_package_ids($pdo, (int)$user['id']);
-
-if ($pkg_ids) {
-  $in = implode(',', array_fill(0, count($pkg_ids), '?'));
-  if ($type === 'live') {
-    $params = array_merge([$id], $pkg_ids);
-    $st = $pdo->prepare("SELECT 1 FROM package_channels pc WHERE pc.channel_id=? AND pc.package_id IN ($in) LIMIT 1");
-    $st->execute($params);
-    if (!$st->fetch()) {
-      audit_log('package_block', (int)$user['id'], ['type'=>'live','id'=>$id]);
-      telemetry_reason('package_block', ['type'=>'live','id'=>$id]);
-      http_response_code(403);
-      exit("Not in your package");
-    }
-  } elseif ($type === 'movie') {
-    $params = array_merge([$id], $pkg_ids);
-    $st = $pdo->prepare("SELECT 1 FROM package_movies pm WHERE pm.movie_id=? AND pm.package_id IN ($in) LIMIT 1");
-    $st->execute($params);
-    if (!$st->fetch()) {
-      audit_log('package_block', (int)$user['id'], ['type'=>'movie','id'=>$id]);
-      telemetry_reason('package_block', ['type'=>'movie','id'=>$id]);
-      http_response_code(403);
-      exit("Not in your package");
-    }
-  } else { // episode
-    // episode belongs to a series; package rules are on the series
-    $st = $pdo->prepare("SELECT series_id FROM series_episodes WHERE id=? LIMIT 1");
-    $st->execute([$id]);
-    $series_id = (int)($st->fetch(PDO::FETCH_ASSOC)['series_id'] ?? 0);
-    if ($series_id < 1) {
-      http_response_code(404);
-      exit('Episode not found');
-    }
-    $params = array_merge([$series_id], $pkg_ids);
-    $st = $pdo->prepare("SELECT 1 FROM package_series ps WHERE ps.series_id=? AND ps.package_id IN ($in) LIMIT 1");
-    $st->execute($params);
-    if (!$st->fetch()) {
-      audit_log('package_block', (int)$user['id'], ['type'=>'series','series_id'=>$series_id,'episode_id'=>$id]);
-      telemetry_reason('package_block', ['type'=>'series','series_id'=>$series_id,'episode_id'=>$id]);
-      http_response_code(403);
-      exit("Not in your package");
-    }
-  }
+  exit('Expired');
 }
 
 /* cleanup old sessions */
