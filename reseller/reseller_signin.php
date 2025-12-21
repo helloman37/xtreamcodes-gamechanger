@@ -30,7 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Xtream UI Game Changer - Reseller Login</title>
-  <link rel="stylesheet" href="login.css?v=1">
+  <link rel="stylesheet" href="login.css?v=<?php echo @filemtime(__DIR__ . '/login.css') ?: 1; ?>">
 </head>
 <body>
   <div class="login-bg">

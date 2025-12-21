@@ -1,4 +1,9 @@
 <?php
+// Start output buffering early so redirects/session cookies can be set even if templates echo later.
+if (PHP_SAPI !== 'cli' && ob_get_level() === 0) {
+  @ob_start();
+}
+
 // helpers.php
 
 // -----------------------------------------------------------------------------
@@ -66,7 +71,13 @@ function flash_show() {
     display:flex; flex-direction:column; gap:10px;
     pointer-events:none;
     max-width: min(92vw, 440px);
+    background: transparent !important;
+    border: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
   }
+  #iptvToastHost.iptv-toast-host:empty{ display:none !important; }
   #iptvToastHost .iptv-toast{
     pointer-events:auto;
     width: min(420px, 92vw);

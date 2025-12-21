@@ -24,7 +24,13 @@ function db(): PDO {
         $script = $_SERVER['SCRIPT_NAME'] ?? '/index.php';
         $base   = rtrim(str_replace('\\', '/', dirname($script)), '/');
         $dest   = ($base ? $base : '') . '/install/';
-        header('Location: ' . $dest);
+        if (!headers_sent()) {
+          header('Location: ' . $dest);
+          exit;
+        }
+        // Headers already sent (output started earlier). Fall back to a JS/meta redirect.
+        echo '<script>location.href=' . json_encode($dest) . ';</script>';
+        echo '<noscript><meta http-equiv="refresh" content="0;url=' . htmlspecialchars($dest, ENT_QUOTES) . '"></noscript>';
         exit;
       }
     }

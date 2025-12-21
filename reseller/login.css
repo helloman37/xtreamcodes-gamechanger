@@ -159,14 +159,24 @@ input:focus {
   filter: brightness(0.97);
 }
 
-/* Make the existing flash output blend in */
-.flash-wrap > div {
+/* If any legacy inline flash boxes exist, blend them in.
+   IMPORTANT: flash_show() always injects #iptvToastHost (fixed-position toast container).
+   Do NOT style it like an inline box, or you'll see a weird white square top-right. */
+.flash-wrap > div:not(#iptvToastHost) {
   margin: 0 0 12px 0 !important;
   padding: 10px 12px !important;
   border-radius: 3px !important;
   border: 1px solid #d9dee3 !important;
   background: #f6f7f9 !important;
   color: #333 !important;
+}
+
+/* hard override: never let the toast host render as a box */
+.flash-wrap #iptvToastHost{
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
 }
 
 @media (max-width: 520px) {

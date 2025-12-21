@@ -159,14 +159,12 @@ input:focus {
   filter: brightness(0.97);
 }
 
-/* Make the existing flash output blend in */
-.flash-wrap > div {
-  margin: 0 0 12px 0 !important;
-  padding: 10px 12px !important;
-  border-radius: 3px !important;
-  border: 1px solid #d9dee3 !important;
-  background: #f6f7f9 !important;
-  color: #333 !important;
+/* flash_show now renders top-right toasts; don't style the toast host as an inline box */
+.flash-wrap #iptvToastHost{
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
 }
 
 @media (max-width: 520px) {

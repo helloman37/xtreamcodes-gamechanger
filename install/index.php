@@ -192,7 +192,7 @@ $baseUrl = (string)($_SESSION['base_url'] ?? '');
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>IPTV Panel Installer</title>
   <!-- Match the Admin login theme (blurred background + centered card) -->
-  <link rel="stylesheet" href="../admin/login.css?v=1" />
+  <link rel="stylesheet" href="../admin/login.css?v=<?php echo @filemtime(__DIR__ . '/../admin/login.css') ?: 1; ?>" />
   <link rel="stylesheet" href="assets/app.css?v=9" />
 </head>
 <body>
