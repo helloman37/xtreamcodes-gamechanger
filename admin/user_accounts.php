@@ -5,6 +5,7 @@ require_once __DIR__ . '/../helpers.php';
 require_admin();
 
 $pdo = db();
+iptv_expire_due_subscriptions($pdo);
 $resellers = $pdo->query("SELECT id, username FROM resellers WHERE status='active' ORDER BY username")->fetchAll();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {

@@ -4,6 +4,7 @@ require_once __DIR__ . '/../auth.php';
 require_once __DIR__ . '/../helpers.php';
 require_admin();
 $pdo = db();
+iptv_expire_due_subscriptions($pdo);
 
 /* Create / Update reseller */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {

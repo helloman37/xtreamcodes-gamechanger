@@ -5,6 +5,7 @@ require_once __DIR__ . '/../helpers.php';
 require_admin();
 
 $pdo = db();
+iptv_expire_due_subscriptions($pdo);
 
 $topbar = file_get_contents(__DIR__ . '/topbar.html');
 $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'), $topbar);

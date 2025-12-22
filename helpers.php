@@ -1002,13 +1002,14 @@ function system_setting_set(PDO $pdo, string $key, ?string $value): void {
  */
 function iptv_active_subscription(PDO $pdo, int $user_id): ?array {
   try {
-    $st = $pdo->prepare("\n      SELECT s.*, p.name AS plan_name, p.duration_days\n      FROM subscriptions s\n      JOIN plans p ON p.id=s.plan_id\n      WHERE s.user_id=? AND s.status='active' AND (s.ends_at IS NULL OR s.ends_at>NOW())\n      ORDER BY s.ends_at DESC\n      LIMIT 1\n    ");
+    $st = $pdo->prepare("\n      SELECT s.*,\n             p.name AS plan_name,\n             p.duration_days,\n             p.max_streams,\n             p.max_devices\n      FROM subscriptions s\n      JOIN plans p ON p.id=s.plan_id\n      WHERE s.user_id=? AND s.status='active' AND (s.ends_at IS NULL OR s.ends_at>NOW())\n      ORDER BY s.ends_at DESC\n      LIMIT 1\n    ");
     $st->execute([$user_id]);
     $row = $st->fetch(PDO::FETCH_ASSOC);
     return $row ? $row : null;
   } catch (Throwable $e) {
     return null;
   }
+}
 
 /* ---------- SIMPLE CACHE (APCu / filesystem fallback) ---------- */
 /**
@@ -1081,6 +1082,31 @@ function iptv_cached_active_subscription(PDO $pdo, int $user_id, int $ttl = 60):
   return $sub;
 }
 
+
+/**
+ * Expire any subscriptions that have passed their end date.
+ *
+ * Why this exists:
+ * - Access control already checks ends_at > NOW() (so playback blocks correctly),
+ *   but admin screens and reports often display the stored status field.
+ * - This keeps subscriptions.status in sync with reality.
+ *
+ * If $user_id is provided, only that user's subscriptions are updated.
+ * Returns number of rows updated.
+ */
+function iptv_expire_due_subscriptions(PDO $pdo, int $user_id = 0): int {
+  try {
+    if ($user_id > 0) {
+      $st = $pdo->prepare("UPDATE subscriptions SET status='expired' WHERE user_id=? AND status='active' AND ends_at IS NOT NULL AND ends_at<=NOW()");
+      $st->execute([$user_id]);
+      return (int)$st->rowCount();
+    }
+    $st = $pdo->prepare("UPDATE subscriptions SET status='expired' WHERE status='active' AND ends_at IS NOT NULL AND ends_at<=NOW()");
+    $st->execute();
+    return (int)$st->rowCount();
+  } catch (Throwable $e) {
+    return 0;
+  }
 }
 
 /**

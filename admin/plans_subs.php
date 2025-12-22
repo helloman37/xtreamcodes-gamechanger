@@ -5,6 +5,8 @@ require_once __DIR__ . '/../helpers.php';
 require_admin();
 
 $pdo = db();
+// Keep stored subscription statuses in sync with ends_at.
+iptv_expire_due_subscriptions($pdo);
 
 /* ---------------------------
    CREATE PLAN

@@ -31,9 +31,10 @@ telemetry_meta(['link'=>$link_type]);
 
 // -----------------------------------------------------------------------------
 // Optional fail-video redirect (System -> Fail Videos).
-// NOTE: For get.php, fail-video redirects can confuse IPTV apps during login/handshake.
-// Set this to true only if you explicitly want playlist requests to redirect to a fail video on auth errors.
-$ENABLE_GET_FAIL_VIDEOS = false;
+// NOTE: Some IPTV apps expect get.php to return text/HTTP errors during handshake.
+// This build defaults to redirecting to Fail Videos when configured.
+// Set config.local.php:  'enable_get_fail_videos' => false  to force legacy text errors.
+$ENABLE_GET_FAIL_VIDEOS = (bool)($config['enable_get_fail_videos'] ?? true);
 
 // For get.php, we only redirect on non-config requests, since config expects JSON.
 // Kind mapping: m3u_plus => vod, otherwise live.

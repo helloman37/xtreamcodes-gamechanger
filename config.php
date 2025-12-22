@@ -34,6 +34,10 @@ $defaults = [
   // token expiry in seconds (used when subscription has no ends_at)
   'token_ttl' => 604800,
 
+  // If true, get.php will redirect to Fail Videos on auth/sub errors when a fail video URL is configured.
+  // If false, get.php returns normal text/HTTP errors (default Xtream-style behavior).
+  'enable_get_fail_videos' => true,
+
   // Active subscription cache TTL (seconds). Used at stream start to reduce DB load.
   // Keep small (30-120). Short TTL still allows quick bans/cancels.
   'sub_cache_ttl' => 60,

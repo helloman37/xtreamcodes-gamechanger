@@ -5,6 +5,7 @@ require_once __DIR__ . '/../helpers.php';
 require_admin();
 
 $pdo = db();
+iptv_expire_due_subscriptions($pdo);
 $reseller_id = (int)($_GET['id'] ?? 0);
 if ($reseller_id <= 0) {
   flash_set('Missing reseller id.', 'error');

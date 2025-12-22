@@ -74,10 +74,55 @@ if ($sig !== '') {
     if (!hash_equals($good, $sig)) {
       http_response_code(403); exit('bad_sig');
     }
-    // If we're in token mode, still enforce token expiry without touching DB.
-    if ($token !== '' && $exp > 0 && !verify_token($u, $id, $exp, $token, $type)) {
-      http_response_code(401); exit('token_expired');
+
+// Prevent replay of old signed playlists after a subscription expires.
+// You can disable this if you need max performance:
+//   config.php: 'enforce_subscription_on_segments' => false
+$enf = (bool)($cfg['enforce_subscription_on_segments'] ?? true);
+if ($enf) {
+  $pdo = db();
+  $st = $pdo->prepare("SELECT id FROM users WHERE username=? AND status='active' LIMIT 1");
+  $st->execute([$u]);
+  $uid = (int)($st->fetch(PDO::FETCH_ASSOC)['id'] ?? 0);
+  if ($uid > 0) {
+    $ttl2 = (int)($cfg['sub_cache_ttl'] ?? 60);
+    if ($ttl2 < 5) $ttl2 = 5;
+    $sub2 = iptv_cached_active_subscription($pdo, $uid, $ttl2);
+    if (!$sub2) {
+      iptv_expire_due_subscriptions($pdo, $uid);
+      $fv = _seg_fail_video_url($pdo, $type, 'expired');
+      _seg_try_redirect_ts($fv);
+      http_response_code(403);
+      exit('Expired');
     }
+  }
+}
+// If we're in token mode, enforce token validity. If the token is invalid/expired and the user
+// subscription is also expired, redirect to the "expired" fail video (best-effort, .ts only).
+if ($token !== '' && $exp > 0 && !verify_token($u, $id, $exp, $token, $type)) {
+  $pdo = db();
+  $st = $pdo->prepare("SELECT id FROM users WHERE username=? AND status='active' LIMIT 1");
+  $st->execute([$u]);
+  $uid = (int)($st->fetch(PDO::FETCH_ASSOC)['id'] ?? 0);
+  if ($uid > 0) {
+    $cfg2 = require __DIR__ . '/../config.php';
+    $ttl2 = (int)($cfg2['sub_cache_ttl'] ?? 60);
+    if ($ttl2 < 5) $ttl2 = 5;
+    $sub2 = iptv_cached_active_subscription($pdo, $uid, $ttl2);
+    if (!$sub2) {
+      iptv_expire_due_subscriptions($pdo, $uid);
+      $fv = _seg_fail_video_url($pdo, $type, 'expired');
+      _seg_try_redirect_ts($fv);
+      http_response_code(403);
+      exit('Expired');
+    }
+  }
+  // Subscription is still active (or unknown) but token is invalid/stale.
+  $fv = _seg_fail_video_url($pdo, $type, 'invalid_login');
+  _seg_try_redirect_ts($fv);
+  http_response_code(401);
+  exit('token_invalid');
+}
     $signed_ok = true;
   } else {
     http_response_code(403); exit('bad_sig');
@@ -142,6 +187,20 @@ if (!ip_allowed($ip, $user['ip_allowlist'] ?? null, $user['ip_denylist'] ?? null
   _seg_try_redirect_ts($fv);
   http_response_code(403);
   exit("IP not allowed");
+}
+
+// Active subscription enforcement (cached). Keeps behavior consistent even if an app
+// replays old playlists / segment URLs after a sub expires.
+$cfgs = require __DIR__ . '/../config.php';
+$ttls = (int)($cfgs['sub_cache_ttl'] ?? 60);
+if ($ttls < 5) $ttls = 5;
+$subs = iptv_cached_active_subscription($pdo, (int)$user['id'], $ttls);
+if (!$subs) {
+  iptv_expire_due_subscriptions($pdo, (int)$user['id']);
+  $fv = _seg_fail_video_url($pdo, $type, 'expired');
+  _seg_try_redirect_ts($fv);
+  http_response_code(403);
+  exit('Expired');
 }
 
 /* adult filter */
