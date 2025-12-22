@@ -174,37 +174,6 @@ telemetry_set_user((int)$user['id'], (string)$user['username']);
 // Cache TTL for subscription lookup (seconds). Used later for the main sub check.
 $sub_cache_ttl = (int)($config['sub_cache_ttl'] ?? 60);
 
-// If the client is using token-only auth and the token is expired, most IPTV apps will treat
-// this as a generic "invalid login". But in this panel, token expiry is usually tied to the
-// subscription end date, so show the proper "expired" fail video when the subscription is
-// actually expired.
-//
-// IMPORTANT: For unlimited/lifetime subs we still use a short token TTL, so an expired token
-// does NOT always mean the subscription is expired. In that case we keep the invalid-login
-// behavior (client should refresh playlist/login to get a new token).
-if ($p === '' && $token !== '' && $exp > 0 && $exp < time()) {
-  // Bypass cache here (TTL=0) so we don't misclassify at the exact boundary.
-  $active_now = iptv_cached_active_subscription($pdo, (int)$user['id'], 0);
-  if (!$active_now) {
-    // Keep stored status in sync so Admin shows it correctly.
-    iptv_expire_due_subscriptions($pdo, (int)$user['id']);
-    audit_log('expired_block', (int)$user['id'], ['type'=>$type,'id'=>$id,'reason'=>'token_expired']);
-    telemetry_reason('expired', ['token_expired'=>1]);
-    $url = _fail_video_url($pdo, $type, 'expired');
-    if ($url !== '') _redirect_fail_video($url);
-    http_response_code(403);
-    exit('Expired');
-  }
-
-  // Subscription is still active (likely unlimited), but the token is stale.
-  audit_log('stream_token_expired', (int)$user['id'], ['type'=>$type,'id'=>$id]);
-  telemetry_reason('token_expired', ['id'=>$id]);
-  $url = _fail_video_url($pdo, $type, 'invalid_login');
-  if ($url !== '') _redirect_fail_video($url);
-  http_response_code(401);
-  exit('token_expired');
-}
-
 /* token OR password */
 $token_ok = ($token && $exp && verify_token($u, $id, $exp, $token, $type));
 $pass_ok  = ($p !== '' && password_verify($p, $user['password_hash']));

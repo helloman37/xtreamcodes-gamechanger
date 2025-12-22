@@ -924,7 +924,13 @@ function make_token(string $username, int $item_id, int $exp, string $type='live
 }
 
 function verify_token(string $username, int $item_id, int $exp, string $token, string $type='live'): bool {
-  if ($exp < time()) return false;
+  // Token signatures are validated with HMAC.
+  // By default, we do NOT hard-fail on exp<now because subscription enforcement is authoritative.
+  // This prevents "invalid login" fail videos when clients replay old URLs while the subscription is still active.
+  // To restore strict token expiry behavior, set config.local.php: ['enforce_token_exp' => true]
+  $cfg = require __DIR__ . '/config.php';
+  $enforce_exp = (bool)($cfg['enforce_token_exp'] ?? false);
+  if ($enforce_exp && $exp < time()) return false;
 
   // New typed token
   $good = make_token($username, $item_id, $exp, $type);
