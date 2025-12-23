@@ -1,377 +1,148 @@
-[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-%24tysonworlds-ffdd00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://cash.app/$tysonworlds)
+# GameChanger Panel (Admin + Subscriber Portal)
 
-# Simple IPTV Admin Panel (PHP 7.4–8.x) — Gamechanger Edition
+A clean, modern PHP panel for managing licensed Live/VOD catalogs and delivering a fast subscriber portal — with **built-in modules**
 
-Pure PHP + MySQL IPTV panel + companion Android app. No frameworks. No Composer. Shared-hosting friendly.
-
-**Xtream-style Player API is working/fixed** and the Android client consumes it cleanly.
+> **Legal note:** This software is intended for managing and distributing **content you have the rights to stream** (your own channels, licensed feeds, private networks, or authorized catalogs). Do not use it to distribute pirated content.
 
 ---
 
-## Android App Download (Released)
+## What this panel is
 
-The Android TV / Android phone app is **released for download**.
-
-While the APK is public, the **full app source is private**.
-
----
-
-## 🚀 Gamechanger: Ordered Multi‑M3U Imports (Server-Side)
-
-This panel supports **multi M3U upload** with a **drag & drop “import order” list** — and that order is **persisted everywhere**:
-
-- Panel category + channel lists
-- User M3U downloads (`get.php`)
-- Xtream-style API output (`player_api.php`)
-
-So if an admin imports files in the order:
-
-1) Sports.m3u  
-2) Movies.m3u  
-3) Kids.m3u  
-
-…then the panel + exported playlists return **Sports → Movies → Kids**, matching that exact order (server-side).
-
-> Note: Some IPTV apps still sort locally (A→Z) no matter what. The server output is ordered, but the client may override it.
+- **Admin panel** for managing content, tools, and system utilities
+- **Subscriber portal** for browsing, watching, and managing personal features
+- **Plugin-free**: features are integrated directly into the core panel layout & routing
 
 ---
 
-# ✅ Major Systems & Features (Everything Included)
+## Highlights
 
-## 1) Admin + Reseller Panels
+### Admin: Content tools
+- **NGINX Panel** (Content → NGINX Panel)  
+  Built-in tool for generating an **M3U playlist** from an API source (server/username/password) with proper groups and logos.  
+  *Clean admin styling, no “NGINX Panel → M3U Export” branding text on-page.*
 
-### Admin Area (`/admin`)
-- Admin login/logout
-- Dashboard stats (channels, health stats, users/resellers, recent checks)
-- Full content management (categories/channels, imports, EPG, telemetry, bans, backups)
-- Subscription + billing management
+- **M3U Builder** (Content → M3U Builder)  
+  Build and export curated playlists (your own structure, your own rules) directly inside the panel.
 
-### Reseller Area (`/reseller`)
-- Reseller login/logout
-- Add/edit users
-- Reset credentials (generate numeric username/password)
-- Credits badge visible in topbar (green if > 0, red if 0)
-- Hardened permissions (resellers can’t do bans/override billing)
+- **VOD Enabler** (Content → VOD Enabler)  
+  Enables clean VOD routes and browsing/playback wiring where applicable.
 
-### Admin/Reseller Dropdown → Change Password
-Topbar dropdown allows the logged-in user to change their own password securely (current password required).
+### Admin: System utilities
+- **Dead Stream Hunter** (Replaces Stream Probe entirely)  
+  Stream health checking / detection workflow built directly into the existing Stream Probe location.
 
----
+- **Support Desk** (System → Support Desk)  
+  Admin-side ticket management with the option to expose subscriber-facing support pages.
 
-## 2) Content Management (Channels + Categories)
+- **Watchlist (Admin view)** (System → Watchlist)  
+  Admin visibility into watchlist usage + maintenance actions.
 
-### Category Manager + Channel Manager
-Dedicated management UI that lets admins:
-- Create/rename/delete categories (shows channel counts)
-- Manage channels inside a selected category
-- Keeps `channels.category_id` and `channels.group_title` aligned for clean `group-title` output
+### Subscriber Portal features
+- **EPG / Guide**  
+  Portal page for a TV guide experience.
 
-### Cascade Delete Categories
-Deleting a category also deletes all channels inside it (safe cascade delete behavior).
+- **Support Desk (Subscriber view)**  
+  Portal support page (when enabled in settings).
 
-> “Uncategorized” (or protected base category) is protected from deletion.
+- **Watchlist**  
+  Subscribers can save Live/VOD items and manage favorites from inside the portal.
 
 ---
 
-## 3) M3U Import System (Single + Multi)
+## “No Plugins” architecture
 
-### Multi M3U Upload + Drag & Drop Order
-- Upload multiple M3U files at once
-- Drag & drop to arrange import order before importing
-- Import order persists across panel + exports
+This build intentionally avoids:
+- `/plugins` directory
+- plugin installers
+- plugin managers
+- “Plugins” admin menu pages
 
-### Persistent Ordering Everywhere
-The DB tracks ordering:
-- `categories.sort_order`
-- `channels.sort_order`
-
-After import:
-- Categories appear in the same order as imported files
-- Channels appear in consistent order inside each category
-
-### Import Upsert + Re-Order
-To support re-importing without duplicates:
-- Channels are upserted (matched by stream URL) when possible
-- Re-importing can update ordering and metadata instead of creating duplicates
+Everything is integrated into:
+- the existing admin layout
+- the existing portal layout
+- the main routing/navigation
 
 ---
 
-## 4) EPG System (Upgraded)
+## Requirements (typical)
+- PHP 8.x recommended
+- MySQL/MariaDB
+- cURL enabled
+- JSON enabled
+- Apache + `.htaccess` (or NGINX equivalent rewrites)
+- `allow_url_fopen` not required (cURL used)
 
-### XMLTV endpoint returns real EPG
-`xmltv.php` outputs a real XMLTV feed based on imported guide data (not an empty `<tv>`).
-
-### EPG Extract / Filter (Admin → EPG)
-- Upload XMLTV (`.xml` or `.gz`)
-- Auto-detect “locations” using id/display-name matching
-- Select locations → generates a new filtered XMLTV download
-
-### Upload XMLTV as Source (Admin → EPG)
-- Upload 1 or 2 XMLTV files (`.xml` or `.gz`)
-- If 2 files: combined into one XMLTV on the server
-- Creates/updates a “local upload” source in DB and runs importer automatically
-
-### Auto-replace EPG on import
-Import from URL or uploaded XMLTV replaces previous guide data:
-- No duplicates
-- No stale programmes
-- Uploading again updates the existing “local upload” source; old files are cleaned up
+> If you run behind strict hosts/CDNs, make sure outbound requests to your upstream APIs are allowed.
 
 ---
 
-## 5) Stream Limits + Device Lock (Channel-Switch Safe)
+## Install / Update (high level)
+1. Upload the panel to your web root (or desired directory).
+2. Set your database credentials (via your panel’s config/installer flow).
+3. Ensure permissions allow the panel to write config/cache where needed.
+4. Confirm rewrites are enabled (pretty URLs / portal routes).
+5. Log in to admin and set your base URL + system settings.
+6. Configure your catalogs and portal options.
 
-### Max Streams + Max Devices Enforcement
-- Channel switching on the same device does NOT stack sessions
-- Max Streams behaves like true concurrent sessions/devices
-- Max Devices enforced separately when Device Lock is enabled
-
-### Near Real-Time Active Stream Tracking
-- Sessions stay “alive” only while actively streaming (updates `last_seen`)
-- Slots free quickly after stream stops
-- Prevents false “limit reached” during fast channel flips
-
-### `strict_device_id` (Config)
-If enabled, requires client to send a stable `device_id` (querystring or `X-Device-ID` header). Recommended for the Android app.
+> Because hosting setups vary, this README stays high level. If you want, I can write a “step-by-step” install section specifically for **Apache** or **NGINX** once you tell me which you’re using.
 
 ---
 
-## 6) Abuse Controls (Bans, Rate Limits, Telemetry)
-
-### Ban System (Admin → Abuse Bans)
-- Ban by IP and/or username/account
-- Enforced across:
-  - `player_api.php`
-  - `get.php`
-  - `xmltv.php`
-  - stream endpoints (`/live`, `/seg`, etc.)
-
-### Anti‑Bruteforce & Abuse Handling
-- Rate limiting by IP and username
-- Progressive lockouts
-- Quick ban workflows
-- Telemetry logs failure reasons (`auth_fail`, `banned_ip`, `rate_limited`, `max_connections`, etc.)
-
-### Telemetry + Audit Logs (Admin → System → Telemetry)
-- Request logs for API + stream hits
-- Captures username (when present), IP, UA, device_id, endpoint, reason, response time
-- Shows top IPs/top failures/suspicious accounts and quick actions
+## Security notes (practical)
+- Use HTTPS
+- Restrict admin access (IP allowlist, VPN, or reverse proxy auth)
+- Use strong admin passwords
+- Keep PHP updated
+- Disable directory listing
+- Don’t expose backups/config files publicly
 
 ---
 
-## 7) Fail Videos (Admin → System → Fail Videos)
+## Included pages / menu map
 
-Admins can configure video URLs to play when access is denied instead of plain text errors.
+### Admin
+- **Content**
+  - NGINX Panel
+  - M3U Builder
+  - VOD Enabler
+- **System**
+  - Dead Stream Hunter (Stream Probe replacement)
+  - Support Desk
+  - Watchlist
 
-- Supported formats:
-  - `.mp4`
-  - `.m3u8`
-  - `.ts`
-- Works across:
-  - `get.php`
-  - stream endpoints (`/live`, `/movie`, `/series`, segment endpoints, etc.)
-
-**Compatibility tips:**
-- `.m3u8` best for most IPTV apps
-- `.ts` safest for segment endpoints
-- `.mp4` works for many apps but not all “live” players
-
----
-
-## 8) Backup & Restore (Admin → System → Backup & Restore)
-
-- Full backup: zips entire panel directory + includes `database.sql`
-- Restore: restores panel files (overwrite) and/or database from a backup
-
-Notes:
-- Backups stored in `storage/backups/`
-- Backups exclude `storage/backups/` itself
-- Requires PHP ZipArchive
-- Web user must be able to write to `storage/backups/`
+### Portal
+- Guide (EPG)
+- Support
+- Watchlist
 
 ---
 
-## 9) Billing + Reports (Admin → Billing → Reports)
-- Monthly revenue grid (up to last 12 months)
-- “Up for renewal” sections for accounts nearing expiry/renewal windows
+## Screenshots / Demo
+Add your screenshots here (recommended for forum posts):
+- Admin dashboard
+- Content → NGINX Panel
+- Content → M3U Builder
+- Portal → Guide
+- Portal → Watchlist
+- Admin → Dead Stream Hunter
+- Support Desk (admin + portal)
 
 ---
 
-## 10) Subscription System (NEW: One Active Subscription + Tokens Match Subscription)
-
-### One Active Subscription Per User
-The system enforces: **each user can have only one active subscription at a time**.
-
-Where it is enforced:
-- Checkout: blocks purchases if the user already has an active subscription
-- Admin user edit: if you set a subscription to `active`, any other active subscription rows for that user are cancelled
-- Storefront provisioning: cancels any existing active subscription before creating the new one
-
-### Tokens Stay Valid for the Duration of the Subscription
-Playlist token expiry is now computed as:
-
-- If an active subscription has an `ends_at` in the future:  
-  **token `exp` = subscription `ends_at`**
-- If subscription has no `ends_at` (lifetime) or parsing fails:  
-  **token `exp` falls back to `now + token_ttl`**
-
-This eliminates the “everything dies after 1 hour until playlist refresh” problem.
-
-### Stream-Start Subscription Gate (Cached)
-At stream start, the server checks “is user active?” and caches the result for a short window to prevent DB spam on HLS segment traffic.
-
-Config:
-- `sub_cache_ttl` (default 60 seconds)
-
-Recommended:
-- 30–60 seconds for fast enforcement changes
-- 60–120 seconds for lower DB load
-
-### Lifetime Subscription Behavior
-Two workable patterns:
-- `ends_at = NULL`: tokens fall back to `token_ttl` (fine if client refreshes playlists often)
-- Far-future `ends_at` (e.g., year 2108): tokens effectively behave like lifetime
+## Support / Feedback
+If you found a bug, include:
+- what page you were on
+- exact error message (or screenshot)
+- PHP version + server (Apache/NGINX)
+- steps to reproduce
 
 ---
 
-# Install (Web Wizard)
-
-1) Upload files to your web root  
-2) Visit your domain → it redirects to `/install/` automatically  
-3) Enter DB credentials + base URL  
-4) (Optional) enter PayPal/CashApp fields  
-5) Finish → installer prints admin username + password  
-6) Login at `/admin`
-
-After install: delete `/install/` or block it via web server rules (recommended).
+## License
+Use whatever license you distribute under (MIT/Proprietary/etc).  
+If you want, tell me your preferred license text and I’ll drop it in clean.
 
 ---
+**Forum snippet (short blurb):**
 
-# Rewrites (Xtream-style URLs)
-
-If you want `/live/...` and `/seg/...` to work, enable the provided Apache/Nginx rewrite rules (see `.htaccess` or your server config).
-
----
-
-# Cron (Recommended)
-
-```bash
-*/10 * * * * php /path/to/scripts/stream_probe.php --limit=400 >/dev/null 2>&1
-0 */6 * * * php /path/to/scripts/epg_import.php --flush=1 >/dev/null 2>&1
-```
-
----
-
-# Client Endpoints (Xtream-Style)
-
-## Playlist (M3U)
-Typical:
-```
-/get.php?username=USERNAME&password=PASSWORD&type=m3u
-```
-
-VOD/Series:
-```
-/get.php?username=USERNAME&password=PASSWORD&type=m3u_plus
-```
-
-Link mode selector:
-- `link=token_protected` (default)
-- `link=standard_protected`
-- `link=direct_protected`
-- `link=auto`
-
-Example:
-```
-/get.php?username=USERNAME&password=PASSWORD&type=m3u&link=token_protected
-```
-
-## Player API (Xtream-style)
-```
-/player_api.php?username=USERNAME&password=PASSWORD
-```
-
-## XMLTV
-```
-/xmltv.php?username=USERNAME&password=PASSWORD
-```
-
----
-
-# Configuration
-
-## config.php vs config.local.php
-- `config.php` contains defaults and is safe to overwrite/reinstall.
-- `config.local.php` is your local override file written by the installer and should persist.
-
-### ✅ TMDB API Key (Where to add it)
-Open **`config.local.php`** and set:
-
-```php
-<?php
-return [
-  'tmdb_api_key' => 'YOUR_TMDB_API_KEY_HERE',
-  'tmdb_region'  => 'US',
-  'tmdb_language'=> 'en-US',
-];
-```
-
-Notes:
-- This TMDB key is used by the subscriber portal and TMDB enrichment features.
-- The system also supports per-user overrides (`users.tmdb_api_key`, `users.tmdb_region`, `users.app_logo_url`).
-
-### Token settings (recommended defaults)
-```php
-<?php
-return [
-  // Used when subscription has no ends_at (lifetime/null).
-  'token_ttl' => 604800, // 7 days
-
-  // Cache for stream-start active-sub check (seconds).
-  'sub_cache_ttl' => 60,
-];
-```
-
----
-
-# Database / Migrations (Important)
-
-Recent versions add/expect these columns:
-- `users.name` (subscriber name)
-- `users.email` (subscriber email)
-- `users.reseller_id` (ties users to resellers for admin reporting)
-- `users.password_enc` (encrypted password so admin can view it later)
-- `users.tmdb_api_key`, `users.tmdb_region`, `users.app_logo_url`
-
-If upgrading:
-- run `migration.php`, or
-- apply equivalent SQL from migrations.
-
-### Password storage note
-Passwords are stored as:
-- a secure hash for authentication, and
-- an encrypted copy (`password_enc`) so admin can view it later and build clickable M3U links
-
-If you want stricter security:
-- show credentials only once at creation
-- later allow Reset Password (but never reveal existing passwords)
-
----
-
-# Notes on Ordering
-- The server outputs categories/channels ordered by `sort_order` (admin-defined via import order).
-- Some client apps may still sort A→Z locally.
-
----
-
-# Legal
-Only load streams/EPG data you have the legal right to use (e.g., free/OTT sources like Pluto TV).
-
----
-
-# Screenshots
-![screenshot](1.png)
-![screenshot](2.png)
-![screenshot](3.png)
-![screenshot](4.png)
-![screenshot](5.png)
+GameChanger Panel is a plugin-free PHP admin + subscriber portal build with integrated M3U tooling, EPG/Guide, Dead Stream Hunter (Stream Probe replacement), Support Desk (admin + portal), VOD Enabler routes, and Watchlist. Clean navigation, native layout, and no plugin installer/pages.
