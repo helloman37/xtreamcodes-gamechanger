@@ -1,7 +1,6 @@
 <?php
 // admin/epg_sync.php
-// Upload two XMLTV files and synchronize channel IDs by matching channel display names.
-// - Copies <channel id> values from the reference XMLTV into the target XMLTV and rewrites programme channel attributes.
+// Upload two M3U files and sync tvg-id + tvg-name from SOURCE to DEST by matching channel display names.
 
 declare(strict_types=1);
 
@@ -14,28 +13,8 @@ require_admin();
 ini_set('memory_limit', '512M');
 ini_set('max_execution_time', '600');
 
-$topbar = file_get_contents(__DIR__ . '/topbar.html');
+$topbar = @file_get_contents(__DIR__ . '/topbar.html') ?: '';
 $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'), $topbar);
-
-function sync_norm(string $s): string {
-  $s = trim($s);
-  $s = str_replace(["\r\n", "\r"], "\n", $s);
-  // collapse whitespace
-  $out = '';
-  $space = false;
-  $len = strlen($s);
-  for ($i = 0; $i < $len; $i++) {
-    $c = $s[$i];
-    $isSpace = ($c === ' ' || $c === "\t" || $c === "\n");
-    if ($isSpace) {
-      if (!$space) { $out .= ' '; $space = true; }
-      continue;
-    }
-    $space = false;
-    $out .= $c;
-  }
-  return strtolower(trim($out));
-}
 
 function sync_read_upload(string $field): array {
   if (!isset($_FILES[$field]) || !is_array($_FILES[$field])) return [null, 'Missing upload'];
@@ -48,272 +27,189 @@ function sync_read_upload(string $field): array {
   return [['tmp' => $tmp, 'name' => $name], null];
 }
 
-function sync_is_gz_name(string $name): bool {
-  $n = strtolower($name);
-  return (substr($n, -3) === '.gz');
+function looks_like_m3u(string $path): bool {
+  $fh = @fopen($path, 'rb');
+  if (!$fh) return false;
+  $head = (string)@fread($fh, 65536);
+  @fclose($fh);
+
+  $h = strtolower($head);
+  // allow either marker
+  if (strpos($h, '#extm3u') !== false) return true;
+  if (strpos($h, '#extinf') !== false) return true;
+
+  return false;
 }
 
-function sync_gunzip_to(string $src, string $dest): bool {
-  $in = @gzopen($src, 'rb');
-  if (!$in) return false;
-  $out = @fopen($dest, 'wb');
-  if (!$out) { @gzclose($in); return false; }
-  while (!gzeof($in)) {
-    $buf = gzread($in, 1024 * 1024);
-    if ($buf === false) break;
-    fwrite($out, $buf);
-  }
-  @gzclose($in);
-  @fclose($out);
-  return is_file($dest) && filesize($dest) > 0;
+function m3u_lower(string $s): string {
+  return function_exists('mb_strtolower') ? mb_strtolower($s, 'UTF-8') : strtolower($s);
 }
 
-function sync_xml_path(array $upload): array {
-  // Return [path, cleanupPaths[]] where cleanupPaths are temp files to delete.
-  $tmp = $upload['tmp'];
-  $name = $upload['name'];
-  $cleanup = [];
-
-  if (sync_is_gz_name($name)) {
-    $out = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'xtream_sync_' . bin2hex(random_bytes(8)) . '.xml';
-    if (!sync_gunzip_to($tmp, $out)) return [null, $cleanup, 'Failed to decompress .gz'];
-    $cleanup[] = $out;
-    return [$out, $cleanup, null];
-  }
-  return [$tmp, $cleanup, null];
+function m3u_strip_region_tags(string $s): string {
+  $whitelist = '(?:us|usa|u\.s\.a|u\.s|united\s+states|uk|u\.k|united\s+kingdom|ca|canada|au|australia)';
+  $s = preg_replace('~^\s*\(?\s*' . $whitelist . '\s*\)?\s*(?:\||:|-|–|—|>|»)+\s*~iu', '', $s) ?? $s;
+  $s = preg_replace('~\s*(?:\||:|-|–|—|>|«)+\s*\(?\s*' . $whitelist . '\s*\)?\s*$~iu', '', $s) ?? $s;
+  return $s;
 }
 
-function xmltv_build_ref_map(string $xmlPath): array {
-  $xr = new XMLReader();
-  if (!$xr->open($xmlPath, null, LIBXML_NONET | LIBXML_COMPACT | LIBXML_PARSEHUGE)) {
-    throw new RuntimeException('Failed to open reference XMLTV.');
-  }
+function m3u_norm_title(string $s): string {
+  $s = html_entity_decode($s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+  $s = m3u_lower($s);
 
-  $map = []; // norm(display-name) => id
-  while ($xr->read()) {
-    if ($xr->nodeType !== XMLReader::ELEMENT) continue;
-    if ($xr->name !== 'channel') continue;
+  $s = m3u_strip_region_tags($s);
 
-    $id = (string)($xr->getAttribute('id') ?? '');
-    if ($id === '') { $xr->next(); continue; }
+  $s = preg_replace('~\b(uhd|fhd|hd|sd|4k|2160p|1080p|720p)\b~u', ' ', $s) ?? $s;
+  $s = preg_replace('~\b(east|west|eastern|pacific|central|mountain|atlantic|est|pst|cst|mst|et|pt|ct|mt)\b~u', ' ', $s) ?? $s;
 
-    $depth = $xr->depth;
-    $name = '';
-    while ($xr->read()) {
-      if ($xr->nodeType === XMLReader::ELEMENT && $xr->name === 'display-name') {
-        $name = trim((string)$xr->readString());
-      }
-      if ($xr->nodeType === XMLReader::END_ELEMENT && $xr->name === 'channel' && $xr->depth === $depth) {
-        break;
-      }
-    }
-    if ($name !== '') {
-      $k = sync_norm($name);
-      if ($k !== '' && !isset($map[$k])) $map[$k] = $id;
-    }
-  }
-  $xr->close();
-  return $map;
+  $s = str_replace('&', ' and ', $s);
+  $s = preg_replace('~[\(\[\{].*?[\)\]\}]~u', ' ', $s) ?? $s;
+  $s = preg_replace('~[^a-z0-9]+~u', ' ', $s) ?? $s;
+  $s = preg_replace('~\b(us|usa)\b~u', ' ', $s) ?? $s;
+  $s = preg_replace('~\s+~u', ' ', $s) ?? $s;
+
+  return trim($s);
 }
 
-function xmltv_build_target_id_map(string $xmlPath, array $refMap): array {
-  // oldId => newId
-  $xr = new XMLReader();
-  if (!$xr->open($xmlPath, null, LIBXML_NONET | LIBXML_COMPACT | LIBXML_PARSEHUGE)) {
-    throw new RuntimeException('Failed to open target XMLTV.');
+function m3u_get_title(string $extinfLine): string {
+  $pos = strpos($extinfLine, ',');
+  if ($pos === false) return '';
+  return trim(substr($extinfLine, $pos + 1));
+}
+
+function m3u_get_attr(string $extinfLine, string $key): string {
+  if (preg_match('~\b' . preg_quote($key, '~') . '="([^"]*)"~u', $extinfLine, $m)) {
+    return $m[1];
+  }
+  return '';
+}
+
+function m3u_set_attr(string $extinfLine, string $key, string $value): string {
+  $value = str_replace('"', '', $value);
+  $quoted = $key . '="' . $value . '"';
+
+  if (preg_match('~\b' . preg_quote($key, '~') . '="[^"]*"~u', $extinfLine)) {
+    return preg_replace('~\b' . preg_quote($key, '~') . '="[^"]*"~u', $quoted, $extinfLine, 1) ?? $extinfLine;
   }
 
-  $idMap = [];
-  while ($xr->read()) {
-    if ($xr->nodeType !== XMLReader::ELEMENT) continue;
-    if ($xr->name !== 'channel') continue;
+  if ($key === 'tvg-name' && preg_match('~\btvg-id="[^"]*"~u', $extinfLine, $m, PREG_OFFSET_CAPTURE)) {
+    $posEnd = $m[0][1] + strlen($m[0][0]);
+    return substr($extinfLine, 0, $posEnd) . ' ' . $quoted . substr($extinfLine, $posEnd);
+  }
 
-    $oldId = (string)($xr->getAttribute('id') ?? '');
-    if ($oldId === '') { $xr->next(); continue; }
+  if (preg_match('~^#EXTINF:-1\b~u', $extinfLine, $m, PREG_OFFSET_CAPTURE)) {
+    $posEnd = strlen($m[0][0]);
+    return substr($extinfLine, 0, $posEnd) . ' ' . $quoted . substr($extinfLine, $posEnd);
+  }
 
-    $depth = $xr->depth;
-    $name = '';
-    while ($xr->read()) {
-      if ($xr->nodeType === XMLReader::ELEMENT && $xr->name === 'display-name') {
-        $name = trim((string)$xr->readString());
-      }
-      if ($xr->nodeType === XMLReader::END_ELEMENT && $xr->name === 'channel' && $xr->depth === $depth) {
-        break;
-      }
-    }
+  return $extinfLine . ' ' . $quoted;
+}
 
-    if ($name !== '') {
-      $k = sync_norm($name);
-      if ($k !== '' && isset($refMap[$k])) {
-        $idMap[$oldId] = $refMap[$k];
+function build_source_index(string $srcPath): array {
+  $index = [];
+
+  $fh = @fopen($srcPath, 'rb');
+  if (!$fh) throw new RuntimeException('Failed to open source M3U.');
+
+  while (($line = fgets($fh)) !== false) {
+    $line = rtrim($line, "\r\n");
+    if (strncmp($line, '#EXTINF', 7) !== 0) continue;
+
+    $title   = m3u_get_title($line);
+    $tvgId   = m3u_get_attr($line, 'tvg-id');
+    $tvgName = m3u_get_attr($line, 'tvg-name');
+
+    $bestName = $tvgName !== '' ? $tvgName : $title;
+
+    $keys = [];
+    if ($title !== '')   $keys[] = m3u_norm_title($title);
+    if ($tvgName !== '') $keys[] = m3u_norm_title($tvgName);
+
+    foreach ($keys as $k) {
+      if ($k === '') continue;
+      if (!isset($index[$k])) {
+        $index[$k] = ['tvg-id' => $tvgId, 'tvg-name' => $bestName];
       }
     }
   }
-  $xr->close();
-  return $idMap;
+
+  fclose($fh);
+  return $index;
 }
 
 function sync_clean_output_buffers(): void {
-  while (ob_get_level() > 0) {
-    @ob_end_clean();
-  }
-}
-
-function xmltv_write_synced(string $xmlPath, array $refMap, array $idMap, bool $overwriteDisplayName): string {
-  // Write output to temp file and return the path.
-  $outPath = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'xtream_sync_out_' . bin2hex(random_bytes(8)) . '.xml';
-
-  $xr = new XMLReader();
-  if (!$xr->open($xmlPath, null, LIBXML_NONET | LIBXML_COMPACT | LIBXML_PARSEHUGE)) {
-    throw new RuntimeException('Failed to open target XMLTV for writing.');
-  }
-
-  // Find <tv> root and capture attributes.
-  $tvAttrs = [];
-  while ($xr->read()) {
-    if ($xr->nodeType === XMLReader::ELEMENT && $xr->name === 'tv') {
-      if ($xr->moveToFirstAttribute()) {
-        do { $tvAttrs[$xr->name] = $xr->value; } while ($xr->moveToNextAttribute());
-        $xr->moveToElement();
-      }
-      break;
-    }
-  }
-
-  $xw = new XMLWriter();
-  if (!$xw->openURI($outPath)) {
-    $xr->close();
-    throw new RuntimeException('Failed to create output file.');
-  }
-
-  $xw->startDocument('1.0', 'UTF-8');
-  $xw->startElement('tv');
-  foreach ($tvAttrs as $k => $v) {
-    if ($k !== '') $xw->writeAttribute($k, (string)$v);
-  }
-
-  // Continue reading after <tv> and stream elements.
-  while ($xr->read()) {
-    if ($xr->nodeType === XMLReader::END_ELEMENT && $xr->name === 'tv') {
-      break;
-    }
-    if ($xr->nodeType !== XMLReader::ELEMENT) continue;
-
-    if ($xr->name === 'channel' || $xr->name === 'programme') {
-      // readOuterXML() advances the reader past this element automatically.
-      $outer = $xr->readOuterXML();
-
-      $dom = new DOMDocument('1.0', 'UTF-8');
-      $dom->preserveWhiteSpace = true;
-      $dom->formatOutput = false;
-      @$dom->loadXML($outer, LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING | LIBXML_COMPACT);
-      $node = $dom->documentElement;
-
-      if ($node instanceof DOMElement) {
-        if ($node->tagName === 'channel') {
-          $oldId = $node->getAttribute('id');
-          $newId = '';
-          if ($oldId !== '' && isset($idMap[$oldId])) {
-            $newId = $idMap[$oldId];
-          } else {
-            $dn = '';
-            $list = $node->getElementsByTagName('display-name');
-            if ($list->length > 0) $dn = trim((string)$list->item(0)->textContent);
-            if ($dn !== '') {
-              $k = sync_norm($dn);
-              if ($k !== '' && isset($refMap[$k])) $newId = $refMap[$k];
-            }
-          }
-          if ($newId !== '') $node->setAttribute('id', $newId);
-
-          if ($overwriteDisplayName) {
-            $list = $node->getElementsByTagName('display-name');
-            if ($list->length > 1) {
-              for ($i = $list->length - 1; $i >= 1; $i--) {
-                $rm = $list->item($i);
-                if ($rm && $rm->parentNode) $rm->parentNode->removeChild($rm);
-              }
-            }
-          }
-
-          $xw->writeRaw($dom->saveXML($node));
-        } else {
-          // programme
-          $ch = $node->getAttribute('channel');
-          if ($ch !== '') {
-            $new = '';
-            if (isset($idMap[$ch])) {
-              $new = $idMap[$ch];
-            } else {
-              $k = sync_norm($ch);
-              if ($k !== '' && isset($refMap[$k])) $new = $refMap[$k];
-            }
-            if ($new !== '') $node->setAttribute('channel', $new);
-          }
-          $xw->writeRaw($dom->saveXML($node));
-        }
-      }
-      continue;
-    }
-
-    // Any other element: copy as-is (advances reader).
-    $xw->writeRaw($xr->readOuterXML());
-  }
-
-  $xw->endElement();
-  $xw->endDocument();
-  $xr->close();
-
-  return $outPath;
+  while (ob_get_level() > 0) { @ob_end_clean(); }
 }
 
 // ------------------- POST: run synchronizer -------------------
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   csrf_validate();
 
-  [$u1, $e1] = sync_read_upload('file1');
-  [$u2, $e2] = sync_read_upload('file2');
+  [$u1, $e1] = sync_read_upload('source');
+  [$u2, $e2] = sync_read_upload('dest');
+
   if ($e1 || $e2) {
     flash_set($e1 ?: $e2, 'error');
     header('Location: epg_sync.php');
     exit;
   }
 
-  // XMLTV only (.xml or .gz/.xml.gz)
-  $n1 = strtolower((string)($u1['name'] ?? ''));
-  $n2 = strtolower((string)($u2['name'] ?? ''));
-  $ok1 = (substr($n1, -4) === '.xml') || (substr($n1, -3) === '.gz');
-  $ok2 = (substr($n2, -4) === '.xml') || (substr($n2, -3) === '.gz');
-  if (!$ok1 || !$ok2) {
-    flash_set('XMLTV only: upload .xml or .xml.gz files.', 'error');
+  // CONTENT-BASED validation (no extension bullshit)
+  if (!looks_like_m3u($u1['tmp'])) {
+    flash_set('Source does not look like an M3U (missing #EXTM3U/#EXTINF).', 'error');
+    header('Location: epg_sync.php');
+    exit;
+  }
+  if (!looks_like_m3u($u2['tmp'])) {
+    flash_set('Destination does not look like an M3U (missing #EXTM3U/#EXTINF).', 'error');
     header('Location: epg_sync.php');
     exit;
   }
 
-  $overwriteName = isset($_POST['overwrite_names']) && (string)$_POST['overwrite_names'] === '1';
-
   try {
-    $cleanup = [];
-    [$refPath, $c1, $err] = sync_xml_path($u1);
-    if ($err) throw new RuntimeException($err);
-    $cleanup = array_merge($cleanup, $c1);
+    $srcIndex = build_source_index($u1['tmp']);
 
-    [$tarPath, $c2, $err2] = sync_xml_path($u2);
-    if ($err2) throw new RuntimeException($err2);
-    $cleanup = array_merge($cleanup, $c2);
+    $outPath = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'epg_sync_' . bin2hex(random_bytes(8)) . '.m3u';
+    $in  = @fopen($u2['tmp'], 'rb');
+    $out = @fopen($outPath, 'wb');
+    if (!$in || !$out) throw new RuntimeException('Failed to open target/output stream.');
 
-    $refMap = xmltv_build_ref_map($refPath);
-    $idMap  = xmltv_build_target_id_map($tarPath, $refMap);
-    $out    = xmltv_write_synced($tarPath, $refMap, $idMap, $overwriteName);
+    $matched = 0;
+    $total = 0;
+
+    while (($line = fgets($in)) !== false) {
+      $raw = rtrim($line, "\r\n");
+
+      if (strncmp($raw, '#EXTINF', 7) === 0) {
+        $total++;
+        $title = m3u_get_title($raw);
+        $key = m3u_norm_title($title);
+
+        if ($key !== '' && isset($srcIndex[$key])) {
+          $matched++;
+          $raw = m3u_set_attr($raw, 'tvg-id', $srcIndex[$key]['tvg-id']);
+          $raw = m3u_set_attr($raw, 'tvg-name', $srcIndex[$key]['tvg-name']);
+        }
+      }
+
+      fwrite($out, $raw . "\n");
+    }
+
+    fclose($in);
+    fclose($out);
+
+    $downloadName = 'synced_' . preg_replace('~[^a-zA-Z0-9._-]+~', '_', (string)$u2['name']);
+    if ($downloadName === 'synced_') $downloadName = 'synced_playlist.m3u';
 
     sync_clean_output_buffers();
-    header('Content-Type: application/xml');
-    header('Content-Disposition: attachment; filename="synced_' . basename($u2['name']) . '"');
-    readfile($out);
+    header('Content-Type: application/x-mpegURL');
+    header('Content-Disposition: attachment; filename="' . $downloadName . '"');
+    header('X-Matched: ' . (string)$matched);
+    header('X-Total: ' . (string)$total);
 
-    @unlink($out);
-    foreach ($cleanup as $pp) @unlink($pp);
+    readfile($outPath);
+    @unlink($outPath);
     exit;
+
   } catch (Throwable $e) {
     flash_set($e->getMessage(), 'error');
     header('Location: epg_sync.php');
@@ -324,21 +220,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <!doctype html>
 <html>
 <head>
-  <link rel="icon" href="/favicon.ico">
-  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-
   <meta charset="utf-8">
-  <title>EPG XML Synchronizer</title>
+  <title>EPG Sync</title>
   <link rel="stylesheet" href="panel.css">
 </head>
 <body>
 <?= $topbar ?>
 
 <div class="card">
-  <h2>EPG XML Synchronizer</h2>
-  <p class="muted">Upload a <b>reference XMLTV</b> and a <b>target XMLTV</b>. This tool aligns channel IDs by matching channel <b>display-name</b>. Download will be the modified target.</p>
+  <h2>EPG Sync (tvg-id + tvg-name)</h2>
+  <p class="muted">
+    Upload a <b>source</b> M3U (good tvg-id/tvg-name) and a <b>destination</b> M3U.
+    It matches by channel <b>display name</b> (after the comma) and copies <b>tvg-id + tvg-name</b> into the destination.
+  </p>
   <?php flash_show(); ?>
 
   <form method="post" enctype="multipart/form-data">
@@ -346,40 +240,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <div class="form-row">
       <div>
-        <label style="display:block">Options</label>
-        <label class="muted" style="font-weight:700; display:flex; gap:8px; align-items:center">
-          <input type="checkbox" name="overwrite_names" value="1">
-          Keep only one &lt;display-name&gt; per channel (cleanup)
-        </label>
-      </div>
-    </div>
-
-    <div class="form-row" style="margin-top:10px">
-      <div>
-        <label>Reference XMLTV (.xml or .xml.gz)</label>
-        <input type="file" name="file1" accept=".xml,.gz" required>
+        <label>Source M3U</label>
+        <input type="file" name="source" required>
       </div>
       <div>
-        <label>Target XMLTV (will be modified)</label>
-        <input type="file" name="file2" accept=".xml,.gz" required>
+        <label>Destination M3U (will be modified)</label>
+        <input type="file" name="dest" required>
       </div>
     </div>
 
     <div class="row" style="margin-top:12px">
-      <button type="submit">Align IDs &amp; Download</button>
+      <button type="submit">Sync &amp; Download</button>
     </div>
   </form>
 </div>
 
-<div class="card" style="margin-top:14px">
-  <div class="card-title">How it matches</div>
-  <div class="muted">
-    <b>EPG:</b> matches by the first channel &lt;display-name&gt;, then rewrites channel ids and programme channel attributes.
-  </div>
-</div>
-
-</div><!-- container -->
-</main>
-</div><!-- app -->
 </body>
 </html>
