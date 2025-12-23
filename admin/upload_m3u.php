@@ -10,6 +10,7 @@ $pdo = db();
 $default_direct = 0;
 $default_ext    = '';
 $default_adult  = 0;
+$default_add_only = 1; // default behavior: never overwrite existing DB rows
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $cleanup_paths = [];
@@ -137,6 +138,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $default_ext    = trim($_POST['container_ext'] ?? '');
   $default_ext    = ($default_ext === '') ? null : $default_ext; // m3u8 | ts | null(auto)
   $default_adult  = isset($_POST['adult_content']) ? 1 : 0;
+  $default_add_only = isset($_POST['add_only']) ? 1 : 0;
+
+  // Add-only mode: ALWAYS insert new rows (even if stream_url already exists in DB).
+  // This prevents new imports from rewriting/moving existing channels/categories.
+  $add_only = !empty($default_add_only);
 
   $inserted = 0;
   $file_counts = [];
@@ -242,7 +248,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $row = $sel_existing->fetch(PDO::FETCH_ASSOC) ?: [];
         $existing_id = (int)($row['id'] ?? 0);
 
-        if ($existing_id > 0) {
+        if ($existing_id > 0 && !$add_only) {
           $current_cid  = (int)($row['category_id'] ?? 0);
           $current_sort = (int)($row['sort_order'] ?? 0);
           if ($current_sort <= 0) $current_sort = $existing_id;
@@ -296,7 +302,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $row = $sel_existing->fetch(PDO::FETCH_ASSOC) ?: [];
         $existing_id = (int)($row['id'] ?? 0);
 
-        if ($existing_id > 0) {
+        if ($existing_id > 0 && !$add_only) {
           $current_sort = (int)($row['sort_order'] ?? 0);
           if ($current_sort <= 0) $current_sort = $existing_id;
 
@@ -445,6 +451,11 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
     <label class="check-row" style="margin-top:10px;">
       <input type="checkbox" name="adult_content" value="1" <?= !empty($default_adult) ? 'checked' : '' ?>>
       Mark ALL imported streams as <b>Adult</b> content
+    </label>
+
+    <label class="check-row" style="margin-top:10px;">
+      <input type="checkbox" name="add_only" value="1" <?= !empty($default_add_only) ? 'checked' : '' ?>>
+      Add-only import (do <b>not</b> overwrite existing channels; duplicates allowed)
     </label>
 
 
