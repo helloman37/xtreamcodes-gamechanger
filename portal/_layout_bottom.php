@@ -88,6 +88,6 @@ window.__legalvod = <?= json_encode([
 
 <script src="/portal/assets/portal.js"></script>
 <script src="/portal/assets/adult_gate.js?v=3"></script>
-<script src="/plugins/watchlist/assets/watchlist.js?v=3"></script>
+<script src="/portal/assets/watchlist.js?v=3"></script>
 </body>
 </html>
