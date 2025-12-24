@@ -20,6 +20,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
   }
 
+
+  // --- MAG/Stalker: manage MAC devices mapped to a user ---
+  if ($op === 'add_stalker_mac' && $id > 0) {
+    $mac = iptv_normalize_mac((string)($_POST['mac'] ?? ''));
+    $label = trim((string)($_POST['label'] ?? ''));
+    if ($mac === '') {
+      flash_set("Invalid MAC address","error");
+      header("Location: user_accounts.php?edit=".$id);
+      exit;
+    }
+
+    // prevent one MAC from being assigned to multiple users
+    $st = $pdo->prepare("SELECT user_id FROM stalker_devices WHERE mac=? LIMIT 1");
+    $st->execute([$mac]);
+    $existing_user_id = (int)($st->fetchColumn() ?: 0);
+    if ($existing_user_id > 0 && $existing_user_id !== $id) {
+      flash_set("That MAC is already assigned to another user","error");
+      header("Location: user_accounts.php?edit=".$id);
+      exit;
+    }
+
+    $pdo->prepare("
+      INSERT INTO stalker_devices (user_id, mac, label, is_enabled, created_at, last_seen)
+      VALUES (?,?,?,1,NOW(),NOW())
+      ON DUPLICATE KEY UPDATE user_id=VALUES(user_id), label=VALUES(label), is_enabled=1, last_seen=NOW()
+    ")->execute([$id, $mac, $label !== '' ? $label : null]);
+
+    flash_set("MAG MAC saved","success");
+    header("Location: user_accounts.php?edit=".$id);
+    exit;
+  }
+
+  if ($op === 'toggle_stalker_mac' && $id > 0) {
+    $dev_id = (int)($_POST['dev_id'] ?? 0);
+    if ($dev_id > 0) {
+      $pdo->prepare("UPDATE stalker_devices SET is_enabled = IF(is_enabled=1,0,1) WHERE id=? AND user_id=?")->execute([$dev_id, $id]);
+      flash_set("MAC toggled","success");
+    }
+    header("Location: user_accounts.php?edit=".$id);
+    exit;
+  }
+
+  if ($op === 'del_stalker_mac' && $id > 0) {
+    $dev_id = (int)($_POST['dev_id'] ?? 0);
+    if ($dev_id > 0) {
+      $pdo->prepare("DELETE FROM stalker_devices WHERE id=? AND user_id=?")->execute([$dev_id, $id]);
+      flash_set("MAC removed","success");
+    }
+    header("Location: user_accounts.php?edit=".$id);
+    exit;
+  }
+
   if ($op === 'kill_sessions' && $id > 0) {
     try {
       $pdo->prepare("UPDATE stream_sessions SET killed_at=NOW() WHERE user_id=? AND (killed_at IS NULL OR killed_at='0000-00-00 00:00:00')")->execute([$id]);
@@ -386,7 +438,83 @@ if (!function_exists('iptv_dt_local')) {
     <div style="margin-top:14px; margin-bottom:6px;">
       <a class="btn" href="user_notes.php?user_id=<?= (int)$edit['id'] ?>">Notes / Tags</a>
     </div>
+    
+    <?php
+      $stalker_rows = [];
+      try {
+        $st = $pdo->prepare("SELECT * FROM stalker_devices WHERE user_id=? ORDER BY id DESC");
+        $st->execute([(int)$edit['id']]);
+        $stalker_rows = $st->fetchAll(PDO::FETCH_ASSOC);
+      } catch (Throwable $e) {
+        $stalker_rows = [];
+      }
+    ?>
     <div class="card" style="margin-top:14px;">
+      <h4 style="margin-top:0;">MAG / Stalker Devices (MAC)</h4>
+      <div class="muted">Portal base: <code>/c/</code> &nbsp; Endpoint: <code>/c/server/load.php</code></div>
+
+      <form method="post" style="margin-top:10px;">
+        <input type="hidden" name="op" value="add_stalker_mac">
+        <input type="hidden" name="id" value="<?= (int)$edit['id'] ?>">
+        <div class="row">
+          <div>
+            <label>MAC Address</label>
+            <input name="mac" placeholder="00:11:22:33:44:55" required>
+          </div>
+          <div>
+            <label>Label (optional)</label>
+            <input name="label" placeholder="Living Room MAG">
+          </div>
+        </div>
+        <div style="margin-top:10px;">
+          <button type="submit">Add / Update MAC</button>
+        </div>
+      </form>
+
+      <?php if (!empty($stalker_rows)): ?>
+        <div style="margin-top:12px;">
+          <table>
+            <thead>
+              <tr>
+                <th>MAC</th>
+                <th>Label</th>
+                <th>Enabled</th>
+                <th>Last Seen</th>
+                <th style="width:220px;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <?php foreach ($stalker_rows as $d): ?>
+                <tr>
+                  <td><code><?= h($d['mac']) ?></code></td>
+                  <td><?= h((string)($d['label'] ?? '')) ?></td>
+                  <td><?= ((int)$d['is_enabled']===1) ? '<span class="badge good">Yes</span>' : '<span class="badge warn">No</span>' ?></td>
+                  <td><?= h((string)($d['last_seen'] ?? '')) ?></td>
+                  <td>
+                    <form method="post" style="display:inline;">
+                      <input type="hidden" name="op" value="toggle_stalker_mac">
+                      <input type="hidden" name="id" value="<?= (int)$edit['id'] ?>">
+                      <input type="hidden" name="dev_id" value="<?= (int)$d['id'] ?>">
+                      <button type="submit" class="btn"><?= ((int)$d['is_enabled']===1) ? 'Disable' : 'Enable' ?></button>
+                    </form>
+                    <form method="post" style="display:inline;" onsubmit="return confirm('Remove this MAC?');">
+                      <input type="hidden" name="op" value="del_stalker_mac">
+                      <input type="hidden" name="id" value="<?= (int)$edit['id'] ?>">
+                      <input type="hidden" name="dev_id" value="<?= (int)$d['id'] ?>">
+                      <button type="submit" class="btn danger">Remove</button>
+                    </form>
+                  </td>
+                </tr>
+              <?php endforeach; ?>
+            </tbody>
+          </table>
+        </div>
+      <?php else: ?>
+        <div class="muted" style="margin-top:10px;">No MAG devices yet.</div>
+      <?php endif; ?>
+    </div>
+
+<div class="card" style="margin-top:14px;">
       <h4 style="margin-top:0;">Subscription Dates (Admin)</h4>
 
       <?php if (empty($subs_edit)): ?>

@@ -50,6 +50,14 @@ function e($str) {
   return htmlspecialchars((string)$str, ENT_QUOTES, 'UTF-8');
 }
 
+// Back-compat alias used across some admin/public pages.
+// ("h" = HTML escape)
+if (!function_exists('h')) {
+  function h($str): string {
+    return htmlspecialchars((string)($str ?? ''), ENT_QUOTES, 'UTF-8');
+  }
+}
+
 function flash_set($msg, $type='info') {
   if (session_status() !== PHP_SESSION_ACTIVE) session_start();
   $_SESSION['flash'] = ['msg'=>$msg, 'type'=>$type];
@@ -921,6 +929,13 @@ function make_token(string $username, int $item_id, int $exp, string $type='live
   $config = require __DIR__ . '/config.php';
   $data = $type . '|' . $username . '|' . $item_id . '|' . $exp;
   return hash_hmac('sha256', $data, $config['secret_key']);
+}
+
+
+function iptv_normalize_mac(string $mac): string {
+  $m = strtoupper(preg_replace('/[^0-9A-F]/', '', $mac));
+  if (strlen($m) !== 12) return '';
+  return implode(':', str_split($m, 2));
 }
 
 function verify_token(string $username, int $item_id, int $exp, string $token, string $type='live'): bool {

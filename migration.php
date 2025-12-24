@@ -386,4 +386,40 @@ function db_migrate(PDO $pdo): void {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   ");
 
+
+  // --- Stalker/MAG mapping (MAC -> user) ---
+  $pdo->exec("
+    CREATE TABLE IF NOT EXISTS stalker_devices (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL,
+      mac VARCHAR(17) NOT NULL,
+      label VARCHAR(64) DEFAULT NULL,
+      is_enabled TINYINT(1) NOT NULL DEFAULT 1,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_stalker_mac (mac),
+      INDEX idx_stalker_user (user_id),
+      CONSTRAINT fk_stalker_devices_user
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  ");
+
+  $pdo->exec("
+    CREATE TABLE IF NOT EXISTS stalker_sessions (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+      mac VARCHAR(17) NOT NULL,
+      user_id INT NOT NULL,
+      token VARCHAR(80) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      ip VARCHAR(45) DEFAULT NULL,
+      ua VARCHAR(255) DEFAULT NULL,
+      UNIQUE KEY uniq_stalker_token (token),
+      INDEX idx_stalker_sessions_mac (mac),
+      INDEX idx_stalker_sessions_user (user_id),
+      CONSTRAINT fk_stalker_sessions_user
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  ");
+
 }
