@@ -55,6 +55,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $paypal_secret = trim((string)($_POST['paypal_secret'] ?? ''));
       $paypal_sandbox = isset($_POST['paypal_sandbox']) ? '1' : '0';
       $cashapp = trim((string)($_POST['cashapp'] ?? '$'));
+      $server_stack = trim((string)($_POST['server_stack'] ?? 'apache'));
+      $php_fpm = trim((string)($_POST['php_fpm'] ?? ''));
+
+      $allowedStacks = ['apache','nginx','aapanel_apache','aapanel_nginx'];
+      if (!in_array($server_stack, $allowedStacks, true)) $server_stack = 'apache';
 
       if ($db['name'] === '' || $db['user'] === '') throw new RuntimeException('DB name and DB user are required.');
       if ($base_url === '' || !preg_match('~^https?://~i', $base_url)) throw new RuntimeException('Base URL must start with http:// or https://');
@@ -69,6 +74,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $_SESSION['paypal_secret'] = $paypal_secret;
       $_SESSION['paypal_sandbox'] = $paypal_sandbox;
       $_SESSION['cashapp'] = $cashapp;
+      $_SESSION['server_stack'] = $server_stack;
+      $_SESSION['php_fpm'] = $php_fpm;
 
       header('Location: index.php?step=2'); exit;
     }
@@ -154,6 +161,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       ];
 
       iptv_write_config_php($cfgPath, $vals);
+
+      // Generate deploy bundle (Apache/Nginx configs + Ubuntu helper scripts)
+      try {
+        $stack = (string)($_SESSION['server_stack'] ?? 'apache');
+        $phpFpm = (string)($_SESSION['php_fpm'] ?? '');
+        $_SESSION['deploy_files'] = iptv_write_deploy_bundle($root, (string)$_SESSION['base_url'], $stack, $phpFpm);
+      } catch (Throwable $e) {
+        $_SESSION['deploy_files'] = [];
+        $_SESSION['deploy_error'] = $e->getMessage();
+      }
 
       // seed admin (best-effort)
       $pdo = iptv_pdo($_SESSION['db']);
@@ -278,7 +295,29 @@ $baseUrl = (string)($_SESSION['base_url'] ?? '');
                   <div class="help">Example: <code>https://example.com</code></div>
                 </div>
 
+
                 <div class="hr"></div>
+                <h2 style="margin-top:0">Server architecture</h2>
+                <p class="small">Choose how you want to run it. Apache writes <code>.htaccess</code>. Nginx generates a ready vhost in <code>/deploy</code>.</p>
+
+                <div class="row">
+                  <div class="field">
+                    <label>Stack</label>
+                    <select name="server_stack" id="server_stack" onchange="document.getElementById('phpFpmWrap').style.display=(this.value.indexOf('nginx')!==-1?'block':'none');">
+                      <option value="apache" <?= (($_SESSION['server_stack'] ?? 'apache') === 'apache') ? 'selected' : '' ?>>Apache (.htaccess)</option>
+                      <option value="nginx" <?= (($_SESSION['server_stack'] ?? '') === 'nginx') ? 'selected' : '' ?>>Nginx + PHP-FPM (Ubuntu / Xtream-style)</option>
+                      <option value="aapanel_apache" <?= (($_SESSION['server_stack'] ?? '') === 'aapanel_apache') ? 'selected' : '' ?>>aaPanel (Apache)</option>
+                      <option value="aapanel_nginx" <?= (($_SESSION['server_stack'] ?? '') === 'aapanel_nginx') ? 'selected' : '' ?>>aaPanel (Nginx + PHP-FPM)</option>
+                    </select>
+                  </div>
+                  <div class="field" id="phpFpmWrap" style="display:<?= (strpos((string)($_SESSION['server_stack'] ?? 'apache'), 'nginx') !== false) ? 'block' : 'none' ?>;">
+                    <label>PHP-FPM socket</label>
+                    <input name="php_fpm" placeholder="unix:/run/php/php8.2-fpm.sock" value="<?= h($_SESSION['php_fpm'] ?? '') ?>">
+                    <div class="help">Leave blank to auto-guess from your PHP version.</div>
+                  </div>
+                </div>
+
+
                 <h2 style="margin-top:0">Optional storefront</h2>
                 <p class="small">These get written into <code>config.php</code>. You can leave them blank.</p>
                 <div class="row">
@@ -400,6 +439,21 @@ $baseUrl = (string)($_SESSION['base_url'] ?? '');
                     Admin seed: <?= $sr['ok'] ? h($sr['action'].' in '.$sr['table']) : h($sr['error'] ?? 'failed') ?>
                   </div>
                 <?php endif; ?>
+
+                <?php if (!empty($_SESSION['deploy_error'])): ?>
+                  <div class="notice warn">Deploy bundle: <?= h((string)$_SESSION['deploy_error']) ?></div>
+                <?php endif; ?>
+
+                <?php if (!empty($_SESSION['deploy_files'])): ?>
+                  <div class="notice good">
+                    Deploy bundle written to <code><?= h($root) ?>/deploy</code>
+                    <div class="small" style="margin-top:6px">Includes Apache <code>.htaccess</code>, Nginx vhost, and Ubuntu helper scripts.</div>
+                  </div>
+                  <div class="pad">
+                    <pre class="log"><?= h(implode("\n", (array)$_SESSION['deploy_files'])) ?></pre>
+                  </div>
+                <?php endif; ?>
+
 
                 <div class="actions">
                   <a class="btn primary" href="<?= h($_SESSION['base_url'] ?? '/') ?>/admin/signin.php">Go to login</a>
