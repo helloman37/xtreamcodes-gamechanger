@@ -71,9 +71,9 @@ if ($displayName === '') $displayName = (string)($user['username'] ?? '');
 $initial = strtoupper(substr($displayName, 0, 1));
 ?>
 
-<div class="card" style="max-width:740px;margin-top:18px;">
+<div class="card profile-icon-card" style="max-width:740px;margin-top:18px;">
   <h3 style="margin:0 0 10px;">Profile Icon</h3>
-  <div style="display:flex;gap:14px;align-items:center;">
+  <div class="avatarrow">
     <div class="avatar big<?= $avatarUrl ? '' : '' ?>">
       <?php if ($avatarUrl): ?>
         <img src="<?= e($avatarUrl) ?>" alt="Avatar">
@@ -81,14 +81,14 @@ $initial = strtoupper(substr($displayName, 0, 1));
         <?= e($initial) ?>
       <?php endif; ?>
     </div>
-    <div class="muted" style="line-height:1.35;">
+    <div class="muted avatarhelp">
       Upload a square image (JPG/PNG/WEBP). If you don’t upload, we’ll show the first letter of your name.
     </div>
   </div>
 
-  <form method="post" action="/avatar_upload.php" enctype="multipart/form-data" style="margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+  <form method="post" action="/avatar_upload.php" enctype="multipart/form-data" class="avatarform">
     <?= csrf_input() ?>
-    <input class="input" type="file" name="avatar" accept="image/png,image/jpeg,image/webp" required style="max-width:320px;">
+    <input class="input fileinput" type="file" name="avatar" accept="image/png,image/jpeg,image/webp" required>
     <button class="btn primary" type="submit">Upload</button>
   </form>
 

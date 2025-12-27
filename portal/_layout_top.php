@@ -83,7 +83,7 @@ window.__watchlist = {enabled: <?= !empty($__watchlist_enabled) ? 'true' : 'fals
     <div class="brand">
       <div class="logoX">X</div>
       <div class="textblock">
-        <div class="title">TREAM<span style="font-weight:800; opacity:.92;">ui</span></div>
+        <div class="title">TREAM<span class="ui">ui</span></div>
         <div class="subtitle">GAME CHANGER</div>
       </div>
     </div>
@@ -134,11 +134,11 @@ window.__watchlist = {enabled: <?= !empty($__watchlist_enabled) ? 'true' : 'fals
     <div class="sidegroup">
       <div class="label">Browse</div>
       <a class="sideitem <?= _portal_active('index.php') ?>" href="/portal/">
-        <span class="icon">🏠</span>
+        <span class="icon"><span class="glyph">🏠</span></span>
         Home
       </a>
       <a class="sideitem <?= _portal_active('live.php') ?>" href="/portal/live.php">
-        <span class="icon">📺</span>
+        <span class="icon"><span class="glyph">📺</span></span>
         Live TV
       </a>
       <?php
@@ -146,27 +146,27 @@ window.__watchlist = {enabled: <?= !empty($__watchlist_enabled) ? 'true' : 'fals
         $isGuide = (strpos($req, '/portal/guide') === 0) || (strpos($req, '/portal/guide.php') === 0);
       ?>
       <a class="sideitem <?= $isGuide ? 'active' : '' ?>" href="/portal/guide/">
-        <span class="icon">🗓️</span>
+        <span class="icon"><span class="glyph">🗓️</span></span>
         Guide
       </a>
       <?php if (!empty($__supportdesk_enabled)): ?>
       <?php $isSupport = (strpos($req, '/portal/support') === 0); ?>
       <a class="sideitem <?= $isSupport ? 'active' : '' ?>" href="/portal/support/">
-        <span class="icon">🆘</span>
+        <span class="icon"><span class="glyph">🆘</span></span>
         Support
       </a>
       <?php endif; ?>
       <a class="sideitem <?= _portal_active('movies.php') ?>" href="/portal/movies.php">
-        <span class="icon">🎬</span>
+        <span class="icon"><span class="glyph">🎬</span></span>
         Movies
       </a>
       <a class="sideitem <?= _portal_active('series.php') ?>" href="/portal/series.php">
-        <span class="icon">📼</span>
+        <span class="icon"><span class="glyph">📼</span></span>
         Series
       </a>
       <?php if (!empty($__watchlist_enabled)): ?>
       <a class="sideitem <?= _portal_active('watchlist.php') ?>" href="/portal/watchlist.php">
-        <span class="icon">⭐</span>
+        <span class="icon"><span class="glyph">⭐</span></span>
         Watchlist
       </a>
       <?php endif; ?>
@@ -175,7 +175,7 @@ window.__watchlist = {enabled: <?= !empty($__watchlist_enabled) ? 'true' : 'fals
     <div class="sidegroup">
       <div class="label">Account</div>
       <a class="sideitem" href="/dashboard.php">
-        <span class="icon">👤</span>
+        <span class="icon"><span class="glyph">👤</span></span>
         My Account
       </a>
     </div>

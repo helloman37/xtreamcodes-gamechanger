@@ -110,8 +110,9 @@
 }
 
 .reseller-app .xt-iconbtn{
-  display:inline-grid;
-  place-items:center;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
   line-height: 1;
   padding: 0;
   width: 38px;
@@ -128,9 +129,17 @@
 .reseller-app .xt-iconbtn:hover{ filter: brightness(1.06); }
 .reseller-app .xt-iconbtn:focus{ outline: 2px solid rgba(59,130,246,.55); outline-offset: 2px; }
 
-/* Emoji glyphs can sit slightly low on some platforms; nudge the power icon upward */
+/* Emoji glyphs can sit low on some platforms; render the power symbol via ::before and nudge it up */
 .reseller-app a.xt-iconbtn[aria-label="Logout"]{
-  padding-bottom: 2px;
+  font-size: 0; /* hide the inline emoji/text node */
+}
+.reseller-app a.xt-iconbtn[aria-label="Logout"]::before{
+  content: "⏻";
+  /* Match emoji sizing/weight across platforms */
+  font-family: "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;
+  font-size: 15px;
+  line-height: 1;
+  transform: translateY(-1px);
 }
 
 .reseller-app .xt-dropdown{
@@ -263,3 +272,5 @@
 .reseller-app .reseller-notice{
   margin-top: 14px;
 }
+
+

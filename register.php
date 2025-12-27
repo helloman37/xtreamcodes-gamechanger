@@ -42,31 +42,30 @@ require_once __DIR__ . '/gc_public_top.php';
   <p class="muted">Create your subscriber account to access the portal.</p>
 </div>
 
-<div class="card" style="max-width:560px;">
+<div class="card row auth-wrap" style="margin-top:18px; padding:18px;">
   <?php if ($err): ?>
     <div class="notice" style="border-color: rgba(255,80,80,.35); background: rgba(120,0,0,.18);">
       <?= e($err) ?>
     </div>
   <?php endif; ?>
 
-  <form method="post" class="form" autocomplete="off">
+  <form method="post" autocomplete="off" style="margin-top:10px;">
     <?= csrf_input() ?>
     <label>Username</label>
     <input class="input" name="username" value="<?= e($_POST['username'] ?? '') ?>" required>
 
-    <label style="margin-top:10px;">Password</label>
+    <label>Password</label>
     <input class="input" type="password" name="password" required>
 
-    <label style="margin-top:10px;display:flex;gap:8px;align-items:center;">
-      <input type="checkbox" name="allow_adult" value="1" <?= !empty($_POST['allow_adult']) ? 'checked' : '' ?>>
-      Allow adult content on this account (optional)
-    </label>
+    <div class="checkline">
+      <input type="checkbox" id="allow_adult" name="allow_adult" value="1" <?= !empty($_POST['allow_adult']) ? 'checked' : '' ?>>
+      <label for="allow_adult">Allow adult content on this account (optional)</label>
+    </div>
 
-    <button class="btn primary" style="margin-top:14px;width:100%;" type="submit">Create Account</button>
-
-    <p class="muted" style="margin-top:10px;">
-      Already have an account? <a href="/login.php">Login</a>
-    </p>
+    <div style="display:flex; gap:10px; align-items:center; margin-top:14px; flex-wrap:wrap;">
+      <button class="btn primary" type="submit">Create Account</button>
+      <a class="btn" href="/login.php">Login</a>
+    </div>
   </form>
 </div>
 

@@ -69,7 +69,7 @@ if ($mode === 'new') {
     }
   }
   ?>
-  <div class="card">
+  <div class="card pad">
     <div style="display:flex; justify-content:space-between; gap:10px; align-items:center; flex-wrap:wrap;">
       <h2 style="margin:0;">New Ticket</h2>
       <a class="btn ghost" href="/portal/support/">Back</a>
@@ -150,7 +150,7 @@ if ($mode === 'new') {
   $messages = $stM->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
   ?>
-  <div class="card">
+  <div class="card pad">
     <div style="display:flex; justify-content:space-between; gap:10px; align-items:center; flex-wrap:wrap;">
       <div>
         <h2 style="margin:0;">Ticket #<?= (int)$ticket['id'] ?></h2>
@@ -214,13 +214,13 @@ if ($mode === 'new') {
   $tickets = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
   ?>
-  <div class="card">
-    <div style="display:flex; justify-content:space-between; gap:10px; align-items:center; flex-wrap:wrap;">
+  <div class="card pad">
+    <div class="support-header">
       <h2 style="margin:0;">Support</h2>
       <a class="btn primary" href="/portal/support/new">New Ticket</a>
     </div>
 
-    <div style="margin-top:14px; overflow:auto;">
+    <div class="tablewrap">
       <table class="table">
         <thead>
           <tr>
@@ -233,7 +233,7 @@ if ($mode === 'new') {
         </thead>
         <tbody>
           <?php if (!$tickets): ?>
-            <tr><td colspan="5" class="muted">No tickets yet.</td></tr>
+            <tr class="empty"><td colspan="5" class="muted">No tickets yet.</td></tr>
           <?php endif; ?>
 
           <?php foreach ($tickets as $t): ?>
@@ -251,7 +251,7 @@ if ($mode === 'new') {
       </table>
     </div>
 
-    <div class="muted" style="margin-top:12px;">
+    <div class="muted support-footer-note">
       Support replies will show up here.
     </div>
   </div>

@@ -65,7 +65,7 @@ try {
     <div class="brand">
       <div class="logoX">X</div>
       <div class="textblock">
-        <div class="title">TREAM<span style="font-weight:800; opacity:.92;">ui</span></div>
+        <div class="title">TREAM<span class="ui">ui</span></div>
         <div class="subtitle">GAME CHANGER</div>
       </div>
     </div>
