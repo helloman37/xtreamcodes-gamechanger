@@ -112,6 +112,8 @@
 .reseller-app .xt-iconbtn{
   display:inline-grid;
   place-items:center;
+  line-height: 1;
+  padding: 0;
   width: 38px;
   height: 38px;
   border-radius: 999px;
@@ -125,6 +127,11 @@
 }
 .reseller-app .xt-iconbtn:hover{ filter: brightness(1.06); }
 .reseller-app .xt-iconbtn:focus{ outline: 2px solid rgba(59,130,246,.55); outline-offset: 2px; }
+
+/* Emoji glyphs can sit slightly low on some platforms; nudge the power icon upward */
+.reseller-app a.xt-iconbtn[aria-label="Logout"]{
+  padding-bottom: 2px;
+}
 
 .reseller-app .xt-dropdown{
   position:absolute;

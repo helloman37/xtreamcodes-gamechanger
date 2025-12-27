@@ -617,6 +617,12 @@ tr:hover td{background:#fafbff}
 .admin-app .xt-iconbtn:focus,
 .reseller-app .xt-iconbtn:focus{ outline: 2px solid rgba(59,130,246,.55); outline-offset: 2px; }
 
+/* Emoji glyphs can sit slightly low on some platforms; nudge the power icon upward */
+.admin-app a.xt-iconbtn[aria-label="Logout"],
+.reseller-app a.xt-iconbtn[aria-label="Logout"]{
+  padding-bottom: 2px;
+}
+
 .admin-app .xt-dropdown,
 .reseller-app .xt-dropdown{
   position:absolute;

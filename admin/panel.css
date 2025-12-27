@@ -599,8 +599,11 @@ tr:hover td{background:#fafbff}
 
 .admin-app .xt-iconbtn,
 .reseller-app .xt-iconbtn{
-  display:inline-grid;
-  place-items:center;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  line-height: 1;
+  padding: 0;
   width: 38px;
   height: 38px;
   border-radius: 999px;
@@ -616,6 +619,12 @@ tr:hover td{background:#fafbff}
 .reseller-app .xt-iconbtn:hover{ filter: brightness(1.06); }
 .admin-app .xt-iconbtn:focus,
 .reseller-app .xt-iconbtn:focus{ outline: 2px solid rgba(59,130,246,.55); outline-offset: 2px; }
+
+/* Emoji glyphs can sit slightly low on some platforms; nudge the power icon upward */
+.admin-app a.xt-iconbtn[aria-label="Logout"],
+.reseller-app a.xt-iconbtn[aria-label="Logout"]{
+  padding-bottom: 2px;
+}
 
 .admin-app .xt-dropdown,
 .reseller-app .xt-dropdown{
@@ -707,6 +716,7 @@ tr:hover td{background:#fafbff}
   height: 52px;
   display:flex;
   align-items:center;
+  justify-content: center;
   gap: 12px;
 }
 
@@ -770,7 +780,7 @@ tr:hover td{background:#fafbff}
 .reseller-app .xt-nav-menu a:hover{ background: #f1f5f9; }
 
 .admin-app .xt-nav-spacer,
-.reseller-app .xt-nav-spacer{ flex: 1; }
+.reseller-app .xt-nav-spacer{ display:none; }
 
 /* Center content like the mockup */
 .admin-app .container,
