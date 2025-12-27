@@ -24,7 +24,6 @@ if ($reqPath === '/portal/support') {
 }
 
 $PORTAL_PAGE = 'support';
-require_once __DIR__ . '/_layout_top.php';
 
 if ($mode === 'new') {
 
@@ -68,6 +67,9 @@ if ($mode === 'new') {
       }
     }
   }
+
+  // Render after POST handling so redirects can send headers safely.
+  require_once __DIR__ . '/_layout_top.php';
   ?>
   <div class="card pad">
     <div style="display:flex; justify-content:space-between; gap:10px; align-items:center; flex-wrap:wrap;">
@@ -105,16 +107,11 @@ if ($mode === 'new') {
   $st->execute([$viewTicketId, (int)$user['id']]);
   $ticket = $st->fetch(PDO::FETCH_ASSOC);
 
-  if (!$ticket) {
-    echo "<div class='card'><h2>Not found</h2><p class='muted'>That ticket does not exist.</p><a class='btn ghost' href='/portal/support/'>Back</a></div>";
-    require_once __DIR__ . '/_layout_bottom.php';
-    exit;
-  }
-
+  // Handle reply POST before rendering/layout.
   $errors = [];
   $reply = trim((string)($_POST['message'] ?? ''));
 
-  if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($ticket['status'] ?? '') !== 'closed') {
+  if ($ticket && $_SERVER['REQUEST_METHOD'] === 'POST' && (string)($ticket['status'] ?? '') !== 'closed') {
     csrf_validate();
 
     $replyClean = supportdesk_clean_message($reply);
@@ -136,13 +133,22 @@ if ($mode === 'new') {
 
         $pdo->commit();
 
-        header("Location: /portal/support/" . (int)$ticket['id']);
+        header('Location: /portal/support/' . (int)$ticket['id'] . '/');
         exit;
       } catch (Throwable $t) {
         if ($pdo->inTransaction()) $pdo->rollBack();
         $errors[] = 'Could not send message.';
       }
     }
+  }
+
+  // Render after POST handling so redirects can send headers safely.
+  require_once __DIR__ . '/_layout_top.php';
+
+  if (!$ticket) {
+    echo "<div class='card'><h2>Not found</h2><p class='muted'>That ticket does not exist.</p><a class='btn ghost' href='/portal/support/'>Back</a></div>";
+    require_once __DIR__ . '/_layout_bottom.php';
+    exit;
   }
 
   $stM = $pdo->prepare("SELECT * FROM support_messages WHERE ticket_id=? ORDER BY id ASC");
@@ -204,6 +210,9 @@ if ($mode === 'new') {
   <?php
 
 } else {
+
+  // Render list after routing decision.
+  require_once __DIR__ . '/_layout_top.php';
 
   $st = $pdo->prepare("SELECT id, subject, status, priority, created_at, updated_at, last_message_at
                        FROM support_tickets

@@ -117,9 +117,9 @@ try {
     <div class="sidegroup">
       <div class="label">Browse</div>
       <a class="sideitem" href="/portal/"><span class="icon">🏠</span>Portal Home</a>
-      <a class="sideitem" href="/portal/live"><span class="icon">📺</span>Live TV</a>
-      <a class="sideitem" href="/portal/movies"><span class="icon">🎬</span>Movies</a>
-      <a class="sideitem" href="/portal/series"><span class="icon">📼</span>Series</a>
+      <a class="sideitem" href="/portal/live/"><span class="icon">📺</span>Live TV</a>
+      <a class="sideitem" href="/portal/movies/"><span class="icon">🎬</span>Movies</a>
+      <a class="sideitem" href="/portal/series/"><span class="icon">📼</span>Series</a>
     </div>
 
     <div class="sidegroup">

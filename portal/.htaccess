@@ -1,0 +1,21 @@
+RewriteEngine On
+Options -MultiViews
+
+# If a user hits /portal/movies (no trailing slash), redirect to /portal/movies/
+RewriteCond %{THE_REQUEST} \s/+portal/(live|movies|series|watchlist|guide|support)(\?|\s) [NC]
+RewriteRule ^(live|movies|series|watchlist|guide|support)$ $1/ [R=301,L,QSA]
+
+# Core portal pages (pretty URLs)
+RewriteRule ^(live|movies|series)/?$ $1.php [L,QSA]
+
+# Support (allow subpaths)
+RewriteRule ^support/?$ support.php [L,QSA]
+RewriteRule ^support/.*$ support.php [L,QSA]
+
+# Watchlist (allow subpaths)
+RewriteRule ^watchlist/?$ watchlist.php [L,QSA]
+RewriteRule ^watchlist/.*$ watchlist.php [L,QSA]
+
+# Guide (allow subpaths)
+RewriteRule ^guide/?$ guide.php [L,QSA]
+RewriteRule ^guide/.*$ guide.php [L,QSA]

@@ -286,7 +286,8 @@
     for (const kind of Object.keys(byKind)) {
       const ids = byKind[kind].slice(0, 80).join(',');
       try {
-        const res = await fetch('tmdb_enrich.php?kind=' + encodeURIComponent(kind) + '&ids=' + encodeURIComponent(ids), {
+        // Use absolute path so clean URLs like /portal/movies/ don't break relative fetches.
+        const res = await fetch('/portal/tmdb_enrich.php?kind=' + encodeURIComponent(kind) + '&ids=' + encodeURIComponent(ids), {
           credentials: 'same-origin'
         });
         if (!res.ok) continue;
@@ -341,7 +342,8 @@
         // Live TV can have huge lists; switching categories should reload server-side.
         if (PAGE === 'live') {
           const v = (cat.value || 'all').trim();
-          const base = '/portal/live.php';
+          // Keep canonical clean URL (trailing slash) to avoid broken relative paths.
+          const base = '/portal/live/';
           if (!v || v === 'all') {
             window.location.href = base;
           } else {
@@ -440,9 +442,11 @@ function escapeHtml(s){
 
     let url;
     if (q) {
-      url = `tmdb_search.php?type=${encodeURIComponent(kind)}&q=${encodeURIComponent(q)}&page=${page}`;
+      // Absolute path so clean URLs like /portal/movies/ don't break relative fetches.
+      url = `/portal/tmdb_search.php?type=${encodeURIComponent(kind)}&q=${encodeURIComponent(q)}&page=${page}`;
     } else {
-      url = `tmdb_browse.php?type=${encodeURIComponent(kind)}&mode=${encodeURIComponent(mode)}&page=${page}`;
+      // Absolute path so clean URLs like /portal/movies/ don't break relative fetches.
+      url = `/portal/tmdb_browse.php?type=${encodeURIComponent(kind)}&mode=${encodeURIComponent(mode)}&page=${page}`;
     }
 
     try {
