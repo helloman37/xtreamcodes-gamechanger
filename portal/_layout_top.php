@@ -78,15 +78,6 @@ window.__watchlist = {enabled: <?= !empty($__watchlist_enabled) ? 'true' : 'fals
 </head>
 <body data-page="<?= e($PORTAL_PAGE ?? '') ?>">
 
-<?php
-  // Sliding background wall (portal home only)
-  require_once __DIR__ . '/../hero_wall.php';
-  $reqWall = (string)($_SERVER['REQUEST_URI'] ?? '');
-  $isPortalHome = ($reqWall === '/portal/' || $reqWall === '/portal/index.php' || $reqWall === '/portal');
-  if ($isPortalHome) {
-    echo gc_hero_wall_render();
-  }
-?>
 
 <div class="portal">
   <div class="topbar">
