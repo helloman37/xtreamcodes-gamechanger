@@ -78,6 +78,16 @@ window.__watchlist = {enabled: <?= !empty($__watchlist_enabled) ? 'true' : 'fals
 </head>
 <body data-page="<?= e($PORTAL_PAGE ?? '') ?>">
 
+<?php
+  // Sliding background wall (portal home only)
+  require_once __DIR__ . '/../hero_wall.php';
+  $reqWall = (string)($_SERVER['REQUEST_URI'] ?? '');
+  $isPortalHome = ($reqWall === '/portal/' || $reqWall === '/portal/index.php' || $reqWall === '/portal');
+  if ($isPortalHome) {
+    echo gc_hero_wall_render();
+  }
+?>
+
 <div class="portal">
   <div class="topbar">
     <div class="brand">
@@ -90,11 +100,11 @@ window.__watchlist = {enabled: <?= !empty($__watchlist_enabled) ? 'true' : 'fals
 
     <div class="topnav">
       <a class="<?= _portal_active('index.php') ?>" href="/portal/">Home</a>
-      <a class="<?= _portal_active('live.php') ?>" href="/portal/live.php">Live TV</a>
-      <a class="<?= _portal_active('movies.php') ?>" href="/portal/movies.php">Movies</a>
-      <a class="<?= _portal_active('series.php') ?>" href="/portal/series.php">Series</a>
+      <a class="<?= _portal_active('live.php') ?>" href="/portal/live">Live TV</a>
+      <a class="<?= _portal_active('movies.php') ?>" href="/portal/movies">Movies</a>
+      <a class="<?= _portal_active('series.php') ?>" href="/portal/series">Series</a>
       <?php if (!empty($__watchlist_enabled)): ?>
-      <a class="<?= _portal_active('watchlist.php') ?>" href="/portal/watchlist.php">Watchlist</a>
+      <a class="<?= _portal_active('watchlist.php') ?>" href="/portal/watchlist">Watchlist</a>
       <?php endif; ?>
       <?php
         $req = (string)($_SERVER['REQUEST_URI'] ?? '');
@@ -137,7 +147,7 @@ window.__watchlist = {enabled: <?= !empty($__watchlist_enabled) ? 'true' : 'fals
         <span class="icon"><span class="glyph">🏠</span></span>
         Home
       </a>
-      <a class="sideitem <?= _portal_active('live.php') ?>" href="/portal/live.php">
+      <a class="sideitem <?= _portal_active('live.php') ?>" href="/portal/live">
         <span class="icon"><span class="glyph">📺</span></span>
         Live TV
       </a>
@@ -156,16 +166,16 @@ window.__watchlist = {enabled: <?= !empty($__watchlist_enabled) ? 'true' : 'fals
         Support
       </a>
       <?php endif; ?>
-      <a class="sideitem <?= _portal_active('movies.php') ?>" href="/portal/movies.php">
+      <a class="sideitem <?= _portal_active('movies.php') ?>" href="/portal/movies">
         <span class="icon"><span class="glyph">🎬</span></span>
         Movies
       </a>
-      <a class="sideitem <?= _portal_active('series.php') ?>" href="/portal/series.php">
+      <a class="sideitem <?= _portal_active('series.php') ?>" href="/portal/series">
         <span class="icon"><span class="glyph">📼</span></span>
         Series
       </a>
       <?php if (!empty($__watchlist_enabled)): ?>
-      <a class="sideitem <?= _portal_active('watchlist.php') ?>" href="/portal/watchlist.php">
+      <a class="sideitem <?= _portal_active('watchlist.php') ?>" href="/portal/watchlist">
         <span class="icon"><span class="glyph">⭐</span></span>
         Watchlist
       </a>

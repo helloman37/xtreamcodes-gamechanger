@@ -9,6 +9,13 @@ RewriteRule ^tv/[0-9]+/[0-9]+/[0-9]+/?$ vod_enabler_routes.php [L,QSA]
 RewriteRule ^portal/support/?$ portal/support.php [L,QSA]
 RewriteRule ^portal/support/.*$ portal/support.php [L,QSA]
 
+# Portal routes (Core pages: clean URLs)
+# NOTE: These are intentionally scoped under /portal/ because /live and /series
+# are already used by the stream proxy endpoints in this project.
+RewriteRule ^portal/live/?$ portal/live.php [L,QSA]
+RewriteRule ^portal/movies/?$ portal/movies.php [L,QSA]
+RewriteRule ^portal/series/?$ portal/series.php [L,QSA]
+
 
 # Portal routes (Watchlist)
 RewriteRule ^portal/watchlist/?$ portal/watchlist.php [L,QSA]

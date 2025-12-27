@@ -60,6 +60,14 @@ try {
 </head>
 <body data-page="<?= e($PUBLIC_PAGE) ?>">
 
+<?php
+  // Sliding background wall (public home only)
+  require_once __DIR__ . '/hero_wall.php';
+  if (basename($_SERVER['PHP_SELF'] ?? '') === 'index.php') {
+    echo gc_hero_wall_render();
+  }
+?>
+
 <div class="portal<?= $PUBLIC_SIDEBAR ? '' : ' public' ?>">
   <div class="topbar">
     <div class="brand">
@@ -109,9 +117,9 @@ try {
     <div class="sidegroup">
       <div class="label">Browse</div>
       <a class="sideitem" href="/portal/"><span class="icon">🏠</span>Portal Home</a>
-      <a class="sideitem" href="/portal/live.php"><span class="icon">📺</span>Live TV</a>
-      <a class="sideitem" href="/portal/movies.php"><span class="icon">🎬</span>Movies</a>
-      <a class="sideitem" href="/portal/series.php"><span class="icon">📼</span>Series</a>
+      <a class="sideitem" href="/portal/live"><span class="icon">📺</span>Live TV</a>
+      <a class="sideitem" href="/portal/movies"><span class="icon">🎬</span>Movies</a>
+      <a class="sideitem" href="/portal/series"><span class="icon">📼</span>Series</a>
     </div>
 
     <div class="sidegroup">
