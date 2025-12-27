@@ -1,0 +1,47 @@
+# Apache rewrite example (place as .htaccess in your web root)
+RewriteEngine On
+
+# Prevent Apache MultiViews/content-negotiation from interfering with "pretty" URLs
+Options -MultiViews
+
+# Canonical trailing slash for portal "page" routes.
+# This prevents relative URLs from breaking when the current URL is treated as a file.
+# Also handles URLs with query strings (e.g. /portal/movies?cat=1).
+RewriteCond %{THE_REQUEST} \s/+portal/(live|movies|series|watchlist|guide|support)(\?|\s) [NC]
+RewriteRule ^portal/(live|movies|series|watchlist|guide|support)$ /portal/$1/ [R=301,L,QSA]
+
+# VOD Enabler routes (keep these ABOVE the generic /movie and /series rules)
+RewriteRule ^movie/[0-9]+/?$ vod_enabler_routes.php [L,QSA]
+RewriteRule ^tv/[0-9]+/[0-9]+/[0-9]+/?$ vod_enabler_routes.php [L,QSA]
+
+# Portal routes (Support Desk)
+RewriteRule ^portal/support/$ portal/support.php [L,QSA]
+RewriteRule ^portal/support/.*$ portal/support.php [L,QSA]
+
+# Portal routes (Core pages: clean URLs)
+# NOTE: These are intentionally scoped under /portal/ because /live and /series
+# are already used by the stream proxy endpoints in this project.
+# Accept both /portal/movies and /portal/movies/ internally, while the redirect above
+# enforces the trailing slash as the canonical URL.
+RewriteRule ^portal/(live|movies|series)/?$ portal/$1.php [L,QSA]
+
+
+# Portal routes (Watchlist)
+RewriteRule ^portal/watchlist/$ portal/watchlist.php [L,QSA]
+RewriteRule ^portal/watchlist/.*$ portal/watchlist.php [L,QSA]
+
+# Portal routes (EPG Guide)
+RewriteRule ^portal/guide/$ portal/guide.php [L,QSA]
+RewriteRule ^portal/guide/.*$ portal/guide.php [L,QSA]
+
+# Token mode: /live/user/token/id.m3u8?exp=...
+RewriteRule ^live/.*$ live.php [L,QSA]
+
+# Segment proxy: /seg/user/token/id?url=...
+RewriteRule ^seg/.*$ seg.php [L,QSA]
+
+# VOD: /movie/user/token/id.mp4?exp=...
+RewriteRule ^movie/[0-9]+/?$ vod_enabler_routes.php [L,QSA]
+
+# Series: /series/user/token/episode_id.mp4?exp=...
+RewriteRule ^series/.*$ series.php [L,QSA]
