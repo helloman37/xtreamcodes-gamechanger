@@ -108,9 +108,13 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['reseller_username'] ?? 'Resel
 </head>
 <body>
 <?= $topbar ?>
-<h1 style="margin-top:10px;">My My Users</h1>
-<?php flash_show(); ?>
 
+<div class="card">
+  <h2>My Users</h2>
+  <?php flash_show(); ?>
+</div>
+
+<br>
 <?php if ($edit_id && $edit_user): ?>
   <div class="card" style="margin-top:15px;">
     <h3>Edit User: <?= e($edit_user['username']) ?></h3>

@@ -140,7 +140,7 @@ $groupList = $content ? m3u_collect_groups($content) : [];
 <?= $topbar ?>
 
 <?php if (!$content): ?>
-  <div class="card" style="max-width:860px;margin:0 auto;">
+  <div class="card">
     <div class="card-title">Content • M3U Editor</div>
     <h2 style="margin:0 0 10px;">M3U Real-time Editor</h2>
     <?php if ($error): ?>
@@ -172,7 +172,7 @@ $groupList = $content ? m3u_collect_groups($content) : [];
   </div>
 
 <?php else: ?>
-  <div class="card" style="max-width:1220px;margin:0 auto;">
+  <div class="card">
     <div class="card-title">Content • M3U Editor</div>
 
     <div class="toolbar">

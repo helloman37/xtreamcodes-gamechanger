@@ -337,17 +337,16 @@ if (is_array($existing) && isset($existing['id'])) {
 </head>
 <body>
 <?= $topbar ?>
-<main class="main">
-  <div class="container">
+  <!-- container is opened by topbar.html -->
+  <div class="card">
     <h2>Upload XMLTV (Local File)</h2>
-    <p class="muted" style="margin-top:-6px;">
+    <p class="muted" style="margin-top:-6px; margin-bottom:12px;">
       Upload a filtered XMLTV file (<span class="mono">.xml</span> or <span class="mono">.gz</span>). It will be saved under
       <span class="mono">storage/epg_uploads/</span> and added to EPG Sources automatically.
     </p>
 
     <?php flash_show(); ?>
 
-    <div class="card" style="max-width:760px;">
       <form method="post" enctype="multipart/form-data">
         <?= csrf_input() ?>
 
@@ -377,7 +376,7 @@ if (is_array($existing) && isset($existing['id'])) {
           <a class="btn" href="epg_manager.php" style="background:#2b3545;">Back to Sources</a>
         </div>
       </form>
-    </div>
+  </div>
 
   </div><!-- container -->
 </main>

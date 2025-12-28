@@ -113,7 +113,6 @@ function _slot_inputs(string $row, array $vals): string {
   <title>Homepage Background</title>
   <link rel="stylesheet" href="panel.css">
     <style>
-    .hw-wrap{max-width:1100px;}
     .hw-help{color:var(--muted); margin-top:6px; line-height:1.55;}
 
     /* Form wrapper (keeps spacing without creating an extra card) */
@@ -176,8 +175,9 @@ function _slot_inputs(string $row, array $vals): string {
 <body>
 <?= $topbar ?>
 
-<div class="container hw-wrap">
-  <h1>Homepage Background</h1>
+
+<div class="card">
+  <h2>Homepage Background</h2>
   <div class="hw-help">
     <div style="font-weight:800; color:var(--text); margin-bottom:6px;">How to use</div>
     <ul style="margin:0 0 10px 18px; padding:0;">
@@ -190,8 +190,10 @@ function _slot_inputs(string $row, array $vals): string {
   </div>
 
   <?php flash_show(); ?>
+</div>
 
-  <form method="post" enctype="multipart/form-data" class="hw-form">
+<br>
+<form method="post" enctype="multipart/form-data" class="hw-form">
     <input type="hidden" name="save_wall" value="1">
 
     <div class="hw-card">
@@ -242,7 +244,10 @@ function _slot_inputs(string $row, array $vals): string {
     </div>
   </form>
 
-</div>
 
+
+</div><!-- container -->
+</main>
+</div><!-- app -->
 </body>
 </html>

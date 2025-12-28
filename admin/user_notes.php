@@ -62,10 +62,10 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
 <body>
 <?= $topbar ?>
 
-<h1>User Notes</h1>
-<?php flash_show(); ?>
-
 <div class="card">
+  <h2>User Notes</h2>
+  <?php flash_show(); ?>
+
   <div class="muted" style="margin-bottom:8px;">
     For user <strong><?= e($user['username']) ?></strong>
     <?php if (!empty($user['name'])): ?>
@@ -92,5 +92,9 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
   </form>
 </div>
 
+
+</div><!-- container -->
+</main>
+</div><!-- app -->
 </body>
 </html>

@@ -50,10 +50,10 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
 <body>
 <?= $topbar ?>
 
-<h1>Maintenance Mode</h1>
-<?php flash_show(); ?>
-
 <div class="card">
+  <h2>Maintenance Mode</h2>
+  <?php flash_show(); ?>
+
   <form method="post">
     <?= csrf_input(); ?>
 
@@ -83,5 +83,9 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
   </form>
 </div>
 
+
+</div><!-- container -->
+</main>
+</div><!-- app -->
 </body>
 </html>

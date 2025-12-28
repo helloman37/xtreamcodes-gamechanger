@@ -75,14 +75,14 @@ $topbar = file_get_contents(__DIR__ . '/topbar.html');
 <body>
 <?= $topbar ?>
 
-<div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap;">
-  <h1 style="margin:10px 0;">Reseller Details: <?= e($reseller['username']) ?></h1>
-  <a class="btn" href="resellers.php">&larr; Back</a>
-</div>
-
-<?php flash_show(); ?>
 
 <div class="card" style="margin-top:12px;">
+  <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
+    <h2 style="margin:0;">Reseller Details: <?= e($reseller['username']) ?></h2>
+    <a class="btn" href="resellers.php">&larr; Back</a>
+  </div>
+  <?php flash_show(); ?>
+
   <div class="grid2">
     <div>
       <div><strong>ID:</strong> <?= (int)$reseller['id'] ?></div>
@@ -138,5 +138,9 @@ $topbar = file_get_contents(__DIR__ . '/topbar.html');
   </table>
 </div>
 
+
+</div><!-- container -->
+</main>
+</div><!-- app -->
 </body>
 </html>

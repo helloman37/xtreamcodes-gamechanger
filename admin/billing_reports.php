@@ -94,9 +94,12 @@ $renewals = $pdo->query("
 <body>
 <?= $topbar ?>
 
-<h1>Billing Reports</h1>
-<p class="muted">Last 12 months revenue (based on plan price at time of subscription start).</p>
+<div class="card">
+  <h2>Billing Reports</h2>
+  <p class="muted" style="margin-top:-6px; margin-bottom:0;">Last 12 months revenue (based on plan price at time of subscription start).</p>
+</div>
 
+<br>
 <div class="grid">
   <div class="card">
     <h2>12-Month Total</h2>
@@ -177,5 +180,9 @@ $renewals = $pdo->query("
   <?php endif; ?>
 </div>
 
+
+</div><!-- container -->
+</main>
+</div><!-- app -->
 </body>
 </html>

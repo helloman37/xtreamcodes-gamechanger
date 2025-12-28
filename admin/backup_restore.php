@@ -471,10 +471,14 @@ if (is_dir($BACKUP_DIR)) {
 </head>
 <body>
 <?= $topbar ?>
-<h1>Backup &amp; Restore</h1>
-<p class="muted">Create a backup (DB + optional storage/config), or restore from a backup zip.</p>
-<?php flash_show(); ?>
 
+<div class="card">
+  <h2>Backup &amp; Restore</h2>
+  <p class="muted" style="margin-top:-6px; margin-bottom:12px;">Create a backup (DB + optional storage/config), or restore from a backup zip.</p>
+  <?php flash_show(); ?>
+</div>
+
+<br>
 <div class="grid" style="grid-template-columns: 1fr 1fr; gap:14px;">
   <div class="card">
     <h2>Create Backup</h2>
@@ -608,5 +612,9 @@ if (is_dir($BACKUP_DIR)) {
 })();
 </script>
 
+
+</div><!-- container -->
+</main>
+</div><!-- app -->
 </body>
 </html>

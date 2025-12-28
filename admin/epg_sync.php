@@ -255,5 +255,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   </form>
 </div>
 
+
+</div><!-- container -->
+</main>
+</div><!-- app -->
 </body>
 </html>

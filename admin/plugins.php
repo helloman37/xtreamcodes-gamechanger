@@ -388,10 +388,12 @@ $plugins = gc_plugins_list($pdo);
 <body>
 <?= $topbar ?>
 
-<h1>Plugins</h1>
-<?php flash_show(); ?>
+<div class="card">
+  <h2>Plugins</h2>
+  <?php flash_show(); ?>
+</div>
 
-
+<br>
 <style>
   .gc-store-toolbar{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-top:10px}
   .gc-store-grid{display:flex;flex-wrap:nowrap;gap:12px;margin-top:12px;overflow-x:auto;overflow-y:hidden;padding-bottom:10px;-webkit-overflow-scrolling:touch;scroll-snap-type:x mandatory;scrollbar-gutter:stable}

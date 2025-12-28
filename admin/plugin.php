@@ -82,17 +82,20 @@ $GC_PLUGIN_ADMIN_HTML = ob_get_clean();
 <body>
 <?= $topbar ?>
 
-<h1><?= e($manifest['name'] ?? $pid) ?> <span class="muted" style="font-size:14px;">Plugin</span></h1>
-<?php flash_show(); ?>
 
-<div class="card" style="margin:14px 0;">
-  <?= $GC_PLUGIN_ADMIN_HTML ?>
+<div class="card">
+  <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+    <h2 style="margin:0;"><?= e($manifest['name'] ?? $pid) ?> <span class="muted" style="font-size:14px;">Plugin</span></h2>
+    <a class="btn btn-small gray" href="plugins.php">← Back to Plugins</a>
+  </div>
+  <?php flash_show(); ?>
+  <div style="margin-top:12px;">
+    <?= $GC_PLUGIN_ADMIN_HTML ?>
+  </div>
 </div>
 
-<p class="muted" style="margin: 0 0 16px 0;">
-  <a class="btn btn-small gray" href="plugins.php">← Back to Plugins</a>
-</p>
-
-</main></div>
+</div><!-- container -->
+</main>
+</div><!-- app -->
 </body>
 </html>

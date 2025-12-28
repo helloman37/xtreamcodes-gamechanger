@@ -55,54 +55,22 @@ if (preg_match('~/public$~', $site_url)) {
 </head>
 <body>
 <?= $topbar ?>
-<h1>IPTV Admin Panel</h1>
-<p class="muted">Logged in as <?=e($_SESSION['admin_username'])?></p>
-<?php flash_show(); ?>
 
+<div class="card dash-top">
 
-<div class="card" style="margin:14px 0;">
-  <h2>Playlist Link Output Mode</h2>
-  <div class="row">
-    <div>
-      <label for="linkMode">Link mode</label>
-      <select id="linkMode">
-        <option value="auto">Auto (current behavior)</option>
-        <option value="direct_protected">Direct Link with Protection</option>
-        <option value="standard_protected">Standard Link with Protection</option>
-      </select>
-    </div>
-    <div>
-      <label for="m3uUrl">Example M3U URL</label>
-      <input id="m3uUrl" type="text" readonly>
-    </div>
-    <div>
-      <label for="xmlUrl">Example XMLTV URL</label>
-      <input id="xmlUrl" type="text" readonly>
+<div class="dash-head">
+  <div class="dash-head-left">
+    <h1 class="dash-title">Dashboard</h1>
+    <div class="dash-sub muted">
+      Channels <b><?= (int)$counts['channels'] ?></b> · Users <b><?= (int)$counts['users'] ?></b> · Plans <b><?= (int)$counts['plans'] ?></b> · Subs <b><?= (int)$counts['subs'] ?></b>
     </div>
   </div>
-  <p class="muted" style="margin-top:8px;">
-    Protected modes always hide upstream stream URLs and return links from <b><?=e($site_url)?></b>.
-  </p>
+  <div class="dash-head-right">
+    <span class="dash-chip">Signed in: <?=e($_SESSION['admin_username'])?></span>
+  </div>
 </div>
 
-<script>
-(function(){
-  const baseUrl = <?= json_encode($base_url) ?>;
-  const siteUrl = <?= json_encode($site_url) ?>;
-  const modeSel = document.getElementById('linkMode');
-  const m3u = document.getElementById('m3uUrl');
-  const xml = document.getElementById('xmlUrl');
-
-  function update(){
-    const mode = modeSel.value;
-    const linkParam = (mode === 'auto') ? '' : '&link=' + encodeURIComponent(mode);
-    m3u.value = baseUrl + '/get.php?username=YOURUSER&password=YOURPASS&type=m3u' + linkParam;
-    xml.value = baseUrl + '/xmltv.php?username=YOURUSER&password=YOURPASS';
-  }
-  modeSel.addEventListener('change', update);
-  update();
-})();
-</script>
+<?php flash_show(); ?>
 
 
 
@@ -148,11 +116,15 @@ if (preg_match('~/public$~', $site_url)) {
 </div>
 </div>
 
-<div class="card" style="margin-top:14px;">
+</div>
 
-  <h2 style="margin-bottom:8px;">Recent Access Logs</h2>
-  <div style="overflow:auto;">
-    <table class="table">
+<div class="card dash-logs">
+  <div class="dash-card-head">
+    <h2>Recent Access Logs</h2>
+    <a class="btn btn-small" href="sessions.php">View sessions</a>
+  </div>
+  <div class="dash-table-wrap">
+    <table class="dash-table">
       <tr>
         <th>Time</th><th>User</th><th>Channel</th><th>IP</th>
       </tr>
@@ -170,6 +142,66 @@ if (preg_match('~/public$~', $site_url)) {
     </table>
   </div>
 </div>
+
+
+<details class="card dash-settings" id="dashLinkMode">
+  <summary>
+    <span class="dash-settings-title">Playlist link output</span>
+    <span class="dash-settings-pill" id="linkModePill">Auto</span>
+    <span class="dash-settings-meta muted">Examples &amp; protection</span>
+  </summary>
+
+  <div class="dash-settings-body">
+    <div class="dash-settings-grid">
+      <div class="dash-settings-field">
+        <label for="linkMode">Link mode</label>
+        <select id="linkMode">
+          <option value="auto">Auto (current behavior)</option>
+          <option value="direct_protected">Direct Link with Protection</option>
+          <option value="standard_protected">Standard Link with Protection</option>
+        </select>
+      </div>
+      <div class="dash-settings-field">
+        <label for="m3uUrl">Example M3U URL</label>
+        <input id="m3uUrl" type="text" readonly>
+      </div>
+      <div class="dash-settings-field">
+        <label for="xmlUrl">Example XMLTV URL</label>
+        <input id="xmlUrl" type="text" readonly>
+      </div>
+    </div>
+
+    <p class="muted dash-settings-note">
+      Protected modes always hide upstream stream URLs and return links from <b><?=e($site_url)?></b>.
+    </p>
+  </div>
+</details>
+
+<script>
+(function(){
+  const baseUrl = <?= json_encode($base_url) ?>;
+  const modeSel = document.getElementById('linkMode');
+  const m3u = document.getElementById('m3uUrl');
+  const xml = document.getElementById('xmlUrl');
+  const pill = document.getElementById('linkModePill');
+
+  if(!modeSel || !m3u || !xml){ return; }
+
+  function update(){
+    const mode = modeSel.value;
+    const linkParam = (mode === 'auto') ? '' : '&link=' + encodeURIComponent(mode);
+    m3u.value = baseUrl + '/get.php?username=YOURUSER&password=YOURPASS&type=m3u' + linkParam;
+    xml.value = baseUrl + '/xmltv.php?username=YOURUSER&password=YOURPASS';
+
+    if(pill){
+      const txt = (modeSel.options[modeSel.selectedIndex] && modeSel.options[modeSel.selectedIndex].text) ? modeSel.options[modeSel.selectedIndex].text : 'Auto';
+      pill.textContent = txt.replace(/\s*\(.*\)\s*$/,'');
+    }
+  }
+  modeSel.addEventListener('change', update);
+  update();
+})();
+</script>
 </div><!-- container -->
 </main>
 </div><!-- app -->

@@ -84,9 +84,13 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
 </head>
 <body>
 <?= $topbar ?>
-<h1>Resellers</h1>
-<?php flash_show(); ?>
 
+<div class="card">
+  <h2>Resellers</h2>
+  <?php flash_show(); ?>
+</div>
+
+<br>
 <div class="card" style="margin:12px 0;">
   <h2>Create Reseller</h2>
   <form method="post">
@@ -164,4 +168,10 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
   </tbody>
 </table>
 
-</div></body></html>
+</div>
+
+</div><!-- container -->
+</main>
+</div><!-- app -->
+</body>
+</html>

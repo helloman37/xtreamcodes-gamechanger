@@ -178,11 +178,13 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['reseller_username'] ?? 'Resel
 </head>
 <body>
 <?= $topbar ?>
-<h1 style="margin-top:10px;">Welcome, <?= e($_SESSION['reseller_username'] ?? 'Reseller') ?></h1>
-<?php flash_show(); ?>
 
-<div class="card" style="margin-top:15px;">
-  <h3>Credits: <?= (int)$reseller['credits'] ?></h3>
+<div class="card">
+  <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+    <h2 style="margin:0;">Welcome, <?= e($_SESSION['reseller_username'] ?? 'Reseller') ?></h2>
+    <span class="pill good">Credits: <?= (int)$reseller['credits'] ?></span>
+  </div>
+  <?php flash_show(); ?>
 </div>
 
 <div class="card" style="margin-top:15px;">

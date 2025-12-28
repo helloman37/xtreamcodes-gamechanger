@@ -465,7 +465,7 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
 <body>
 <?= $topbar ?>
 
-<div class="card" style="max-width:760px;margin:0 auto;">
+<div class="card">
   <h2>Upload / Import M3U</h2>
   <?php flash_show(); ?>
   <p class="muted">

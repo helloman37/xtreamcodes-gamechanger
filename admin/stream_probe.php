@@ -393,7 +393,7 @@ if (isset($_GET['ajax'])) {
 <body>
 <?= $topbar ?>
 
-<div class="container">
+<!-- container is opened by topbar.html -->
 
 <div class="card" style="margin:14px 0;">
   <h2>Dead Stream Hunter</h2>

@@ -288,5 +288,9 @@ function pill(string $t, string $kind=''): string {
   </table>
 </div>
 
+
+</div><!-- container -->
+</main>
+</div><!-- app -->
 </body>
 </html>

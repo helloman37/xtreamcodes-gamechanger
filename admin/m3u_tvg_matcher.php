@@ -429,57 +429,57 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 <body>
 <?= $topbar ?>
 
-<div class="container">
-  <h2>M3U TVG Matcher</h2>
-  <p class="muted" style="margin-top:-6px;">
-    Upload two playlists. This will take <span class="mono">tvg-id</span> + <span class="mono">tvg-name</span> from the first M3U and inject them into the second.
-  </p>
-
-  <?php flash_show(); ?>
-
-  <?php if ($error): ?>
-    <div class="card" style="border-color: rgba(239,68,68,.35); background: rgba(239,68,68,.06);">
-      <b>ERROR:</b> <?= m3u_h($error) ?>
-    </div>
-  <?php endif; ?>
-
-  <?php if ($result): ?>
-    <div class="card" style="border-color: rgba(34,197,94,.35); background: rgba(34,197,94,.06);">
-      <div class="row" style="justify-content:space-between;">
-        <div>
-          <span class="badge ok">Reference entries: <?= (int)$result['refCount'] ?></span>
-          <span class="badge ok">Matched: <?= (int)$result['matched'] ?></span>
-          <span class="badge <?= ((int)$result['unmatched'] > 0 ? 'bad' : 'ok') ?>">Unmatched: <?= (int)$result['unmatched'] ?></span>
-        </div>
-        <div>
-          <a class="btn" href="m3u_tvg_matcher.php?dl=<?= m3u_h((string)$result['token']) ?>">Download matched.m3u</a>
-        </div>
-      </div>
-
-      <?php if (!empty($result['unmatchedTitles'])): ?>
-        <details style="margin-top:12px;">
-          <summary><b>Show some unmatched channel titles</b> <span class="small">(first 60)</span></summary>
-          <ul>
-            <?php
-              $max = 60;
-              $shown = 0;
-              foreach ($result['unmatchedTitles'] as $t) {
-                $shown++;
-                if ($shown > $max) break;
-                echo '<li>' . m3u_h((string)$t) . '</li>';
-              }
-              if (count($result['unmatchedTitles']) > $max) {
-                echo '<li class="small">…and ' . (count($result['unmatchedTitles']) - $max) . ' more</li>';
-              }
-            ?>
-          </ul>
-        </details>
-      <?php endif; ?>
-    </div>
-  <?php endif; ?>
-
+<!-- container is opened by topbar.html -->
   <div class="card">
-    <h3 style="margin-bottom:6px;">Upload + Match</h3>
+    <h2>M3U TVG Matcher</h2>
+    <p class="muted" style="margin-top:-6px; margin-bottom:12px;">
+      Upload two playlists. This will take <span class="mono">tvg-id</span> + <span class="mono">tvg-name</span> from the first M3U and inject them into the second.
+    </p>
+
+    <?php flash_show(); ?>
+
+    <?php if ($error): ?>
+      <div class="callout callout-bad" style="margin-top:12px;">
+        <b>ERROR:</b> <?= m3u_h($error) ?>
+      </div>
+    <?php endif; ?>
+
+    <?php if ($result): ?>
+      <div class="callout callout-ok" style="margin-top:12px;">
+        <div class="row" style="justify-content:space-between;">
+          <div>
+            <span class="badge ok">Reference entries: <?= (int)$result['refCount'] ?></span>
+            <span class="badge ok">Matched: <?= (int)$result['matched'] ?></span>
+            <span class="badge <?= ((int)$result['unmatched'] > 0 ? 'bad' : 'ok') ?>">Unmatched: <?= (int)$result['unmatched'] ?></span>
+          </div>
+          <div>
+            <a class="btn" href="m3u_tvg_matcher.php?dl=<?= m3u_h((string)$result['token']) ?>">Download matched.m3u</a>
+          </div>
+        </div>
+
+        <?php if (!empty($result['unmatchedTitles'])): ?>
+          <details style="margin-top:12px;">
+            <summary><b>Show some unmatched channel titles</b> <span class="small">(first 60)</span></summary>
+            <ul>
+              <?php
+                $max = 60;
+                $shown = 0;
+                foreach ($result['unmatchedTitles'] as $t) {
+                  $shown++;
+                  if ($shown > $max) break;
+                  echo '<li>' . m3u_h((string)$t) . '</li>';
+                }
+                if (count($result['unmatchedTitles']) > $max) {
+                  echo '<li class="small">…and ' . (count($result['unmatchedTitles']) - $max) . ' more</li>';
+                }
+              ?>
+            </ul>
+          </details>
+        <?php endif; ?>
+      </div>
+    <?php endif; ?>
+
+    <h3 style="margin:16px 0 6px;">Upload + Match</h3>
 
     <div class="helpbox">
       <div><b>Matching order:</b> target <span class="mono">tvg-id</span> → normalized <span class="mono">tvg-name</span> → normalized display title.</div>

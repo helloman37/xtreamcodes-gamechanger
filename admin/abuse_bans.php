@@ -215,5 +215,9 @@ function toggleBanType(){
 toggleBanType();
 </script>
 
+
+</div><!-- container -->
+</main>
+</div><!-- app -->
 </body>
 </html>
