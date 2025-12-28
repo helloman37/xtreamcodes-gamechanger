@@ -9,13 +9,16 @@ require_once __DIR__ . '/_layout_top.php';
 // (Otherwise Adult categories show up as empty and confuse users.)
 [$pkgSql, $pkgParams] = package_filter_sql($pkg_ids, 'c');
 
+$catAdultSel = !empty($hasCatAdult) ? "IFNULL(cat.is_adult,0) AS is_adult" : "0 AS is_adult";
+$catAdultGate = (!empty($hasCatAdult)) ? " AND IFNULL(cat.is_adult,0)=0 " : "";
+
 $sqlCats = "
-  SELECT cat.id, cat.name, IFNULL(cat.is_adult,0) AS is_adult
+  SELECT cat.id, cat.name, {$catAdultSel}
   FROM categories cat
   JOIN channels c ON c.category_id = cat.id
   WHERE 1=1 {$pkgSql}
 ";
-if (!$allowAdult) $sqlCats .= " AND IFNULL(c.is_adult,0)=0 AND IFNULL(cat.is_adult,0)=0 ";
+if (!$allowAdult) $sqlCats .= " AND IFNULL(c.is_adult,0)=0 {$catAdultGate} ";
 $sqlCats .= " GROUP BY cat.id, cat.name, cat.sort_order ORDER BY cat.sort_order, cat.id";
 
 $stCats = $pdo->prepare($sqlCats);
@@ -33,7 +36,7 @@ if ($selectedCat !== 'all' && !preg_match('/^\d+$/', $selectedCat)) {
 
 // Base WHERE (packages + adult gating)
 $where = " WHERE 1=1 {$pkgSql}";
-if (!$allowAdult) $where .= " AND IFNULL(c.is_adult,0)=0 AND IFNULL(cat.is_adult,0)=0";
+if (!$allowAdult) $where .= " AND IFNULL(c.is_adult,0)=0 {$catAdultGate}";
 
 // Live TV listing behavior:
 // - All Categories: show a mixed/rotating set of up to 42 channels across categories.

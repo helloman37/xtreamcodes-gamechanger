@@ -7,6 +7,26 @@ require_once __DIR__ . '/helpers.php';
  * and backfill channels.category_id. Stable IDs going forward.
  */
 function ensure_categories(PDO $pdo): void {
+  // Ensure expected columns exist on categories (older installs may lack these).
+  // Safe no-op if they already exist.
+  try {
+    $hasAdult = (bool)$pdo->query("SHOW COLUMNS FROM categories LIKE 'is_adult'")->fetch(PDO::FETCH_ASSOC);
+    if (!$hasAdult) {
+      $pdo->exec("ALTER TABLE categories ADD COLUMN is_adult TINYINT(1) NOT NULL DEFAULT 0");
+    }
+  } catch (Throwable $e) {
+    // ignore (restricted DB perms / non-MySQL)
+  }
+
+  try {
+    $hasSort = (bool)$pdo->query("SHOW COLUMNS FROM categories LIKE 'sort_order'")->fetch(PDO::FETCH_ASSOC);
+    if (!$hasSort) {
+      $pdo->exec("ALTER TABLE categories ADD COLUMN sort_order INT NOT NULL DEFAULT 0");
+    }
+  } catch (Throwable $e) {
+    // ignore
+  }
+
   // Keep categories in sync with channels.group_title values. This is idempotent.
   // Treat NULL/empty/whitespace group titles as "Uncategorized".
   $groups = $pdo->query("SELECT DISTINCT COALESCE(NULLIF(TRIM(group_title),''),'Uncategorized') AS grp FROM channels ORDER BY grp")

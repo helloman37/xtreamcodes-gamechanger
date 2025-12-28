@@ -103,11 +103,23 @@ if ($cookieDob !== '') {
   }
 }
 
-if ($cookieVerified && $cookieAge >= 18) { $allowAdult = true; }
+// IMPORTANT: Adult visibility must be controlled by the account setting (users.allow_adult).
+// A browser cookie must NEVER enable adult content for an account that does not have it.
+// (Cookies can be used for age-verification UX if you want, but not for permission.)
+// So we intentionally do NOT override $allowAdult based on cookies.
 
 // Package restrictions (empty => no restriction)
 $pkg_ids = user_package_ids($pdo, $userId);
 ensure_categories($pdo);
+
+// Some installs may not have categories.is_adult. Detect once so portal SQL can stay compatible.
+$hasCatAdult = false;
+try {
+  $chk = $pdo->query("SHOW COLUMNS FROM categories LIKE 'is_adult'");
+  $hasCatAdult = (bool)$chk->fetch(PDO::FETCH_ASSOC);
+} catch (Throwable $t) {
+  $hasCatAdult = false;
+}
 
 function portal_make_play_url(string $username, int $id, string $type='live', string $ext='m3u8'): array {
   $config = require __DIR__ . '/../config.php';

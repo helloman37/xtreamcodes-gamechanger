@@ -157,6 +157,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $has_cat_adult = false;
   $upd_cat_adult = null;
   $upd_ch_adult_only = null;
+  $upd_cat_channels_adult = null;
+  $adult_cats_done = [];
   $uncat_id = 0;
   try {
     ensure_categories($pdo);
@@ -172,6 +174,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $upd_cat_adult = $pdo->prepare("UPDATE categories SET is_adult=1 WHERE id=?");
     }
     $upd_ch_adult_only = $pdo->prepare("UPDATE channels SET is_adult=1 WHERE id=?");
+    // When importing an adult playlist, ensure *all* channels in the matched category are flagged.
+    // This fixes cases where providers change stream URLs (so stream_url matching misses existing rows).
+    $upd_cat_channels_adult = $pdo->prepare("UPDATE channels SET is_adult=1 WHERE category_id=?");
 
     $pdo->prepare("INSERT IGNORE INTO categories (name) VALUES (?)")->execute(['Uncategorized']);
     $uncat_id = (int)($pdo->query("SELECT id FROM categories WHERE name='Uncategorized' LIMIT 1")
@@ -260,6 +265,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // This prevents the category from showing up to non-adult accounts in the portal.
         if ($default_adult && $has_cat_adult && $upd_cat_adult && $cid > 0) {
           try { $upd_cat_adult->execute([$cid]); } catch (Throwable $e) {}
+        }
+
+        // ALSO ensure existing channels already in this category are flagged adult (one-time per category).
+        // This prevents leaks in the portal when old rows were created before adult flags were fixed,
+        // or when provider stream_url changes prevent exact stream_url matching.
+        if ($default_adult && $cid > 0 && $upd_cat_channels_adult && empty($adult_cats_done[$cid])) {
+          try { $upd_cat_channels_adult->execute([$cid]); } catch (Throwable $e) {}
+          $adult_cats_done[$cid] = 1;
         }
         // Seed per-category position from DB once so new channels append to the bottom.
         if (!isset($per_cat_pos[$cid])) {

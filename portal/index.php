@@ -9,7 +9,12 @@ $sql = "SELECT c.id, c.name, c.tvg_id, c.tvg_logo, c.category_id, COALESCE(cat.n
         FROM channels c
         LEFT JOIN categories cat ON cat.id=c.category_id
         WHERE 1=1 {$pkgSql}";
-if (!$allowAdult) $sql .= " AND IFNULL(c.is_adult,0)=0";
+if (!$allowAdult) {
+  $sql .= " AND IFNULL(c.is_adult,0)=0";
+  if (!empty($hasCatAdult)) {
+    $sql .= " AND IFNULL(cat.is_adult,0)=0";
+  }
+}
 $sql .= " ORDER BY RAND() LIMIT 12";
 
 $st = $pdo->prepare($sql);

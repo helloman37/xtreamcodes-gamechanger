@@ -44,18 +44,41 @@ $baseSql = "
   WHERE 1=1
 ";
 
+// Apply package restriction + adult gating so the guide never leaks adult channels.
+[$pkgSql, $pkgParams] = package_filter_sql($pkg_ids, 'c');
+$baseSql = rtrim($baseSql) . " {$pkgSql}";
+if (!$allowAdult) {
+  $baseSql .= " AND IFNULL(c.is_adult,0)=0";
+  if (!empty($hasCatAdult)) {
+    $baseSql .= " AND IFNULL(cat.is_adult,0)=0";
+  }
+}
+
 $orderPrimary = " ORDER BY cat.sort_order ASC, c.sort_order ASC, c.id ASC";
 $orderFallback = " ORDER BY cat.id ASC, c.sort_order ASC, c.id ASC";
 
 try {
-  $channels = $pdo->query($baseSql . $orderPrimary . " LIMIT $limit OFFSET $off")->fetchAll(PDO::FETCH_ASSOC);
+  $st = $pdo->prepare($baseSql . $orderPrimary . " LIMIT $limit OFFSET $off");
+  $st->execute($pkgParams);
+  $channels = $st->fetchAll(PDO::FETCH_ASSOC);
 } catch (PDOException $e) {
   // Older schemas (or restricted SQL modes) may not have cat.sort_order
-  $channels = $pdo->query($baseSql . $orderFallback . " LIMIT $limit OFFSET $off")->fetchAll(PDO::FETCH_ASSOC);
+  $st = $pdo->prepare($baseSql . $orderFallback . " LIMIT $limit OFFSET $off");
+  $st->execute($pkgParams);
+  $channels = $st->fetchAll(PDO::FETCH_ASSOC);
 }
 
 
-$stc = $pdo->query("SELECT COUNT(*) FROM channels");
+// Count only the channels the user is allowed to browse (packages + adult gating).
+$countSql = "SELECT COUNT(*) FROM channels c LEFT JOIN categories cat ON cat.id=c.category_id WHERE 1=1 {$pkgSql}";
+if (!$allowAdult) {
+  $countSql .= " AND IFNULL(c.is_adult,0)=0";
+  if (!empty($hasCatAdult)) {
+    $countSql .= " AND IFNULL(cat.is_adult,0)=0";
+  }
+}
+$stc = $pdo->prepare($countSql);
+$stc->execute($pkgParams);
 $totalChannels = (int)$stc->fetchColumn();
 $totalPages = (int)max(1, ceil($totalChannels / max(1, $channels_per_page)));
 
