@@ -250,28 +250,77 @@ form .form-row{display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,
 /* Subscription editor (User Accounts) */
 .sub-form{
   display:grid;
-  grid-template-columns: minmax(260px, 2.2fr) minmax(140px, 1fr) minmax(220px, 1.3fr) minmax(220px, 1.3fr) minmax(170px, 1fr) minmax(170px, 1fr) auto;
+  /*
+    Keep this section from ever overflowing the card.
+    New layout:
+      Row 1: Plan | Status | Begins | Ends
+      Row 2: Save/Delete (under Plan) | Reset end | Unlimited
+  */
+  grid-template-columns:
+    minmax(260px, 2.4fr)
+    minmax(140px, 1fr)
+    minmax(220px, 1.2fr)
+    minmax(220px, 1.2fr);
   gap:12px;
   align-items:end;
   margin:10px 0 0;
   padding-top:12px;
   border-top:1px dashed var(--line);
 }
+.sub-form > *{min-width:0;} /* allow grid items to shrink inside the card */
+.sub-form select,
+.sub-form input,
+.sub-form textarea{min-width:0;}
+.sub-form .sub-plan select{
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
 .sub-form:first-of-type{border-top:none; padding-top:0;}
 .sub-form .sub-check{display:flex; flex-direction:column; gap:6px;}
 .sub-form .checkline{display:flex; gap:8px; align-items:center; margin:0;}
 .sub-form .checkline span{font-size:12px; color:var(--muted); font-weight:700;}
-.sub-form .sub-save{align-self:end;}
+.sub-form .sub-save{align-self:start; justify-self:start;}
 .sub-form button{white-space:nowrap;}
 .sub-form input[type="datetime-local"]{min-width:220px;}
 
+/* Explicit placement (so buttons never overlap / spill out of the card) */
+.sub-form .sub-plan{grid-column:1; grid-row:1;}
+.sub-form .sub-status{grid-column:2; grid-row:1;}
+.sub-form .sub-begins{grid-column:3; grid-row:1;}
+.sub-form .sub-ends{grid-column:4; grid-row:1;}
+
+/* Put action buttons under the Plan dropdown */
+.sub-form .sub-save{grid-column:1; grid-row:2;}
+
+/* Move checkboxes to the right side of row 2 */
+.sub-form .sub-reset{grid-column:3; grid-row:2;}
+.sub-form .sub-unlimited{grid-column:4; grid-row:2;}
+
+/* Responsive wrap */
 @media (max-width: 1100px){
   .sub-form{grid-template-columns: 1fr 1fr;}
-  .sub-form .sub-save{grid-column:1 / -1; justify-self:flex-start;}
+  .sub-form .sub-plan,
+  .sub-form .sub-status,
+  .sub-form .sub-begins,
+  .sub-form .sub-ends,
+  .sub-form .sub-reset,
+  .sub-form .sub-unlimited,
+  .sub-form .sub-save{grid-column:auto; grid-row:auto;}
+
+  .sub-form .sub-plan{grid-column:1 / -1;}
+  .sub-form .sub-save{grid-column:1 / -1;}
   .sub-form input[type="datetime-local"]{min-width:0;}
 }
 @media (max-width: 700px){
   .sub-form{grid-template-columns: 1fr;}
+  .sub-form .sub-plan,
+  .sub-form .sub-status,
+  .sub-form .sub-begins,
+  .sub-form .sub-ends,
+  .sub-form .sub-reset,
+  .sub-form .sub-unlimited,
+  .sub-form .sub-save{grid-column:auto; grid-row:auto;}
 }
 
 /* Buttons */
