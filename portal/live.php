@@ -5,7 +5,22 @@ $PORTAL_PAGE = 'live';
 require_once __DIR__ . '/_layout_top.php';
 
 // Categories
-$cats = $pdo->query("SELECT id, name, IFNULL(is_adult,0) AS is_adult FROM categories ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
+// Only show categories that contain at least one channel the current user is allowed to view.
+// (Otherwise Adult categories show up as empty and confuse users.)
+[$pkgSql, $pkgParams] = package_filter_sql($pkg_ids, 'c');
+
+$sqlCats = "
+  SELECT cat.id, cat.name, IFNULL(cat.is_adult,0) AS is_adult
+  FROM categories cat
+  JOIN channels c ON c.category_id = cat.id
+  WHERE 1=1 {$pkgSql}
+";
+if (!$allowAdult) $sqlCats .= " AND IFNULL(c.is_adult,0)=0 AND IFNULL(cat.is_adult,0)=0 ";
+$sqlCats .= " GROUP BY cat.id, cat.name, cat.sort_order ORDER BY cat.sort_order, cat.id";
+
+$stCats = $pdo->prepare($sqlCats);
+$stCats->execute($pkgParams);
+$cats = $stCats->fetchAll(PDO::FETCH_ASSOC);
 
 // Selected category: numeric category id OR 'all'
 $selectedCat = isset($_GET['cat']) ? trim((string)$_GET['cat']) : 'all';
@@ -14,7 +29,7 @@ if ($selectedCat !== 'all' && !preg_match('/^\d+$/', $selectedCat)) {
   $selectedCat = 'all';
 }
 
-[$pkgSql, $pkgParams] = package_filter_sql($pkg_ids, 'c');
+// $pkgSql / $pkgParams already computed above for categories.
 
 // Base WHERE (packages + adult gating)
 $where = " WHERE 1=1 {$pkgSql}";

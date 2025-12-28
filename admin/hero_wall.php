@@ -112,26 +112,65 @@ function _slot_inputs(string $row, array $vals): string {
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Homepage Background</title>
   <link rel="stylesheet" href="panel.css">
-  <style>
+    <style>
     .hw-wrap{max-width:1100px;}
-    .hw-help{color:rgba(255,255,255,.75); margin-top:6px; line-height:1.45;}
-    .hw-card{background: rgba(0,0,0,.20); border:1px solid rgba(255,255,255,.10); border-radius:18px; padding:16px; margin:16px 0;}
+    .hw-help{color:var(--muted); margin-top:6px; line-height:1.55;}
+
+    /* Form wrapper (keeps spacing without creating an extra card) */
+    .hw-form{margin:16px 0;}
+
+    /* Section cards */
+    .hw-card{background:var(--card); border:1px solid var(--line); border-radius:18px; padding:16px; margin:16px 0; box-shadow:var(--shadow);}
     .hw-rowhead{display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:10px;}
-    .hw-rowhead h2{margin:0; font-size:18px;}
-    .hw-rowhead .dir{font-size:12px; color:rgba(255,255,255,.72);}
+    .hw-rowhead h2{margin:0; font-size:18px; color:var(--text);}
+    .hw-rowhead .dir{font-size:12px; color:var(--muted);}
+
     .hw-grid{display:grid; grid-template-columns: 1fr; gap:12px;}
     @media (min-width: 900px){ .hw-grid{grid-template-columns: 1fr 1fr;} }
+
     .hw-slot{display:flex; align-items:center; gap:12px;}
-    .hw-url{width:100%; padding:10px 12px; border-radius:12px; border:1px solid rgba(255,255,255,.12); background: rgba(0,0,0,.22); color:#fff; outline:none;}
-    .hw-url:focus{border-color: rgba(255,106,0,.45); box-shadow: 0 0 0 3px rgba(255,106,0,.18);}
-    .hw-thumb{width:92px; height:52px; object-fit:cover; border-radius:12px; border:1px solid rgba(255,255,255,.12); background: rgba(0,0,0,.22); flex:0 0 auto;}
-    .hw-empty{display:flex; align-items:center; justify-content:center; color:rgba(255,255,255,.55); font-size:12px;}
+    .hw-url{
+      width:100%;
+      padding:10px 12px;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background:var(--bg-soft);
+      color:var(--text);
+      outline:none;
+    }
+    .hw-url::placeholder{color:var(--muted); opacity:.85;}
+    .hw-url:focus{border-color:rgba(251,146,60,.65); box-shadow:0 0 0 3px rgba(251,146,60,.18);}
+
+    .hw-thumb{
+      width:92px; height:52px; object-fit:cover;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background:var(--bg-soft);
+      flex:0 0 auto;
+    }
+    .hw-empty{display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:12px;}
+
     .hw-upload{margin-top:10px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
     .hw-upload input[type=file]{max-width:520px;}
-    .hw-actions{display:flex; gap:10px; align-items:center; margin-top:14px;}
-    .hw-btn{padding:10px 14px; border-radius:14px; border:1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.06); color:#fff; font-weight:800; cursor:pointer;}
-    .hw-btn.primary{background: linear-gradient(180deg, rgba(255,106,0,.95), rgba(255,106,0,.78)); border-color: rgba(255,106,0,.55); color:#0b0d12;}
-    .hw-note{font-size:12px; color:rgba(255,255,255,.68);}
+
+    .hw-actions{display:flex; gap:10px; align-items:center; margin-top:14px; flex-wrap:wrap;}
+    .hw-btn{
+      padding:10px 14px;
+      border-radius:14px;
+      border:1px solid var(--line);
+      background:var(--bg-soft);
+      color:var(--text);
+      font-weight:800;
+      cursor:pointer;
+    }
+    .hw-btn:hover{filter:brightness(.98);}
+    .hw-btn.primary{
+      background: linear-gradient(180deg, rgba(251,146,60,.98), rgba(251,146,60,.78));
+      border-color: rgba(251,146,60,.55);
+      color:#0b0d12;
+    }
+    .hw-btn.primary:hover{filter:brightness(1.02);}
+    .hw-note{font-size:12px; color:var(--muted);}
   </style>
 </head>
 <body>
@@ -140,17 +179,19 @@ function _slot_inputs(string $row, array $vals): string {
 <div class="container hw-wrap">
   <h1>Homepage Background</h1>
   <div class="hw-help">
-    This controls the moving background collage on the <b>public home page</b> and the <b>portal home page</b>.
-    Each row supports a maximum of <b>5</b> images. Top &amp; bottom slide <b>right</b>; middle slides <b>left</b>.
-    You can paste remote URLs, or upload images (JPG/PNG/WEBP) and they’ll be stored in <span class="code">/uploads/hero_wall</span>.
-    <br><br>
-    <b>Auto mode:</b> If you leave all slots empty, the site will automatically pull a fresh set of background images
-    from <b>TMDB Trending</b> (movies + TV) using the TMDB key already configured in <span class="code">config.php</span>.
+    <div style="font-weight:800; color:var(--text); margin-bottom:6px;">How to use</div>
+    <ul style="margin:0 0 10px 18px; padding:0;">
+      <li>Paste up to <b>5</b> image URLs per row (full <span class="code">https://...</span> URLs or local paths like <span class="code">/uploads/hero_wall/...</span>).</li>
+      <li>Or use <b>Upload</b> to add images to that row, then click <b>Save</b> (uploads are stored in <span class="code">/uploads/hero_wall</span>).</li>
+      <li>Leave a slot blank to remove it. Top &amp; bottom slide <b>right</b>; middle slides <b>left</b>.</li>
+    </ul>
+    <b>Auto mode:</b> If you leave <b>all</b> slots empty, the site will automatically pull a fresh set of background images
+    from <b>TMDB Trending</b> (movies + TV) using the TMDB key in <span class="code">config.php</span>.
   </div>
 
   <?php flash_show(); ?>
 
-  <form method="post" enctype="multipart/form-data" class="hw-card">
+  <form method="post" enctype="multipart/form-data" class="hw-form">
     <input type="hidden" name="save_wall" value="1">
 
     <div class="hw-card">

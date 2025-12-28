@@ -238,6 +238,40 @@ $groupList = $content ? m3u_collect_groups($content) : [];
 
             <hr style="border:0;border-top:1px solid var(--line);margin:12px 0;">
 
+            <h3 style="margin:0 0 10px;">Filters</h3>
+
+            <label>Keep only these groups (optional)</label>
+            <select id="keepGroups" multiple size="8">
+              <?php foreach ($groupList as $g): ?>
+                <option value="<?= e($g) ?>"><?= e($g) ?></option>
+              <?php endforeach; ?>
+            </select>
+            <div class="hint">If you select any, only those groups will remain.</div>
+
+            <div style="height:10px;"></div>
+
+            <label>Exclude groups (optional)</label>
+            <select id="excludeGroups" multiple size="8">
+              <?php foreach ($groupList as $g): ?>
+                <option value="<?= e($g) ?>"><?= e($g) ?></option>
+              <?php endforeach; ?>
+            </select>
+            <div class="hint">Entries in these groups will be removed.</div>
+
+            <div style="height:10px;"></div>
+
+            <label>Title contains (optional)</label>
+            <input type="text" id="titleInclude" placeholder="sports, movies, uk">
+            <div class="hint">Comma-separated keywords. Keeps entries whose channel name contains any keyword.</div>
+
+            <div style="height:10px;"></div>
+
+            <label>Title excludes (optional)</label>
+            <input type="text" id="titleExclude" placeholder="xxx, adult">
+            <div class="hint">Comma-separated keywords. Removes entries whose channel name contains any keyword.</div>
+
+            <hr style="border:0;border-top:1px solid var(--line);margin:12px 0;">
+
             <label class="check-row" style="display:flex;align-items:center;gap:10px;margin:0 0 12px;">
               <input type="checkbox" name="confirm" value="yes">
               <span>Confirm changes (required to download)</span>
@@ -281,6 +315,75 @@ $groupList = $content ? m3u_collect_groups($content) : [];
 
     const editedGroups = {}; // editedGroups[groupName] = [{extIndex,urlIndex,extText,urlText}, ...]
 
+    // Filters
+    const keepGroups = document.getElementById('keepGroups');
+    const excludeGroups = document.getElementById('excludeGroups');
+    const titleInclude = document.getElementById('titleInclude');
+    const titleExclude = document.getElementById('titleExclude');
+
+    function selectedValues(sel){
+      if(!sel) return [];
+      return Array.from(sel.selectedOptions || []).map(o => o.value);
+    }
+    function parseKeywords(v){
+      return String(v || '')
+        .split(',')
+        .map(s => s.trim().toLowerCase())
+        .filter(Boolean);
+    }
+    function extractGroup(extinf){
+      const m = String(extinf || '').match(/group-title="([^"]*)"/i);
+      const g = (m && m[1]) ? String(m[1]).trim() : '';
+      return g || 'Uncategorized';
+    }
+    function extractTitle(extinf){
+      const s = String(extinf || '');
+      const idx = s.lastIndexOf(',');
+      return (idx >= 0 ? s.slice(idx + 1) : '').trim();
+    }
+    function applyFilters(lines){
+      const keep = new Set(selectedValues(keepGroups));
+      const drop = new Set(selectedValues(excludeGroups));
+      const inc = parseKeywords(titleInclude && titleInclude.value);
+      const exc = parseKeywords(titleExclude && titleExclude.value);
+
+      if(keep.size === 0 && drop.size === 0 && inc.length === 0 && exc.length === 0) return lines;
+
+      const out = [];
+      for(let i = 0; i < lines.length; i++){
+        const line = lines[i] || '';
+        if(line.startsWith('#EXTINF')){
+          const ext = line;
+          const url = (i + 1 < lines.length) ? (lines[i + 1] || '') : '';
+          const grp = extractGroup(ext);
+          const title = extractTitle(ext);
+          const t = title.toLowerCase();
+
+          let ok = true;
+
+          if(keep.size > 0 && !keep.has(grp)) ok = false;
+          if(ok && drop.size > 0 && drop.has(grp)) ok = false;
+
+          if(ok && inc.length > 0){
+            ok = inc.some(k => t.includes(k));
+          }
+          if(ok && exc.length > 0){
+            if(exc.some(k => t.includes(k))) ok = false;
+          }
+
+          if(ok){
+            out.push(ext);
+            out.push(url);
+          }
+          i++; // skip URL line either way
+        } else {
+          out.push(line);
+        }
+      }
+      return out;
+    }
+
+
     function safeRegex(pattern){
       return pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
@@ -310,6 +413,9 @@ $groupList = $content ? m3u_collect_groups($content) : [];
           if(entry.urlIndex >= 0) lines[entry.urlIndex] = entry.urlText;
         }
       }
+
+      // Apply filters (group + title)
+      lines = applyFilters(lines);
 
       // Apply bulk replacements globally
       const finds = document.getElementsByName('find[]');
@@ -409,6 +515,12 @@ $groupList = $content ? m3u_collect_groups($content) : [];
     document.querySelectorAll('input[name="find[]"], input[name="replace[]"]').forEach(function(el){
       el.addEventListener('input', updatePreview);
     });
+
+    // Filters
+    if(keepGroups) keepGroups.addEventListener('change', updatePreview);
+    if(excludeGroups) excludeGroups.addEventListener('change', updatePreview);
+    if(titleInclude) titleInclude.addEventListener('input', updatePreview);
+    if(titleExclude) titleExclude.addEventListener('input', updatePreview);
 
     // Keep preview synced if user changes group selection
     categorySelect.addEventListener('change', function(){ updatePreview(); });

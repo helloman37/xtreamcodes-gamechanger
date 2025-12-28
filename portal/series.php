@@ -4,9 +4,18 @@ $PORTAL_PAGE = 'series';
 require_once __DIR__ . '/tmdb_common.php';
 require_once __DIR__ . '/_layout_top.php';
 
-$cats = $pdo->query("SELECT id, name FROM series_categories ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
-
 [$srSql, $srParams] = package_filter_sql_series($pkg_ids, 's');
+
+// Categories (only ones with at least one allowed series)
+$sqlCats = "SELECT sc.id, sc.name
+            FROM series_categories sc
+            JOIN series s ON s.category_id = sc.id
+            WHERE 1=1 {$srSql}";
+if (!$allowAdult) $sqlCats .= " AND IFNULL(s.is_adult,0)=0";
+$sqlCats .= " GROUP BY sc.id, sc.name ORDER BY sc.name";
+$stCats = $pdo->prepare($sqlCats);
+$stCats->execute($srParams);
+$cats = $stCats->fetchAll(PDO::FETCH_ASSOC);
 $sql = "SELECT s.id, s.name, s.cover_url, s.plot, s.release_date, s.rating, s.tmdb_id, s.category_id, COALESCE(sc.name,'Uncategorized') AS cat_name
         FROM series s
         LEFT JOIN series_categories sc ON sc.id=s.category_id

@@ -152,9 +152,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $cat_map = [];
   $ins_cat = null;
   $sel_cat = null;
+  // Adult flags (channels + categories). We gate playback by channels.is_adult,
+  // and we also hide Adult categories in the portal UI when categories.is_adult exists.
+  $has_cat_adult = false;
+  $upd_cat_adult = null;
+  $upd_ch_adult_only = null;
   $uncat_id = 0;
   try {
     ensure_categories($pdo);
+
+    // Detect optional categories.is_adult column (avoid fatal SQL on older schemas)
+    try {
+      $chk = $pdo->query("SHOW COLUMNS FROM categories LIKE 'is_adult'");
+      $has_cat_adult = (bool)$chk->fetch(PDO::FETCH_ASSOC);
+    } catch (Throwable $e) {
+      $has_cat_adult = false;
+    }
+    if ($has_cat_adult) {
+      $upd_cat_adult = $pdo->prepare("UPDATE categories SET is_adult=1 WHERE id=?");
+    }
+    $upd_ch_adult_only = $pdo->prepare("UPDATE channels SET is_adult=1 WHERE id=?");
+
     $pdo->prepare("INSERT IGNORE INTO categories (name) VALUES (?)")->execute(['Uncategorized']);
     $uncat_id = (int)($pdo->query("SELECT id FROM categories WHERE name='Uncategorized' LIMIT 1")
       ->fetch(PDO::FETCH_ASSOC)['id'] ?? 0);
@@ -237,6 +255,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         $cid = (int)($cat_map[$group] ?? $uncat_id);
         if ($cid <= 0) $cid = $uncat_id;
+
+        // If admin marked this import as Adult, also mark the category as Adult (when supported).
+        // This prevents the category from showing up to non-adult accounts in the portal.
+        if ($default_adult && $has_cat_adult && $upd_cat_adult && $cid > 0) {
+          try { $upd_cat_adult->execute([$cid]); } catch (Throwable $e) {}
+        }
         // Seed per-category position from DB once so new channels append to the bottom.
         if (!isset($per_cat_pos[$cid])) {
           $sel_max_sort_cat->execute([$cid]);
@@ -248,7 +272,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $row = $sel_existing->fetch(PDO::FETCH_ASSOC) ?: [];
         $existing_id = (int)($row['id'] ?? 0);
 
-        if ($existing_id > 0 && !$add_only) {
+        if ($existing_id > 0) {
+          // Add-only mode normally never overwrites existing rows.
+          // BUT: if the admin explicitly chose "Adult" for this import, we must at least
+          // mark existing matches as Adult so the adult filter works (instead of leaving old
+          // rows visible to everyone).
+          if ($add_only && $default_adult) {
+            try { $upd_ch_adult_only->execute([$existing_id]); } catch (Throwable $e) {}
+            // Also mark category adult (if supported)
+            if ($has_cat_adult && $upd_cat_adult && $cid > 0) {
+              try { $upd_cat_adult->execute([$cid]); } catch (Throwable $e) {}
+            }
+            $updated++;
+            continue;
+          }
+
+          if (!$add_only) {
           $current_cid  = (int)($row['category_id'] ?? 0);
           $current_sort = (int)($row['sort_order'] ?? 0);
           if ($current_sort <= 0) $current_sort = $existing_id;
@@ -273,7 +312,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $existing_id
           ]);
           $updated++;
-        } else {
+          } else {
+            // add-only mode: allow duplicates (original behavior)
+            // New channel record is inserted below.
+          }
+        }
+
+        if ($existing_id <= 0 || $add_only) {
           // New channel: append to bottom of this category.
           $pos = ++$per_cat_pos[$cid];
 
@@ -302,7 +347,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $row = $sel_existing->fetch(PDO::FETCH_ASSOC) ?: [];
         $existing_id = (int)($row['id'] ?? 0);
 
-        if ($existing_id > 0 && !$add_only) {
+        if ($existing_id > 0) {
+          if ($add_only && $default_adult) {
+            try { $upd_ch_adult_only->execute([$existing_id]); } catch (Throwable $e) {}
+            $updated++;
+            continue;
+          }
+
+          if (!$add_only) {
           $current_sort = (int)($row['sort_order'] ?? 0);
           if ($current_sort <= 0) $current_sort = $existing_id;
 
@@ -319,7 +371,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $existing_id
           ]);
           $updated++;
-        } else {
+          } else {
+            // add-only mode: allow duplicates (original behavior)
+            // New channel record is inserted below.
+          }
+        }
+
+        if ($existing_id <= 0 || $add_only) {
           // New channel: append to bottom of the overall list.
           $pos = ++$per_cat_pos[$cid];
 

@@ -4,9 +4,18 @@ $PORTAL_PAGE = 'movies';
 require_once __DIR__ . '/tmdb_common.php';
 require_once __DIR__ . '/_layout_top.php';
 
-$cats = $pdo->query("SELECT id, name FROM vod_categories ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
-
 [$mvSql, $mvParams] = package_filter_sql_movies($pkg_ids, 'm');
+
+// Categories (only ones with at least one allowed movie)
+$sqlCats = "SELECT vc.id, vc.name
+           FROM vod_categories vc
+           JOIN movies m ON m.category_id = vc.id
+           WHERE 1=1 {$mvSql}";
+if (!$allowAdult) $sqlCats .= " AND IFNULL(m.is_adult,0)=0";
+$sqlCats .= " GROUP BY vc.id, vc.name ORDER BY vc.name";
+$stCats = $pdo->prepare($sqlCats);
+$stCats->execute($mvParams);
+$cats = $stCats->fetchAll(PDO::FETCH_ASSOC);
 $sql = "SELECT m.id, m.name, m.poster_url, m.plot, m.release_date, m.rating, m.tmdb_id, m.category_id, COALESCE(vc.name,'Uncategorized') AS cat_name
         FROM movies m
         LEFT JOIN vod_categories vc ON vc.id=m.category_id
