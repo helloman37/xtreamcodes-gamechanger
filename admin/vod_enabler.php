@@ -23,22 +23,27 @@ const VOD_ENABLER_KEY_BASE   = 'vod_enabler_base_url';
 const VOD_ENABLER_KEY_MOVIE  = 'vod_enabler_movie_template';
 const VOD_ENABLER_KEY_TV     = 'vod_enabler_tv_template';
 const VOD_ENABLER_KEY_LOGIN  = 'vod_enabler_require_login';
+const VOD_ENABLER_KEY_ENABLED= 'vod_enabler_enabled';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['vod_enabler_save'])) {
   $base = trim((string)($_POST['base_url'] ?? ''));
   $movie_tpl = trim((string)($_POST['movie_template'] ?? '/movie/{id}/'));
   $tv_tpl = trim((string)($_POST['tv_template'] ?? '/tv/{id}/{season}/{episode}/'));
   $require_login = isset($_POST['require_login']) ? '1' : '0';
+  $enabled = isset($_POST['enabled']) ? '1' : '0';
 
   $base = rtrim($base, '/');
 
-  if ($base !== '' && !preg_match('~^https?://~i', $base)) {
+  if ($enabled === '1' && $base === '') {
+    flash_set('Base URL is required when VOD Enabler is enabled.', 'error');
+  } elseif ($base !== '' && !preg_match('~^https?://~i', $base)) {
     flash_set('Base URL must start with http:// or https://', 'error');
   } else {
     system_setting_set($pdo, VOD_ENABLER_KEY_BASE, $base);
     system_setting_set($pdo, VOD_ENABLER_KEY_MOVIE, $movie_tpl !== '' ? $movie_tpl : '/movie/{id}/');
     system_setting_set($pdo, VOD_ENABLER_KEY_TV, $tv_tpl !== '' ? $tv_tpl : '/tv/{id}/{season}/{episode}/');
     system_setting_set($pdo, VOD_ENABLER_KEY_LOGIN, $require_login);
+    system_setting_set($pdo, VOD_ENABLER_KEY_ENABLED, ($base!=='')?$enabled:'0');
     flash_set('Saved.', 'ok');
     header('Location: vod_enabler.php');
     exit;
@@ -49,6 +54,15 @@ $base = (string)(system_setting_get($pdo, VOD_ENABLER_KEY_BASE, '') ?? '');
 $movie_tpl = (string)(system_setting_get($pdo, VOD_ENABLER_KEY_MOVIE, '/movie/{id}/') ?? '/movie/{id}/');
 $tv_tpl = (string)(system_setting_get($pdo, VOD_ENABLER_KEY_TV, '/tv/{id}/{season}/{episode}/') ?? '/tv/{id}/{season}/{episode}/');
 $require_login = (int)(system_setting_get($pdo, VOD_ENABLER_KEY_LOGIN, '0') ?? '0');
+
+$enabled_raw = (string)(system_setting_get($pdo, VOD_ENABLER_KEY_ENABLED, '0') ?? '0');
+$enabled_raw_lc = strtolower(trim($enabled_raw));
+// Explicit toggle only. If the key is missing, treat as disabled.
+$enabled = in_array($enabled_raw_lc, ['1','true','yes','on'], true) ? 1 : 0;
+
+
+$base = rtrim(trim($base), '/');
+
 
 function vod_enabler_example(string $base, string $tpl, array $vars): string {
   $u = $tpl;
@@ -79,7 +93,7 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
 <?= $topbar ?>
 
 <div class="card">
-  <h2>VOD Enabler</h2>
+  <h2>VOD Enabler <span class="pill <?= $enabled ? 'good' : 'bad' ?>" style="margin-left:8px; vertical-align:middle;"><?= $enabled ? 'Enabled' : 'Disabled' ?></span></h2>
   <?php flash_show(); ?>
 
   <p class="muted" style="margin-top:-6px;">
@@ -87,11 +101,22 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
     by embedding your chosen server inside an iframe.
   </p>
 
+  <div class="notice" style="margin:10px 0 12px 0;">
+    <b>If the player is blank:</b>
+    your VOD server is probably blocking iframe embedding (X-Frame-Options / CSP), or you are embedding <b>http</b> inside an <b>https</b> panel (mixed-content block), or you accidentally pointed the Base URL back to this same panel (infinite iframe loop).
+  </div>
+
   <form method="post" autocomplete="off">
     <input type="hidden" name="vod_enabler_save" value="1">
 
+    <label style="display:flex; gap:10px; align-items:center; margin:10px 0 14px 0;">
+      <input type="checkbox" name="enabled" value="1" <?= $enabled ? 'checked' : '' ?>>
+      <span><b>Enable VOD Enabler</b> <span class="muted">(when off, /movie and /tv pages still show details, but no player)</span></span>
+    </label>
+
+
     <label>VOD Server Base URL</label>
-    <input name="base_url" value="<?= e($base) ?>" placeholder="https://your-vod-server" required>
+    <input name="base_url" value="<?= e($base) ?>" placeholder="https://your-vod-server">
 
     <div class="row">
       <div>

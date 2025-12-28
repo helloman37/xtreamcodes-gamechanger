@@ -66,6 +66,29 @@ try {
 } catch (Throwable $t) {
   // ignore
 }
+
+// Fallback to VOD Enabler (system_settings) if plugin isn't enabled/configured
+try {
+  if (empty($__legalvod['base_url'])) {
+    $base = (string)(system_setting_get($pdo, 'vod_enabler_base_url', '') ?? '');
+    $movie_tpl = (string)(system_setting_get($pdo, 'vod_enabler_movie_template', '/movie/{id}/') ?? '/movie/{id}/');
+    $tv_tpl = (string)(system_setting_get($pdo, 'vod_enabler_tv_template', '/tv/{id}/{season}/{episode}/') ?? '/tv/{id}/{season}/{episode}/');
+    $enabled_raw = (string)(system_setting_get($pdo, 'vod_enabler_enabled', '0') ?? '0');
+    $enabled_lc = strtolower(trim($enabled_raw));
+    $enabled = in_array($enabled_lc, ['1','true','yes','on'], true);
+
+    $base = rtrim(trim($base), '/');
+    if ($base !== '' && $enabled) {
+      $__legalvod['enabled'] = true;
+      $__legalvod['base_url'] = $base;
+      $__legalvod['movie_template'] = $movie_tpl !== '' ? $movie_tpl : '/movie/{id}/';
+      $__legalvod['tv_template'] = $tv_tpl !== '' ? $tv_tpl : '/tv/{id}/{season}/{episode}/';
+    }
+  }
+} catch (Throwable $t) {
+  // ignore
+}
+
 ?>
 <script>
 window.GC_PLUGINS = window.GC_PLUGINS || {};

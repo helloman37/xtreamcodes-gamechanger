@@ -43,6 +43,36 @@ try {
 }
 
 
+// VOD Enabler fallback (system_settings bridge)
+// If the legacy LegalVOD plugin isn't enabled/configured, reuse Admin → Content → VOD Enabler settings
+// so portal playback can still open the iframe player.
+try {
+  if (($GC_LEGALVOD_CFG === null) || empty($GC_LEGALVOD_CFG['base_url'])) {
+    // system_settings keys written by admin/vod_enabler.php
+    $base = (string)(system_setting_get($pdo, 'vod_enabler_base_url', '') ?? '');
+    $movie_tpl = (string)(system_setting_get($pdo, 'vod_enabler_movie_template', '/movie/{id}/') ?? '/movie/{id}/');
+    $tv_tpl = (string)(system_setting_get($pdo, 'vod_enabler_tv_template', '/tv/{id}/{season}/{episode}/') ?? '/tv/{id}/{season}/{episode}/');
+    // Explicit toggle only. Missing key => disabled.
+    $enabled_raw = (string)(system_setting_get($pdo, 'vod_enabler_enabled', '0') ?? '0');
+    $enabled_lc = strtolower(trim($enabled_raw));
+    $enabled = (in_array($enabled_lc, ['1','true','yes','on'], true) ? 1 : 0);
+
+    $base = rtrim(trim($base), '/');
+    if ($base !== '' && $enabled === 1) {
+      $GC_LEGALVOD_CFG = [
+        'enabled' => true,
+        'base_url' => $base,
+        'movie_template' => $movie_tpl !== '' ? $movie_tpl : '/movie/{id}/',
+        'tv_template' => $tv_tpl !== '' ? $tv_tpl : '/tv/{id}/{season}/{episode}/',
+      ];
+    }
+  }
+} catch (Throwable $t) {
+  // ignore
+}
+
+
+
 // Normalize store_user session (some pages store just id).
 $userId = is_array($_SESSION['store_user']) ? (int)($_SESSION['store_user']['id'] ?? 0) : (int)$_SESSION['store_user'];
 if ($userId < 1) {
