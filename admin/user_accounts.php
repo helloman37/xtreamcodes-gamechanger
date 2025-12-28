@@ -44,6 +44,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 
 
+  if ($op === 'delete_sub' && $id > 0) {
+    $sub_id = (int)($_POST['sub_id'] ?? 0);
+    if ($sub_id <= 0) {
+      flash_set("Invalid subscription", "error");
+      header("Location: user_accounts.php?edit=".$id);
+      exit;
+    }
+
+    $st = $pdo->prepare("SELECT id,status FROM subscriptions WHERE id=? AND user_id=? LIMIT 1");
+    $st->execute([$sub_id, $id]);
+    $sub = $st->fetch(PDO::FETCH_ASSOC);
+
+    if (!$sub) {
+      flash_set("Subscription not found for this user", "error");
+      header("Location: user_accounts.php?edit=".$id);
+      exit;
+    }
+
+    // Hard delete: removes the subscription record entirely.
+    $pdo->prepare("DELETE FROM subscriptions WHERE id=? AND user_id=?")->execute([$sub_id, $id]);
+    flash_set("Subscription deleted", "success");
+    header("Location: user_accounts.php?edit=".$id);
+    exit;
+  }
+
   if ($op === 'update_sub' && $id > 0) {
     $sub_id = (int)($_POST['sub_id'] ?? 0);
     if ($sub_id <= 0) {
@@ -396,7 +421,6 @@ if (!function_exists('iptv_dt_local')) {
         <?php foreach ($subs_edit as $s): ?>
           <?php $is_unlimited = !$s['ends_at'] || str_starts_with((string)$s['ends_at'], '9999-'); $end_id = 'end_'.$s['id']; ?>
           <form method="post" class="sub-form iptv-sub-form">
-  <input type="hidden" name="op" value="update_sub">
   <input type="hidden" name="id" value="<?=$edit['id']?>">
   <input type="hidden" name="sub_id" value="<?=$s['id']?>">
 
@@ -450,7 +474,10 @@ if (!function_exists('iptv_dt_local')) {
   </div>
 
   <div class="sub-save">
-    <button type="submit">Save</button>
+    <div style="display:flex; gap:8px;">
+      <button type="submit" name="op" value="update_sub">Save</button>
+      <button type="submit" name="op" value="delete_sub" class="danger" onclick="return confirm('Delete this subscription? This cannot be undone.');">Delete</button>
+    </div>
   </div>
 </form>
 <?php endforeach; ?>
