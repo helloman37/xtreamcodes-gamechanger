@@ -13,6 +13,63 @@ try { ensure_categories($pdo); } catch (Throwable $e) {}
 $pdo->prepare("INSERT IGNORE INTO categories (name) VALUES (?)")->execute(['Uncategorized']);
 $uncat_id = (int)($pdo->query("SELECT id FROM categories WHERE name='Uncategorized' LIMIT 1")->fetch(PDO::FETCH_ASSOC)['id'] ?? 0);
 
+// Best-effort: keep Uncategorized pinned at the top unless the admin explicitly changes it.
+try {
+  if ($uncat_id > 0) {
+    $pdo->prepare("UPDATE categories SET sort_order=0 WHERE id=? AND (sort_order IS NULL OR sort_order='')")->execute([$uncat_id]);
+  }
+} catch (Throwable $e) {}
+
+/**
+ * Normalize category sort_order values to a spaced sequence (10,20,30...),
+ * preserving current ORDER BY (sort_order,id) ordering. This makes move up/down
+ * operations always have visible effect even when many sort_order values are equal.
+ */
+function normalize_cat_order(PDO $pdo): void {
+  $rows = $pdo->query("SELECT id, IFNULL(sort_order,0) AS sort_order, name FROM categories ORDER BY IFNULL(sort_order,0), id")
+    ->fetchAll(PDO::FETCH_ASSOC);
+  if (!$rows) return;
+
+  $pdo->beginTransaction();
+  try {
+    $i = 0;
+    $st = $pdo->prepare("UPDATE categories SET sort_order=? WHERE id=?");
+    foreach ($rows as $r) {
+      $id = (int)$r['id'];
+      $name = (string)($r['name'] ?? '');
+      // Keep Uncategorized at 0 to avoid it bouncing around.
+      if (strcasecmp($name, 'Uncategorized') === 0) {
+        $st->execute([0, $id]);
+        continue;
+      }
+      $i++;
+      $st->execute([$i * 10, $id]);
+    }
+    $pdo->commit();
+  } catch (Throwable $e) {
+    if ($pdo->inTransaction()) $pdo->rollBack();
+  }
+}
+
+/** Swap sort_order between two categories (transactional). */
+function swap_cat_order(PDO $pdo, int $a, int $b): void {
+  if ($a <= 0 || $b <= 0 || $a === $b) return;
+  $pdo->beginTransaction();
+  try {
+    $ra = $pdo->query("SELECT IFNULL(sort_order,0) AS so FROM categories WHERE id=".(int)$a)->fetch(PDO::FETCH_ASSOC);
+    $rb = $pdo->query("SELECT IFNULL(sort_order,0) AS so FROM categories WHERE id=".(int)$b)->fetch(PDO::FETCH_ASSOC);
+    $soA = (int)($ra['so'] ?? 0);
+    $soB = (int)($rb['so'] ?? 0);
+
+    $st = $pdo->prepare("UPDATE categories SET sort_order=? WHERE id=?");
+    $st->execute([$soB, $a]);
+    $st->execute([$soA, $b]);
+    $pdo->commit();
+  } catch (Throwable $e) {
+    if ($pdo->inTransaction()) $pdo->rollBack();
+  }
+}
+
 function cat_name(PDO $pdo, int $cid): ?string {
   $st = $pdo->prepare("SELECT name FROM categories WHERE id=?");
   $st->execute([$cid]);
@@ -24,6 +81,56 @@ function cat_name(PDO $pdo, int $cid): ?string {
    POST actions
 ---------------------------- */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+  // Normalize category order (spaced 10,20,30...) without changing visible ordering.
+  if (isset($_POST['rebuild_cat_order'])) {
+    try { normalize_cat_order($pdo); } catch (Throwable $e) {}
+    flash_set("Category order rebuilt.", "success");
+    header('Location: category_manager.php' . (!empty($_POST['category_id']) ? ('?category_id='.(int)$_POST['category_id']) : ''));
+    exit;
+  }
+
+  // Move category up/down
+  if (isset($_POST['move_cat'])) {
+    $cid = (int)($_POST['category_id'] ?? 0);
+    $dir = (string)($_POST['dir'] ?? '');
+
+    if ($cid > 0 && $cid !== $uncat_id) {
+      try {
+        $ids = $pdo->query("SELECT id,name,IFNULL(sort_order,0) AS so FROM categories ORDER BY IFNULL(sort_order,0), id")
+          ->fetchAll(PDO::FETCH_ASSOC);
+        $ordered = [];
+        foreach ($ids as $r) $ordered[] = ['id'=>(int)$r['id'], 'name'=>(string)($r['name'] ?? ''), 'so'=>(int)($r['so'] ?? 0)];
+
+        $idx = -1;
+        for ($i=0; $i<count($ordered); $i++) {
+          if ($ordered[$i]['id'] === $cid) { $idx = $i; break; }
+        }
+
+        if ($idx >= 0) {
+          $neighbor = null;
+          if ($dir === 'up' && $idx > 0) {
+            // Don't allow anything above Uncategorized.
+            if (strcasecmp($ordered[$idx-1]['name'], 'Uncategorized') !== 0) {
+              $neighbor = $ordered[$idx-1];
+            }
+          } elseif ($dir === 'down' && $idx < count($ordered)-1) {
+            $neighbor = $ordered[$idx+1];
+          }
+
+          if ($neighbor) {
+            // If sort_order ties would make the swap invisible, normalize first.
+            if ((int)$ordered[$idx]['so'] === (int)$neighbor['so']) {
+              normalize_cat_order($pdo);
+            }
+            swap_cat_order($pdo, $ordered[$idx]['id'], (int)$neighbor['id']);
+          }
+        }
+      } catch (Throwable $e) {}
+    }
+    header('Location: category_manager.php?category_id=' . ($cid ?: $uncat_id));
+    exit;
+  }
+
   // Add category
   if (isset($_POST['add_cat'])) {
     $name = preg_replace('/\s+/', ' ', trim((string)($_POST['name'] ?? '')));
@@ -40,13 +147,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $cid = (int)($_POST['category_id'] ?? 0);
     $name = preg_replace('/\s+/', ' ', trim((string)($_POST['new_name'] ?? '')));
     $is_adult = isset($_POST['cat_is_adult']) ? 1 : 0;
+    $sort_order = isset($_POST['sort_order']) ? (int)($_POST['sort_order'] ?? 0) : null;
 
     $redirect_cid = $cid;
 
     if ($cid > 0) {
       // Update adult flag for any category (including Uncategorized)
       try {
-        $pdo->prepare("UPDATE categories SET is_adult=? WHERE id=?")->execute([$is_adult, $cid]);
+        if ($sort_order !== null) {
+          $pdo->prepare("UPDATE categories SET is_adult=?, sort_order=? WHERE id=?")->execute([$is_adult, $sort_order, $cid]);
+        } else {
+          $pdo->prepare("UPDATE categories SET is_adult=? WHERE id=?")->execute([$is_adult, $cid]);
+        }
       } catch (Throwable $e) {}
 
       // Rename/merge is allowed for any category except the reserved Uncategorized bucket
@@ -220,7 +332,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 /* ---------------------------
    Data load
 ---------------------------- */
-$cats = $pdo->query("SELECT c.id,c.name,IFNULL(c.is_adult,0) AS is_adult,(SELECT COUNT(*) FROM channels ch WHERE ch.category_id=c.id) AS cnt FROM categories c ORDER BY c.sort_order, c.id")
+$cats = $pdo->query("SELECT c.id,c.name,IFNULL(c.sort_order,0) AS sort_order,IFNULL(c.is_adult,0) AS is_adult,(SELECT COUNT(*) FROM channels ch WHERE ch.category_id=c.id) AS cnt FROM categories c ORDER BY IFNULL(c.sort_order,0), c.id")
   ->fetchAll(PDO::FETCH_ASSOC);
 
 $selected = (int)($_GET['category_id'] ?? 0);
@@ -289,6 +401,7 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
   <form method="post" class="row" style="gap:8px;align-items:center;flex-wrap:wrap;">
     <input type="text" name="name" placeholder="New category name" required style="max-width:360px;">
     <button class="btn" name="add_cat" value="1">Add</button>
+    <button class="btn gray" name="rebuild_cat_order" value="1" title="Rebuild numeric sort_order (10,20,30...) without changing the current visible order">Rebuild Order</button>
   </form>
 
   <div class="cat-list">
@@ -308,10 +421,18 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
         </div>
 
         <div class="cat-controls">
+          <form method="post" class="cat-form" style="gap:6px;">
+            <input type="hidden" name="category_id" value="<?=$c['id']?>">
+            <input type="hidden" name="move_cat" value="1">
+            <button class="btn gray btn-small" name="dir" value="up" <?= ((int)$c['id'] === $uncat_id) ? 'disabled' : '' ?> title="Move up">▲</button>
+            <button class="btn gray btn-small" name="dir" value="down" <?= ((int)$c['id'] === $uncat_id) ? 'disabled' : '' ?> title="Move down">▼</button>
+          </form>
+
           <form method="post" class="cat-form">
             <input type="hidden" name="category_id" value="<?=$c['id']?>">
             <input type="text" name="new_name" value="<?=e($c['name'])?>" placeholder="Rename"
               <?= ((int)$c['id'] === $uncat_id) ? 'disabled' : '' ?> >
+            <input type="number" name="sort_order" value="<?= (int)($c['sort_order'] ?? 0) ?>" title="Sort order (lower shows first)" style="width:92px;" <?= ((int)$c['id'] === $uncat_id) ? 'readonly' : '' ?> >
             <label class="cat-adult" title="Mark category as Adult">
               <input type="checkbox" name="cat_is_adult" value="1" <?= !empty($c['is_adult']) ? 'checked' : '' ?>> Adult
             </label>
