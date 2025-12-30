@@ -96,7 +96,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['m3u'])) {
             <label>Replace:</label> <input type="text" name="replace[]" />
         </div>
 
-        <h3>Category filter</h3>
+        
+<h3>Append suffix to stream links</h3>
+<div class="row">
+    <label>Suffix:</label>
+    <input type="text" id="appendSuffix" name="appendSuffix" placeholder=".ts" list="suffixSuggestions" style="width:140px;" />
+    <datalist id="suffixSuggestions">
+        <option value=".ts"></option>
+        <option value=".m3u"></option>
+        <option value=".m3u8"></option>
+    </datalist>
+    <small style="margin-left:8px; color:#666;">(leave blank = no change)</small>
+    <span id="suffixError" style="margin-left:10px; color:#b00020; display:none;"></span>
+    <label style="min-width:auto; margin-left:10px;">
+        <input type="checkbox" id="forceExt" name="forceExt" value="1"> Force/replace existing suffix
+    </label>
+</div>
+
+<h3>Category filter</h3>
         <div class="row">
             <label>Group-title:</label>
             <select id="category" name="category">
@@ -141,6 +158,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['m3u'])) {
     // editedGroups[groupName] = [{extIndex,urlIndex,extText,urlText}, ...]
     const editedGroups = {};
 
+    // Append suffix controls
+    const appendSuffixInput = document.getElementById('appendSuffix');
+    const suffixError = document.getElementById('suffixError');
+    const forceExtChk  = document.getElementById('forceExt');
+
     function safeRegex(pattern) {
         return pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     }
@@ -163,6 +185,66 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['m3u'])) {
         return entries;
     }
 
+    function splitUrlTail(urlLine) {
+        // Keep query/fragment exactly as-is.
+        const q = urlLine.indexOf('?');
+        const h = urlLine.indexOf('#');
+        let cut = -1;
+        if (q !== -1 && h !== -1) cut = Math.min(q, h);
+        else cut = (q !== -1) ? q : h;
+        if (cut === -1) return { base: urlLine, tail: '' };
+        return { base: urlLine.slice(0, cut), tail: urlLine.slice(cut) };
+    }
+
+    function hasPathExtension(base) {
+        // Heuristic: last path segment has a dot-ext (2-5 chars)
+        // e.g. .../123.ts, .../index.m3u8
+        return /\.[a-z0-9]{1,10}$/i.test(base);
+    }
+
+function normalizeSuffix(raw) {
+    let s = (raw || '').trim();
+    if (!s) {
+        if (suffixError) { suffixError.style.display = 'none'; suffixError.textContent = ''; }
+        return '';
+    }
+    if (!s.startsWith('.')) s = '.' + s;
+    s = s.toLowerCase();
+
+    // Allow only: dot + 1-10 alphanumerics (e.g. .ts, .m3u8)
+    if (!/^\.[a-z0-9]{1,10}$/.test(s)) {
+        if (suffixError) { suffixError.textContent = 'Invalid suffix (example: .ts)'; suffixError.style.display = 'inline'; }
+        return null;
+    }
+
+    if (suffixError) { suffixError.style.display = 'none'; suffixError.textContent = ''; }
+    return s;
+}
+
+function replaceOrAppendSuffix(urlLine, suffix, force) {
+    const trimmed = (urlLine || '').trim();
+    if (!trimmed) return urlLine;
+    if (trimmed.startsWith('#')) return urlLine; // comments/meta
+
+    const { base, tail } = splitUrlTail(trimmed);
+    if (!base) return urlLine;
+
+    const want = suffix; // includes the dot
+    const baseLower = base.toLowerCase();
+
+    if (!force) {
+        if (baseLower.endsWith(want)) return trimmed; // already correct
+        if (hasPathExtension(base)) return trimmed;   // already has *some* suffix
+        return base + want + tail;
+    }
+
+    // Force: replace any existing suffix on the last segment, otherwise append.
+    const newBase = base.replace(/\.[a-z0-9]{1,10}$/i, want);
+    if (newBase === base && !baseLower.endsWith(want)) {
+        return base + want + tail;
+    }
+    return newBase + tail;
+}
     // Compose working text: original + group overlays, then bulk replacements
     function buildWorkingText() {
         let lines = originalLines.slice();
@@ -188,6 +270,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['m3u'])) {
                 lines = lines.map(l => l.replace(regex, r));
             }
         }
+        // Append suffix to URL lines
+        const rawSuffix = (appendSuffixInput && typeof appendSuffixInput.value === 'string') ? appendSuffixInput.value : '';
+        const suffix = normalizeSuffix(rawSuffix);
+        if (suffix) {
+            const force = !!(forceExtChk && forceExtChk.checked);
+            lines = lines.map(l => replaceOrAppendSuffix(l, suffix, force));
+        }
+
 
         return lines.join('\n');
     }
@@ -277,6 +367,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['m3u'])) {
     document.querySelectorAll('input[name="find[]"], input[name="replace[]"]').forEach(function(el) {
         el.addEventListener('input', updatePreview);
     });
+
+    // Live update for suffix appender
+    if (appendSuffixInput) appendSuffixInput.addEventListener('input', updatePreview);
+    if (forceExtChk) forceExtChk.addEventListener('change', updatePreview);
 
     // Category selection does not change preview by itself; it scopes the popup
     categorySelect.addEventListener('change', function() {

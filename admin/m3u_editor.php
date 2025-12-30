@@ -15,6 +15,8 @@ $error = '';
 $content = '';
 $finds = [];
 $replaces = [];
+$appendSuffix = '';
+$forceExt = false;
 
 function m3u_collect_groups(string $content): array {
   $groups = [];
@@ -45,6 +47,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['content']) &&
   if (!is_array($finds)) $finds = [];
   if (!is_array($replaces)) $replaces = [];
 
+
+  $appendSuffix = (string)($_POST['appendSuffix'] ?? '');
+  $forceExt = !empty($_POST['forceExt']);
   if ($confirm !== 'yes') {
     $error = 'You must confirm changes by checking the box before download.';
   } else {
@@ -63,6 +68,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !$content) {
   $replaces = $_POST['replace'] ?? $_POST['replace[]'] ?? [];
   if (!is_array($finds)) $finds = [];
   if (!is_array($replaces)) $replaces = [];
+
+  $appendSuffix = (string)($_POST['appendSuffix'] ?? '');
+  $forceExt = !empty($_POST['forceExt']);
 
   // Prefer upload if present
   $tmp = $_FILES['m3u']['tmp_name'] ?? '';
@@ -222,7 +230,24 @@ $groupList = $content ? m3u_collect_groups($content) : [];
               }
             ?>
 
-            <hr style="border:0;border-top:1px solid var(--line);margin:12px 0;">
+            <h3 style="margin:0 0 10px;">Append suffix to stream links</h3>
+<label>Suffix</label>
+<input type="text" id="appendSuffix" name="appendSuffix" placeholder=".ts" list="suffixSuggestions" value="<?= e($appendSuffix) ?>">
+<datalist id="suffixSuggestions">
+  <option value=".ts"></option>
+  <option value=".m3u"></option>
+  <option value=".m3u8"></option>
+</datalist>
+<div class="hint">Leave blank for no change. If the link has <code>?token=</code> etc, the suffix is inserted before the <code>?</code>.</div>
+
+<label class="check-row" style="display:flex;align-items:center;gap:10px;margin:10px 0 0;">
+  <input type="checkbox" id="forceExt" name="forceExt" value="1" <?= $forceExt ? 'checked' : '' ?>>
+  <span>Force/replace existing suffix</span>
+</label>
+
+<div id="suffixError" class="hint" style="color:#b00020;display:none;"></div>
+
+<hr style="border:0;border-top:1px solid var(--line);margin:12px 0;">
 
             <h3 style="margin:0 0 10px;">Edit by Group-title</h3>
             <label>Group-title</label>
@@ -321,6 +346,11 @@ $groupList = $content ? m3u_collect_groups($content) : [];
     const titleInclude = document.getElementById('titleInclude');
     const titleExclude = document.getElementById('titleExclude');
 
+
+    // Suffix appender
+    const appendSuffixInput = document.getElementById('appendSuffix');
+    const suffixError = document.getElementById('suffixError');
+    const forceExtChk = document.getElementById('forceExt');
     function selectedValues(sel){
       if(!sel) return [];
       return Array.from(sel.selectedOptions || []).map(o => o.value);
@@ -401,6 +431,64 @@ $groupList = $content ? m3u_collect_groups($content) : [];
       return entries;
     }
 
+
+
+function splitUrlTail(urlLine){
+  const q = urlLine.indexOf('?');
+  const h = urlLine.indexOf('#');
+  let cut = -1;
+  if(q !== -1 && h !== -1) cut = Math.min(q, h);
+  else cut = (q !== -1) ? q : h;
+  if(cut === -1) return { base: urlLine, tail: '' };
+  return { base: urlLine.slice(0, cut), tail: urlLine.slice(cut) };
+}
+
+function hasPathExtension(base){
+  return /\.[a-z0-9]{1,10}$/i.test(base);
+}
+
+function normalizeSuffix(raw){
+  let s = String(raw || '').trim();
+  if(!s){
+    if(suffixError){ suffixError.style.display='none'; suffixError.textContent=''; }
+    return '';
+  }
+  if(!s.startsWith('.')) s = '.' + s;
+  s = s.toLowerCase();
+
+  if(!/^\.[a-z0-9]{1,10}$/.test(s)){
+    if(suffixError){ suffixError.textContent='Invalid suffix (example: .ts)'; suffixError.style.display='block'; }
+    return null;
+  }
+  if(suffixError){ suffixError.style.display='none'; suffixError.textContent=''; }
+  return s;
+}
+
+function replaceOrAppendSuffix(urlLine, suffix, force){
+  const trimmed = String(urlLine || '').trim();
+  if(!trimmed) return urlLine;
+  if(trimmed.startsWith('#')) return urlLine;
+
+  const parts = splitUrlTail(trimmed);
+  const base = parts.base || '';
+  const tail = parts.tail || '';
+  if(!base) return urlLine;
+
+  const want = suffix; // includes dot
+  const baseLower = base.toLowerCase();
+
+  if(!force){
+    if(baseLower.endsWith(want)) return trimmed;
+    if(hasPathExtension(base)) return trimmed;
+    return base + want + tail;
+  }
+
+  const newBase = base.replace(/\.[a-z0-9]{1,10}$/i, want);
+  if(newBase === base && !baseLower.endsWith(want)){
+    return base + want + tail;
+  }
+  return newBase + tail;
+}
     function buildWorkingText(){
       let lines = originalLines.slice();
 
@@ -429,8 +517,15 @@ $groupList = $content ? m3u_collect_groups($content) : [];
         }
       }
 
+      // Append suffix to URL lines
+      const suffix = normalizeSuffix(appendSuffixInput ? appendSuffixInput.value : '');
+      if(suffix){
+        const force = !!(forceExtChk && forceExtChk.checked);
+        lines = lines.map(l => replaceOrAppendSuffix(l, suffix, force));
+      }
+
       return lines.join('\n');
-    }
+}
 
     function updatePreview(){
       preview.value = buildWorkingText();
@@ -515,6 +610,11 @@ $groupList = $content ? m3u_collect_groups($content) : [];
     document.querySelectorAll('input[name="find[]"], input[name="replace[]"]').forEach(function(el){
       el.addEventListener('input', updatePreview);
     });
+
+
+    // Suffix appender
+    if(appendSuffixInput) appendSuffixInput.addEventListener('input', updatePreview);
+    if(forceExtChk) forceExtChk.addEventListener('change', updatePreview);
 
     // Filters
     if(keepGroups) keepGroups.addEventListener('change', updatePreview);
