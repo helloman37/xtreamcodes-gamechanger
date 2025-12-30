@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../db.php';
 require_once __DIR__ . '/../auth.php';
 require_once __DIR__ . '/../helpers.php';
+require_once __DIR__ . '/../admin_notifications_lib.php';
 require_admin();
 
 $pdo = db();
@@ -226,6 +227,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $pdo->prepare("INSERT INTO users (username,name,email,password_hash,password_enc,status,allow_adult,reseller_id,device_lock,ip_allowlist,ip_denylist,max_ip_changes,max_ip_window,tmdb_api_key,tmdb_region,app_logo_url) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
         ->execute([$username,$name,$email,$hash,$enc,$status,$allow_adult,$reseller_id,$device_lock,$ip_allowlist,$ip_denylist,$max_ip_changes,$max_ip_window,$tmdb_api_key,$tmdb_region,$app_logo_url]);
     $newId = (int)$pdo->lastInsertId();
+
+    // Admin notify: new user created
+    admin_notifications_broadcast($pdo, 'user', 'New user joined', 'Admin created user ' . $username . '.', '/admin/user_accounts.php?edit=' . $newId, 'newuser:' . $newId);
     flash_set("User created (numeric credentials generated).","success");
     header("Location: user_accounts.php?edit=".$newId);
     exit;

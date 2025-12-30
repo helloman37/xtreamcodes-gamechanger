@@ -407,4 +407,25 @@ $pdo->exec("
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
 ");
+
+// Admin Notifications (admin bell / admin alerts)
+$pdo->exec("
+  CREATE TABLE IF NOT EXISTS admin_notifications (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    admin_id INT NOT NULL,
+    type VARCHAR(50) NOT NULL,
+    title VARCHAR(190) NOT NULL,
+    message TEXT NULL,
+    link VARCHAR(255) NULL,
+    uniq_key VARCHAR(120) NULL,
+    is_read TINYINT(1) NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    read_at DATETIME NULL,
+    INDEX idx_admin_notif_admin (admin_id),
+    INDEX idx_admin_notif_admin_read (admin_id, is_read, created_at),
+    UNIQUE KEY uniq_admin_notif_key (admin_id, uniq_key),
+    CONSTRAINT fk_admin_notifications_admin
+      FOREIGN KEY (admin_id) REFERENCES admins(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+");
 }

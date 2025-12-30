@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/../auth.php';
 require_once __DIR__ . '/../helpers.php';
+require_once __DIR__ . '/../admin_notifications_lib.php';
 require_admin();
 
 $pdo = db();
@@ -144,6 +145,18 @@ if (isset($_GET['ajax'])) {
 
           // Persist channel status
           $upd->execute([$final_url, $ok ? 1 : 0, $code ?: null, $id]);
+
+          // Admin notify when a stream flips from working -> dead
+          try {
+            $wasOk = (int)($ch['works'] ?? 0) === 1;
+            if ($wasOk && !$ok) {
+              $title = 'Stream down: ' . $name;
+              $msg = 'Channel #' . $id . ' in "' . (string)($ch['group_title'] ?? '') . '" failed (HTTP ' . $code . ').';
+              if ($err !== '') $msg .= ' ' . mb_substr($err, 0, 160);
+              $uniq = 'streamdown:' . $id . ':' . date('YmdH');
+              admin_notifications_broadcast($pdo, 'streams', $title, $msg, '/admin/stream_probe.php?mode=failing', $uniq);
+            }
+          } catch (Throwable $t) {}
 
           // Persist channel health
           if ($ok) {

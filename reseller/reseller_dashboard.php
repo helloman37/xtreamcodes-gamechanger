@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../db.php';
 require_once __DIR__ . '/../auth.php';
 require_once __DIR__ . '/../helpers.php';
+require_once __DIR__ . '/../admin_notifications_lib.php';
 require_reseller();
 
 $pdo = db();
@@ -135,6 +136,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_user'])) {
     }
 
     $pdo->commit();
+
+    // Admin notify: reseller added a new subscriber (deduped)
+    try {
+      $rname = (string)($reseller['username'] ?? ('reseller#' . (int)$reseller_id));
+      $title = 'Reseller added subscriber';
+      $msg = $rname . ' created subscriber ' . $username . ' (plan_id ' . (int)$plan_id . ').';
+      admin_notifications_broadcast($pdo, 'reseller', $title, $msg, '/admin/reseller_details.php?id=' . (int)$reseller_id, 'reseller_newsub:' . (int)$user_id);
+    } catch (Throwable $t) {}
     flash_set("User created. Credits used: ".$cost, "success");
   } catch (Exception $e) {
 	    if ($pdo->inTransaction()) { $pdo->rollBack(); }

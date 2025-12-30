@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/helpers.php';
+require_once __DIR__ . '/admin_notifications_lib.php';
 session_start();
 $pdo = db();
 
@@ -25,6 +26,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $pdo->prepare("INSERT INTO users (username,password_hash,password_enc,status,allow_adult) VALUES (?,?,?, 'active', ?)")
           ->execute([$username,$hash,$enc,$allow_adult]);
       $uid = (int)$pdo->lastInsertId();
+
+      // Admin notify: new user joined
+      admin_notifications_broadcast($pdo, 'user', 'New user joined', $username . ' created an account.', '/admin/user_accounts.php?edit=' . $uid, 'newuser:' . $uid);
+
       $_SESSION['store_user'] = $uid;
       header("Location: dashboard.php"); exit;
     }

@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/helpers.php';
+require_once __DIR__ . '/admin_notifications_lib.php';
 
 function provision_storefront_order($orderId, $providerTxn){
   $pdo=db();
@@ -20,6 +21,7 @@ function provision_storefront_order($orderId, $providerTxn){
     $want_adult = 1;
   }
 
+  $createdUser = false;
   if(!$userId){
     $checkout=$_SESSION['checkout_'.$orderId] ?? null;
     if(!$checkout) throw new Exception("Checkout session missing");
@@ -29,6 +31,7 @@ function provision_storefront_order($orderId, $providerTxn){
                         VALUES (?,?,?, 'active', ?, NULL)");
     $uSt->execute([$checkout['username'],$checkout['password_hash'],$checkout['password_enc'] ?? '', $want_adult]);
     $userId=$pdo->lastInsertId();
+    $createdUser = true;
   }
 
     // if customer opted into adult, enable it (never auto-disable)
@@ -94,6 +97,20 @@ function provision_storefront_order($orderId, $providerTxn){
     if ($pdo->inTransaction()) $pdo->rollBack();
     throw $e;
   }
+
+  // Admin notifications (deduped)
+  try {
+    if ($createdUser) {
+      $uname = (string)($checkout['username'] ?? 'new user');
+      admin_notifications_broadcast($pdo, 'user', 'New user joined', $uname . ' created an account during checkout.', '/admin/user_accounts.php?edit=' . (int)$userId, 'newuser:' . (int)$userId);
+    }
+    $planNameN = (string)($plan['name'] ?? 'Plan');
+    $amt = (string)($order['amount'] ?? '0.00');
+    $provider = (string)($order['provider'] ?? 'provider');
+    $title = 'Payment succeeded';
+    $msg = 'Order #' . (int)$orderId . ' paid (' . $provider . ') — ' . $planNameN . ' — $' . $amt . ' — user_id ' . (int)$userId . '.';
+    admin_notifications_broadcast($pdo, 'payment', $title, $msg, '/admin/billing_reports.php', 'payok:' . (int)$orderId);
+  } catch (Throwable $t) {}
 
   unset($_SESSION['checkout_'.$orderId]);
   return $userId;

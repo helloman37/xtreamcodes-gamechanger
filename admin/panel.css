@@ -761,6 +761,29 @@ tr:hover td{background:#fafbff}
   user-select:none;
   font-size: 16px;
 }
+
+/* Notifications bell badge */
+.admin-app .xt-bell,
+.reseller-app .xt-bell{ position: relative; }
+.admin-app .xt-notif-badge,
+.reseller-app .xt-notif-badge{
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 900;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid rgba(15,23,42,.85);
+  line-height: 1;
+}
 .admin-app .xt-iconbtn:hover,
 .reseller-app .xt-iconbtn:hover{ filter: brightness(1.06); }
 .admin-app .xt-iconbtn:focus,
@@ -1056,3 +1079,13 @@ tr:hover td{background:#fafbff}
   color: #0b1020;
   border: 0;
 }
+
+
+
+/* Admin notifications readability fixes */
+.xt-bell, .xt-bell:hover{ text-decoration:none !important; }
+.xt-notifs-card .xt-btn{ font-weight: 900; }
+.xt-notifs-card .xt-btn.xt-btn-primary{
+  color: #0b1020;
+}
+.xt-notifs-card .xt-notif-item .muted{ color: rgba(124,45,18,.85); opacity: 1; }

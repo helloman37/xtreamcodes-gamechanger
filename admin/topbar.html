@@ -17,6 +17,12 @@
               Credits
             </a>
 
+            <!-- Admin notifications -->
+            <a class="xt-iconbtn xt-bell" href="notifications.php" title="Notifications" aria-label="Notifications">
+              🔔
+              <span class="xt-notif-badge" id="xtNotifBadge" style="display:none">0</span>
+            </a>
+
             <div class="xt-userlabel" title="Signed in user">{{USERNAME}}</div>
 
             <!-- Settings opens Change Password modal -->
@@ -247,6 +253,32 @@
               });
           });
         }
+      })();
+    </script>
+
+    <script>
+      (function(){
+        // Fetch unread admin notifications count and show badge.
+        function refreshAdminNotifs(){
+          try {
+            fetch('notif_count.php', {credentials:'same-origin'})
+              .then(function(r){ return r.json(); })
+              .then(function(d){
+                var badge = document.getElementById('xtNotifBadge');
+                if(!badge) return;
+                var n = 0;
+                if(d && typeof d.unread !== 'undefined') n = parseInt(d.unread, 10) || 0;
+                if(n > 0){
+                  badge.textContent = String(n);
+                  badge.style.display = 'inline-flex';
+                } else {
+                  badge.style.display = 'none';
+                }
+              })
+              .catch(function(){});
+          } catch(e) {}
+        }
+        refreshAdminNotifs();
       })();
     </script>
 
