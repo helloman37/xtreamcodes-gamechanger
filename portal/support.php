@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/_init.php';
 require_once __DIR__ . '/../supportdesk_lib.php';
+require_once __DIR__ . '/../admin_notifications_lib.php';
 
 supportdesk_db_init($pdo);
 supportdesk_require_portal_enabled($pdo);
@@ -30,6 +31,7 @@ if ($mode === 'new') {
   $errors = [];
   $subject = trim((string)($_POST['subject'] ?? ''));
   $message = trim((string)($_POST['message'] ?? ''));
+  $prioritySel = strtolower(trim((string)($_POST['priority'] ?? '')));
 
   if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_validate();
@@ -46,6 +48,11 @@ if ($mode === 'new') {
       $priority = strtolower(trim($priority));
       if (!in_array($priority, ['low','normal','high'], true)) $priority = 'normal';
 
+      // Allow user to pick a priority, but keep it constrained.
+      if (in_array($prioritySel, ['low','normal','high'], true)) {
+        $priority = $prioritySel;
+      }
+
       $pdo->beginTransaction();
       try {
         $st = $pdo->prepare("INSERT INTO support_tickets (user_id, subject, status, priority, created_at, updated_at, last_message_at, last_author)
@@ -58,6 +65,16 @@ if ($mode === 'new') {
         $st2->execute([$ticketId, 'user', (string)$user['id'], $messageClean, $now]);
 
         $pdo->commit();
+
+        
+        // Notify admins of new ticket (in-app admin bell)
+        try {
+          $username = (string)($user['username'] ?? ('User #' . (int)$user['id']));
+          $title = 'New support ticket: ' . $subjectClean;
+          $msg = $username . ' opened ticket #' . $ticketId . '.';
+          $link = '/admin/support_desk.php?ticket=' . $ticketId;
+          admin_notifications_broadcast($pdo, 'support', $title, $msg, $link, 'support_new:' . $ticketId);
+        } catch (Throwable $t) {}
 
         header("Location: /portal/support/" . $ticketId);
         exit;
@@ -72,9 +89,15 @@ if ($mode === 'new') {
   require_once __DIR__ . '/_layout_top.php';
   ?>
   <div class="card pad">
-    <div style="display:flex; justify-content:space-between; gap:10px; align-items:center; flex-wrap:wrap;">
-      <h2 style="margin:0;">New Ticket</h2>
-      <a class="btn ghost" href="/portal/support/">Back</a>
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+      <div>
+        <h2 style="margin:0;">Support Desk</h2>
+        <div class="muted sd-sub">Create a new ticket.</div>
+      </div>
+      <div class="sd-tabs">
+        <a class="btn sm ghost" href="/portal/support/">Inbox</a>
+        <a class="btn sm primary" href="/portal/support/new">New Ticket</a>
+      </div>
     </div>
 
     <?php if ($errors): ?>
@@ -85,13 +108,34 @@ if ($mode === 'new') {
       </div>
     <?php endif; ?>
 
-    <form method="post" style="margin-top:12px;">
+    <form method="post" class="sd-form" style="margin-top:12px;">
       <?= csrf_input() ?>
-      <label>Subject</label>
-      <input class="input" name="subject" value="<?= e($subject) ?>" required>
 
-      <label style="margin-top:10px;">Message</label>
-      <textarea class="input" name="message" rows="6" required><?= e($message) ?></textarea>
+      <div class="sd-form-grid">
+        <div class="sd-field">
+          <label>Subject</label>
+          <input class="input sd-input" name="subject" value="<?= e($subject) ?>" required>
+        </div>
+        <div class="sd-field">
+          <label>Priority</label>
+          <select class="input sd-input" name="priority">
+            <?php
+              $default_priority = (string)supportdesk_setting($pdo, 'default_priority', 'normal');
+              $default_priority = strtolower(trim($default_priority));
+              if (!in_array($default_priority, ['low','normal','high'], true)) $default_priority = 'normal';
+              $priorityUi = in_array($prioritySel, ['low','normal','high'], true) ? $prioritySel : $default_priority;
+            ?>
+            <option value="low" <?= $priorityUi==='low'?'selected':'' ?>>Low</option>
+            <option value="normal" <?= $priorityUi==='normal'?'selected':'' ?>>Normal</option>
+            <option value="high" <?= $priorityUi==='high'?'selected':'' ?>>High</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="sd-field" style="margin-top:12px;">
+        <label>Message</label>
+        <textarea class="input sd-input" name="message" rows="9" required><?= e($message) ?></textarea>
+      </div>
 
       <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
         <button class="btn primary" type="submit">Create Ticket</button>
@@ -133,6 +177,19 @@ if ($mode === 'new') {
 
         $pdo->commit();
 
+        
+        // Notify admins of user reply (in-app admin bell)
+        try {
+          $msgId = (int)$pdo->lastInsertId();
+          $username = (string)($user['username'] ?? ('User #' . (int)$user['id']));
+          $subj = trim((string)($ticket['subject'] ?? ''));
+          if ($subj === '') $subj = 'Ticket #' . (int)$ticket['id'];
+          $title = 'Ticket reply: ' . $subj;
+          $msg = $username . ' replied on ticket #' . (int)$ticket['id'] . '.';
+          $link = '/admin/support_desk.php?ticket=' . (int)$ticket['id'];
+          admin_notifications_broadcast($pdo, 'support', $title, $msg, $link, 'support_reply:' . $msgId);
+        } catch (Throwable $t) {}
+
         header('Location: /portal/support/' . (int)$ticket['id'] . '/');
         exit;
       } catch (Throwable $t) {
@@ -157,57 +214,74 @@ if ($mode === 'new') {
 
   ?>
   <div class="card pad">
-    <div style="display:flex; justify-content:space-between; gap:10px; align-items:center; flex-wrap:wrap;">
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
       <div>
-        <h2 style="margin:0;">Ticket #<?= (int)$ticket['id'] ?></h2>
-        <div class="muted" style="margin-top:6px;">
-          <?= supportdesk_portal_status_badge((string)($ticket['status'] ?? 'open')) ?>
-          <span class="muted">•</span>
-          <span class="muted"><?= e((string)($ticket['subject'] ?? '')) ?></span>
-        </div>
+        <h2 style="margin:0;">Support Desk</h2>
+        <div class="muted sd-sub">Tickets and replies inside the panel.</div>
       </div>
-      <a class="btn ghost" href="/portal/support/">Back</a>
+      <div class="sd-tabs">
+        <a class="btn sm primary" href="/portal/support/">Inbox</a>
+        <a class="btn sm ghost" href="/portal/support/new">New Ticket</a>
+      </div>
     </div>
 
     <div style="margin-top:14px;">
-      <?php foreach ($messages as $m): ?>
-        <?php
-          $isAdmin = ((string)($m['author_type'] ?? '') === 'admin');
-          $who = $isAdmin ? 'Support' : 'You';
-          $ts = (string)($m['created_at'] ?? '');
-        ?>
-        <div style="padding:12px; border:1px solid rgba(255,255,255,.08); border-radius:14px; margin-bottom:10px; background: rgba(0,0,0,.18);">
-          <div style="display:flex; justify-content:space-between; gap:10px; align-items:center;">
-            <b><?= e($who) ?></b>
-            <span class="muted" style="font-size:12px;"><?= e($ts) ?></span>
+      <div style="display:flex; justify-content:space-between; gap:10px; align-items:center; flex-wrap:wrap;">
+        <div>
+          <h3 style="margin:0;">Ticket #<?= (int)$ticket['id'] ?> — <?= e((string)($ticket['subject'] ?? '')) ?></h3>
+          <div class="muted" style="margin-top:6px;">
+            User: <span class="code"><?= e((string)($user['username'] ?? $user['id'])) ?></span> |
+            Priority: <span class="code"><?= e((string)($ticket['priority'] ?? 'normal')) ?></span> |
+            Status: <?= supportdesk_portal_status_badge((string)($ticket['status'] ?? 'open')) ?>
           </div>
-          <div style="margin-top:8px; line-height:1.55;"><?= supportdesk_render_message((string)($m['message'] ?? '')) ?></div>
         </div>
-      <?php endforeach; ?>
-    </div>
-
-    <?php if ($errors): ?>
-      <div class="alert bad" style="margin-top:12px;">
-        <?php foreach ($errors as $e): ?>
-          <div><?= e($e) ?></div>
-        <?php endforeach; ?>
+        <a class="btn sm ghost" href="/portal/support/">← Back</a>
       </div>
-    <?php endif; ?>
 
-    <?php if ((string)($ticket['status'] ?? '') === 'closed'): ?>
-      <div class="alert" style="margin-top:12px;">This ticket is closed.</div>
-    <?php else: ?>
-      <form method="post" style="margin-top:14px;">
-        <?= csrf_input() ?>
-        <label>Your message</label>
-        <textarea class="input" name="message" rows="5" required><?= e($reply) ?></textarea>
-        <div style="margin-top:10px;">
-          <button class="btn primary" type="submit">Send</button>
-        </div>
-      </form>
-    <?php endif; ?>
+      <div class="card sd-pane" style="margin-top:12px;">
+        <h3 style="margin-top:0;">Conversation</h3>
+
+        <?php foreach ($messages as $m): ?>
+          <?php
+            $isAdmin = ((string)($m['author_type'] ?? '') === 'admin');
+            $who = $isAdmin ? 'Support' : 'You';
+            $ts = (string)($m['created_at'] ?? '');
+          ?>
+          <div class="sd-msg">
+            <div class="meta">
+              <b class="who"><?= e($who) ?></b>
+              <span class="ts"><?= e($ts) ?></span>
+            </div>
+            <div class="body"><?= supportdesk_render_message((string)($m['message'] ?? '')) ?></div>
+          </div>
+        <?php endforeach; ?>
+
+        <?php if ($errors): ?>
+          <div class="alert bad" style="margin-top:12px;">
+            <?php foreach ($errors as $e): ?>
+              <div><?= e($e) ?></div>
+            <?php endforeach; ?>
+          </div>
+        <?php endif; ?>
+
+        <h3>Reply</h3>
+
+        <?php if ((string)($ticket['status'] ?? '') === 'closed'): ?>
+          <div class="alert" style="margin-top:12px;">This ticket is closed.</div>
+        <?php else: ?>
+          <form method="post" class="sd-form" style="margin-top:10px;">
+            <?= csrf_input() ?>
+            <label>Your message</label>
+            <textarea class="input sd-input" name="message" rows="8" required><?= e($reply) ?></textarea>
+            <div style="margin-top:10px;">
+              <button class="btn primary" type="submit">Send Reply</button>
+            </div>
+          </form>
+        <?php endif; ?>
+      </div>
+    </div>
   </div>
-  <?php
+<?php
 
 } else {
 
@@ -224,35 +298,43 @@ if ($mode === 'new') {
 
   ?>
   <div class="card pad">
-    <div class="support-header">
-      <h2 style="margin:0;">Support</h2>
-      <a class="btn primary" href="/portal/support/new">New Ticket</a>
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+      <div>
+        <h2 style="margin:0;">Support Desk</h2>
+        <div class="muted sd-sub">Tickets and replies inside the panel.</div>
+      </div>
+      <div class="sd-tabs">
+        <a class="btn sm primary" href="/portal/support/">Inbox</a>
+        <a class="btn sm ghost" href="/portal/support/new">New Ticket</a>
+      </div>
     </div>
 
-    <div class="tablewrap">
+    <div style="overflow:auto; margin-top:14px;">
       <table class="table">
         <thead>
           <tr>
             <th>ID</th>
             <th>Subject</th>
             <th>Status</th>
+            <th>Priority</th>
             <th>Last Update</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
           <?php if (!$tickets): ?>
-            <tr class="empty"><td colspan="5" class="muted">No tickets yet.</td></tr>
+            <tr class="empty"><td colspan="6" class="muted">No tickets yet.</td></tr>
           <?php endif; ?>
 
           <?php foreach ($tickets as $t): ?>
             <tr>
               <td><span class="code">#<?= (int)$t['id'] ?></span></td>
-              <td><?= e((string)$t['subject']) ?></td>
-              <td><?= supportdesk_portal_status_badge((string)$t['status']) ?></td>
-              <td class="muted"><?= e((string)($t['last_message_at'] ?: $t['updated_at'])) ?></td>
+              <td><?= e((string)($t['subject'] ?? '')) ?></td>
+              <td><?= supportdesk_portal_status_badge((string)($t['status'] ?? 'open')) ?></td>
+              <td><span class="code"><?= e((string)($t['priority'] ?? 'normal')) ?></span></td>
+              <td class="muted"><?= e((string)(($t['last_message_at'] ?: $t['updated_at']) ?? '')) ?></td>
               <td style="text-align:right;">
-                <a class="btn ghost" href="/portal/support/<?= (int)$t['id'] ?>">Open</a>
+                <a class="btn sm ghost" href="/portal/support/<?= (int)$t['id'] ?>">Open</a>
               </td>
             </tr>
           <?php endforeach; ?>
@@ -260,11 +342,11 @@ if ($mode === 'new') {
       </table>
     </div>
 
-    <div class="muted support-footer-note">
-      Support replies will show up here.
+    <div class="muted" style="margin-top:12px;">
+      Portal support replies will show up here.
     </div>
   </div>
-  <?php
+<?php
 }
 
 require_once __DIR__ . '/_layout_bottom.php';
