@@ -6,6 +6,7 @@ require_once __DIR__ . '/../db.php';
 require_once __DIR__ . '/../helpers.php';
 require_once __DIR__ . '/../plugins_core.php';
 require_once __DIR__ . '/../api_common.php';
+require_once __DIR__ . '/../notifications_lib.php';
 
 session_start();
 
@@ -96,9 +97,14 @@ WHERE s.user_id=? AND s.status='active' AND (s.ends_at IS NULL OR s.ends_at>NOW(
 ORDER BY s.ends_at DESC LIMIT 1";
 $subSt = $pdo->prepare($subSql);
 $subSt->execute([$userId]);
-$sub = $subSt->fetch(PDO::FETCH_ASSOC);
+$sub = $subSt->fetch(PDO::FETCH_ASSOC) ?: null;
 
 $config = require __DIR__ . '/../config.php';
+
+// Notifications: expiry warnings + unread count for the portal bell.
+notifications_maybe_add_sub_expiry($pdo, $userId, $sub, $config);
+$__notif_unread = notifications_unread_count($pdo, $userId);
+
 $token_ttl = (int)($config['token_ttl'] ?? 3600);
 
 // Convenience flags
@@ -153,6 +159,7 @@ try {
 
 function portal_make_play_url(string $username, int $id, string $type='live', string $ext='m3u8'): array {
   $config = require __DIR__ . '/../config.php';
+
   $ttl = (int)($config['token_ttl'] ?? 3600);
   $exp = time() + max(60, $ttl);
   $token = make_token($username, $id, $exp, $type);

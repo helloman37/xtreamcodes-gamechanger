@@ -386,4 +386,25 @@ function db_migrate(PDO $pdo): void {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   ");
 
+
+// Notifications (portal bell / support replies / expiring subscriptions)
+$pdo->exec("
+  CREATE TABLE IF NOT EXISTS notifications (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    type VARCHAR(50) NOT NULL,
+    title VARCHAR(190) NOT NULL,
+    message TEXT NULL,
+    link VARCHAR(255) NULL,
+    uniq_key VARCHAR(120) NULL,
+    is_read TINYINT(1) NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    read_at DATETIME NULL,
+    INDEX idx_notif_user (user_id),
+    INDEX idx_notif_user_read (user_id, is_read, created_at),
+    UNIQUE KEY uniq_notif_user_key (user_id, uniq_key),
+    CONSTRAINT fk_notifications_user
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+");
 }

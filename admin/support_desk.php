@@ -5,6 +5,7 @@ require_once __DIR__ . '/../db.php';
 require_once __DIR__ . '/../auth.php';
 require_once __DIR__ . '/../helpers.php';
 require_once __DIR__ . '/../supportdesk_lib.php';
+require_once __DIR__ . '/../notifications_lib.php';
 
 require_admin();
 
@@ -50,6 +51,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (string)($_POST['action'] ?? '') ==
   try {
     $st = $pdo->prepare("INSERT INTO support_messages (ticket_id, author_type, author_ref, message, created_at) VALUES (?,?,?,?,?)");
     $st->execute([$ticketIdPost, 'admin', (string)($_SESSION['admin_username'] ?? 'admin'), $msg, $now]);
+$msgId = (int)$pdo->lastInsertId();
+
+// Notify user that support replied
+$stU = $pdo->prepare("SELECT user_id, subject FROM support_tickets WHERE id=? LIMIT 1");
+$stU->execute([$ticketIdPost]);
+$trow = $stU->fetch(PDO::FETCH_ASSOC) ?: [];
+$toUserId = (int)($trow['user_id'] ?? 0);
+$subject = trim((string)($trow['subject'] ?? ''));
+if ($subject === '') $subject = 'Ticket #' . (string)$ticketIdPost;
+
+$snippet = $msg;
+if (strlen($snippet) > 180) $snippet = substr($snippet, 0, 180) . '…';
+notifications_add($pdo, $toUserId, 'support', 'Support replied: ' . $subject, $snippet, '/portal/support/' . (string)$ticketIdPost, 'support_reply:' . (string)$msgId);
+
+
 
     $st2 = $pdo->prepare("UPDATE support_tickets SET status=?, updated_at=?, last_message_at=?, last_author='admin' WHERE id=?");
     $st2->execute([$newStatus, $now, $now, $ticketIdPost]);

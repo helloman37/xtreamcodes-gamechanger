@@ -38,6 +38,25 @@ CREATE TABLE subscriptions (
   FOREIGN KEY (plan_id) REFERENCES plans(id) ON DELETE CASCADE
 );
 
+
+
+CREATE TABLE notifications (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  user_id INT NOT NULL,
+  type VARCHAR(50) NOT NULL,
+  title VARCHAR(190) NOT NULL,
+  message TEXT NULL,
+  link VARCHAR(255) NULL,
+  uniq_key VARCHAR(120) NULL,
+  is_read TINYINT(1) NOT NULL DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  read_at DATETIME NULL,
+  INDEX idx_notif_user (user_id),
+  INDEX idx_notif_user_read (user_id, is_read, created_at),
+  UNIQUE KEY uniq_notif_user_key (user_id, uniq_key),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
 CREATE TABLE channels (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(255) NOT NULL,

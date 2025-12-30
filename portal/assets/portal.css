@@ -355,6 +355,9 @@ body::after{
   font-weight:900;
   letter-spacing:.3px;
   transition:.12s ease;
+  cursor:pointer;
+  appearance:none;
+  -webkit-appearance:none;
 }
 .btn:hover{transform: translateY(-1px)}
 
@@ -701,3 +704,16 @@ select optgroup{
   background: #0b0f14;
   color: rgba(255,255,255,.92);
 }
+
+
+
+
+
+
+
+
+/* Notifications bell */
+.bell{position:relative;display:inline-flex;align-items:center;justify-content:center;padding:8px 10px;border-radius:12px;text-decoration:none !important;color:inherit;opacity:.95;}
+.bell:hover{background:rgba(255,255,255,0.06);text-decoration:none;}
+.bell.active{background:rgba(255,255,255,0.08);}
+.nbadge{position:absolute;top:3px;right:4px;min-width:18px;height:18px;padding:0 5px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;border-radius:999px;background:#ff3b3b;color:#fff;box-shadow:0 6px 16px rgba(0,0,0,0.35);}

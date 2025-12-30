@@ -136,6 +136,16 @@ window.__watchlist = {enabled: <?= !empty($__watchlist_enabled) ? 'true' : 'fals
     </div>
 
     <div class="userbox">
+<?php
+  $req = (string)($_SERVER['REQUEST_URI'] ?? '');
+  $isNotif = (strpos($req, '/portal/notifications') === 0);
+  $unread = (int)($__notif_unread ?? 0);
+?>
+<a class="bell<?= $isNotif ? ' active' : '' ?>" href="/portal/notifications/" title="Notifications">
+  🔔<?php if ($unread > 0): ?><span class="nbadge"><?= (int)$unread ?></span><?php endif; ?>
+</a>
+
+
       <div class="avatar<?= $user ? '' : ' guest' ?>">
   <?php if ($avatarUrl): ?>
     <img src="<?= e($avatarUrl) ?>" alt="Avatar">
