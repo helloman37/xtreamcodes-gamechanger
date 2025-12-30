@@ -65,12 +65,18 @@ function flash_show() {
     echo <<<HTML
 <div id="iptvToastHost" class="iptv-toast-host" aria-live="polite" aria-atomic="true"></div>
 <style>
-  /* --- Bootstrap-ish Toasts (scoped) --- */
+  /* --- IPTV Toasts (scoped, theme-aware) --- */
   #iptvToastHost.iptv-toast-host{
-    position:fixed; top:14px; right:14px; z-index:99999;
-    display:flex; flex-direction:column; gap:10px;
+    position:fixed;
+    top: max(14px, env(safe-area-inset-top));
+    right: max(14px, env(safe-area-inset-right));
+    z-index:99999;
+    display:flex;
+    flex-direction:column;
+    align-items:flex-end;
+    gap:10px;
     pointer-events:none;
-    max-width: min(92vw, 440px);
+    max-width: min(92vw, 460px);
     background: transparent !important;
     border: 0 !important;
     padding: 0 !important;
@@ -78,48 +84,84 @@ function flash_show() {
     box-shadow: none !important;
   }
   #iptvToastHost.iptv-toast-host:empty{ display:none !important; }
+
   #iptvToastHost .iptv-toast{
     pointer-events:auto;
-    width: min(420px, 92vw);
-    border-radius: 12px;
-    border: 1px solid rgba(255,255,255,.12);
-    background: rgba(13,15,20,.98);
-    color: #e6f1ff;
-    box-shadow: 0 12px 34px rgba(0,0,0,.55);
+    width: min(440px, 92vw);
+    border-radius: 14px;
+    border: 1px solid var(--line, rgba(255,255,255,.14));
+    background: var(--card, rgba(13,15,20,.98));
+    color: var(--text, #e6f1ff);
+    box-shadow: var(--shadow, 0 14px 38px rgba(0,0,0,.55));
     overflow: hidden;
+
     opacity: 0;
-    transform: translateY(-6px);
-    transition: opacity .16s ease, transform .16s ease;
+    transform: translate3d(10px,-4px,0);
+    transition: opacity .18s ease, transform .18s ease;
   }
-  #iptvToastHost .iptv-toast.show{ opacity:1; transform: translateY(0); }
-  #iptvToastHost .iptv-toast .row{
-    display:flex; align-items:flex-start;
-  }
-  #iptvToastHost .iptv-toast .body{
+  #iptvToastHost .iptv-toast.show{ opacity:1; transform: translate3d(0,0,0); }
+
+  #iptvToastHost .iptv-toast .inner{
+    display:flex;
+    align-items:flex-start;
+    gap:10px;
     padding: 12px 12px;
-    font-size: 14px;
-    line-height: 1.35;
-    flex: 1;
+  }
+  #iptvToastHost .iptv-toast .icon{
+    width:20px; height:20px;
+    flex:0 0 20px;
+    margin-top:2px;
+    color: var(--toast-accent, #60a5fa);
+  }
+  #iptvToastHost .iptv-toast .content{ flex:1; min-width:0; }
+  #iptvToastHost .iptv-toast .title{
+    font-size:12px;
+    font-weight:850;
+    letter-spacing:.02em;
+    margin:0 0 2px 0;
+  }
+  #iptvToastHost .iptv-toast .msg{
+    font-size:13px;
+    line-height:1.35;
+    color: var(--muted, rgba(230,241,255,.78));
+    white-space: pre-wrap;
     word-break: break-word;
   }
   #iptvToastHost .iptv-toast .close{
-    appearance:none; border:0; background:transparent;
-    color: rgba(230,241,255,.9);
-    font-size: 18px;
-    line-height: 1;
-    padding: 10px 12px;
-    cursor: pointer;
+    appearance:none;
+    border:0;
+    background:transparent;
+    color: var(--muted, rgba(230,241,255,.75));
+    width:30px; height:30px;
+    border-radius: 10px;
+    display:grid; place-items:center;
+    cursor:pointer;
+    margin-left:4px;
   }
-  #iptvToastHost .iptv-toast .bar{
+  #iptvToastHost .iptv-toast .close:hover{
+    background: rgba(0,0,0,.06);
+    color: var(--text, #e6f1ff);
+  }
+
+  #iptvToastHost .iptv-toast .progress{
     height: 3px;
     width: 100%;
-    background: rgba(255,255,255,.12);
+    background: var(--toast-accent, #60a5fa);
+    opacity: .9;
     transform-origin: left;
+    transform: scaleX(1);
   }
-  #iptvToastHost .iptv-toast.success{ border-left: 4px solid #22c55e; }
-  #iptvToastHost .iptv-toast.info{    border-left: 4px solid #60a5fa; }
-  #iptvToastHost .iptv-toast.warning{ border-left: 4px solid #f59e0b; }
-  #iptvToastHost .iptv-toast.danger{  border-left: 4px solid #ef4444; }
+
+  #iptvToastHost .iptv-toast.success{ --toast-accent: var(--green, #22c55e); }
+  #iptvToastHost .iptv-toast.info{    --toast-accent: var(--blue,  #60a5fa); }
+  #iptvToastHost .iptv-toast.warning{ --toast-accent: var(--orange,#f59e0b); }
+  #iptvToastHost .iptv-toast.danger{  --toast-accent: var(--red,   #ef4444); }
+
+  @media (prefers-reduced-motion: reduce){
+    #iptvToastHost .iptv-toast{ transition:none; transform:none; }
+    #iptvToastHost .iptv-toast.show{ transform:none; }
+    #iptvToastHost .iptv-toast .progress{ transition:none !important; }
+  }
   /* --- end toasts --- */
 </style>
 <script>
@@ -147,44 +189,95 @@ function flash_show() {
     return 'info';
   }
 
+  function defaultTitle(type){
+    if (type === 'success') return 'Success';
+    if (type === 'warning') return 'Warning';
+    if (type === 'danger')  return 'Error';
+    return 'Notice';
+  }
+
+  function iconSvg(type){
+    // Simple, crisp, no external deps.
+    if (type === 'success'){
+      return '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 11.1v.9a10 10 0 1 1-5.93-9.14"/><path d="M22 4 12 14.01l-3-3"/></svg>';
+    }
+    if (type === 'warning'){
+      return '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.3 3.3 1.7 18a2 2 0 0 0 1.7 3h17.2a2 2 0 0 0 1.7-3L13.7 3.3a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>';
+    }
+    if (type === 'danger'){
+      return '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6"/><path d="M9 9l6 6"/></svg>';
+    }
+    return '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>';
+  }
+
   function toast(type, message, opts){
     type = normType(type);
     message = (message == null) ? '' : String(message);
     opts = opts || {};
-    var delay = Number(opts.delay || 4200);
-    if (!isFinite(delay) || delay < 800) delay = 4200;
+
+    var total = Number(opts.delay || 4200);
+    if (!isFinite(total) || total < 800) total = 4200;
+
+    var ttl = (opts.title === false) ? '' : String(opts.title || defaultTitle(type));
+    var max = Number(opts.max || 6);
+    if (!isFinite(max) || max < 1) max = 6;
 
     var el = document.createElement('div');
     el.className = 'iptv-toast ' + type;
     el.setAttribute('role','alert');
     el.setAttribute('aria-live','assertive');
     el.setAttribute('aria-atomic','true');
-    el.innerHTML = '<div class="row">' +
-      '<div class="body"></div>' +
-      '<button class="close" type="button" aria-label="Close">×</button>' +
-    '</div>' +
-    '<div class="bar"></div>';
 
-    el.querySelector('.body').textContent = message;
-    var closeBtn = el.querySelector('.close');
-    var bar = el.querySelector('.bar');
+    el.innerHTML =
+      '<div class="inner">' +
+        '<div class="icon" aria-hidden="true">' + iconSvg(type) + '</div>' +
+        '<div class="content">' +
+          '<div class="title"></div>' +
+          '<div class="msg"></div>' +
+        '</div>' +
+        '<button class="close" type="button" aria-label="Close">' +
+          '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg>' +
+        '</button>' +
+      '</div>' +
+      '<div class="progress"></div>';
 
-    host().appendChild(el);
+    var titleEl = el.querySelector('.title');
+    var msgEl   = el.querySelector('.msg');
+    var closeBtn= el.querySelector('.close');
+    var bar     = el.querySelector('.progress');
+
+    if (titleEl){
+      titleEl.textContent = ttl;
+      if (!ttl) titleEl.style.display = 'none';
+    }
+    if (msgEl) msgEl.textContent = message;
+
+    var h = host();
+    while (h.children.length >= max){
+      h.removeChild(h.firstElementChild);
+    }
+    h.appendChild(el);
+
     // animate in
     requestAnimationFrame(function(){ el.classList.add('show'); });
 
-    // progress bar animation (shrink to 0)
-    if (bar){
-      bar.style.transition = 'transform ' + delay + 'ms linear';
-      bar.style.transform = 'scaleX(1)';
-      requestAnimationFrame(function(){
-        requestAnimationFrame(function(){
-          bar.style.transform = 'scaleX(0)';
-        });
-      });
+    var killed = false;
+    var remaining = total;
+    var startedAt = 0;
+    var tmr = 0;
+
+    function setBar(ratio){
+      if (!bar) return;
+      ratio = Math.max(0, Math.min(1, ratio));
+      bar.style.transition = 'none';
+      bar.style.transform = 'scaleX(' + ratio + ')';
+    }
+    function animateBar(ms){
+      if (!bar) return;
+      bar.style.transition = 'transform ' + ms + 'ms linear';
+      bar.style.transform = 'scaleX(0)';
     }
 
-    var killed = false;
     function remove(){
       if (killed) return; killed = true;
       el.classList.remove('show');
@@ -193,22 +286,57 @@ function flash_show() {
       }, 220);
     }
 
-    var tmr = setTimeout(remove, delay);
-    if (closeBtn){
-      closeBtn.addEventListener('click', function(){ clearTimeout(tmr); remove(); });
+    function startTimer(){
+      clearTimeout(tmr);
+      startedAt = (window.performance && performance.now) ? performance.now() : Date.now();
+      tmr = setTimeout(remove, remaining);
+
+      // progress bar
+      setBar(remaining / total);
+      requestAnimationFrame(function(){
+        requestAnimationFrame(function(){
+          animateBar(remaining);
+        });
+      });
     }
-    // pause on hover
-    el.addEventListener('mouseenter', function(){ clearTimeout(tmr); if(bar){ bar.style.transition = 'none'; } });
-    el.addEventListener('mouseleave', function(){
-      if(killed) return;
-      // restart a short timeout when leaving
-      var rest = Math.max(1200, Math.round(delay * 0.35));
-      if (bar){
-        bar.style.transition = 'transform ' + rest + 'ms linear';
-        bar.style.transform = 'scaleX(0)';
-      }
-      tmr = setTimeout(remove, rest);
+
+    function pauseTimer(){
+      clearTimeout(tmr);
+      var now = (window.performance && performance.now) ? performance.now() : Date.now();
+      var elapsed = Math.max(0, now - startedAt);
+      remaining = Math.max(0, remaining - elapsed);
+      setBar(Math.max(0.02, remaining / total));
+    }
+
+    startTimer();
+
+    if (closeBtn){
+      closeBtn.addEventListener('click', function(e){
+        e.stopPropagation();
+        clearTimeout(tmr);
+        remove();
+      });
+    }
+
+    // pause on hover (resume from where it left off)
+    el.addEventListener('mouseenter', function(){
+      if (killed) return;
+      pauseTimer();
     });
+    el.addEventListener('mouseleave', function(){
+      if (killed) return;
+      if (remaining < 900) remaining = 900; // avoid insta-disappear after hover
+      startTimer();
+    });
+
+    // optional click-to-close
+    if (opts.clickToClose){
+      el.addEventListener('click', function(e){
+        if (e.target && (e.target.closest && e.target.closest('.close'))) return;
+        clearTimeout(tmr);
+        remove();
+      });
+    }
   }
 
   // global helper for AJAX / buttons
