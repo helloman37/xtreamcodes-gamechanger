@@ -129,19 +129,6 @@
 .reseller-app .xt-iconbtn:hover{ filter: brightness(1.06); }
 .reseller-app .xt-iconbtn:focus{ outline: 2px solid rgba(59,130,246,.55); outline-offset: 2px; }
 
-/* Emoji glyphs can sit low on some platforms; render the power symbol via ::before and nudge it up */
-.reseller-app a.xt-iconbtn[aria-label="Logout"]{
-  font-size: 0; /* hide the inline emoji/text node */
-}
-.reseller-app a.xt-iconbtn[aria-label="Logout"]::before{
-  content: "⏻";
-  /* Match emoji sizing/weight across platforms */
-  font-family: "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif;
-  font-size: 15px;
-  line-height: 1;
-  transform: translateY(-1px);
-}
-
 .reseller-app .xt-dropdown{
   position:absolute;
   right: 18px;
@@ -273,4 +260,34 @@
   margin-top: 14px;
 }
 
+
+/* SVG icons (avoid emoji/font baseline issues) */
+.admin-app .xt-iconbtn svg,
+.reseller-app .xt-iconbtn svg{
+  width:18px;
+  height:18px;
+  display:block;
+}
+
+.admin-app .xt-caret,
+.reseller-app .xt-caret{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.admin-app .xt-caret svg,
+.reseller-app .xt-caret svg{
+  width:14px;
+  height:14px;
+  display:block;
+}
+
+.admin-app .inline-ico svg,
+.reseller-app .inline-ico svg{
+  width:14px;
+  height:14px;
+  display:inline-block;
+  vertical-align:-2px;
+}
 

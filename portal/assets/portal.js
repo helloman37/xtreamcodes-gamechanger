@@ -128,6 +128,20 @@
     return true;
   }
 
+
+  function escapeHtml(str){
+    return String(str).replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+  }
+
+  function iconSvg(name){
+    const base = 'viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
+    const icons = {
+      star: '<path d="M12 2l3.09 6.26L22 9.24l-5 4.87L18.18 22 12 18.56 5.82 22 7 14.11 2 9.24l6.91-.98z"/>'
+    };
+    const body = icons[name] || '';
+    return '<svg class="bico" ' + base + '>' + body + '</svg>';
+  }
+
   function modal(){
     return document.getElementById('portalModal');
   }
@@ -145,7 +159,11 @@
     (badges || []).forEach(x => {
       const span = document.createElement('span');
       span.className = 'badge ' + (x.kind || '');
-      span.textContent = x.text || '';
+      if (x.icon) {
+        span.innerHTML = iconSvg(x.icon) + (x.text ? ('<span class="btxt">' + escapeHtml(String(x.text)) + '</span>') : '');
+      } else {
+        span.textContent = x.text || '';
+      }
       b.appendChild(span);
     });
 
@@ -221,7 +239,7 @@
         const desc = el.getAttribute('data-desc') || '';
         const badges = [];
         const rating = el.getAttribute('data-rating');
-        if (rating) badges.push({text: '★ ' + rating, kind:'good'});
+        if (rating) badges.push({icon:'star', text: String(rating), kind:'good'});
         const year = el.getAttribute('data-year');
         if (year) badges.push({text: year});
         openModal({title, desc, badges, url});
@@ -249,7 +267,7 @@
         const desc = el.getAttribute('data-desc') || '';
         const badges = [];
         const rating = el.getAttribute('data-rating');
-        if (rating) badges.push({text: '★ ' + rating, kind:'good'});
+        if (rating) badges.push({icon:'star', text: String(rating), kind:'good'});
         const year = el.getAttribute('data-year');
         if (year) badges.push({text: year});
         badges.push({text:'TMDB'});
@@ -373,7 +391,7 @@
     `;
     div.addEventListener('click', () => {
       const badges = [];
-      if (it.rating) badges.push({text: '★ ' + it.rating, kind:'good'});
+      if (it.rating) badges.push({icon:'star', text: String(it.rating), kind:'good'});
       if (it.year) badges.push({text: it.year});
       badges.push({text: 'TMDB', kind: ''});
 

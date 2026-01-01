@@ -18,6 +18,16 @@ if (empty($_SESSION['store_user'])) {
 
 $pdo = db();
 
+
+// Global maintenance mode: block portal while enabled
+try {
+  $__fmt = (basename($_SERVER['PHP_SELF'] ?? '') === 'watchlist_api.php') ? 'json' : null;
+  if (function_exists('gc_enforce_maintenance')) {
+    if ($__fmt) gc_enforce_maintenance($pdo, ['format' => $__fmt]);
+    else gc_enforce_maintenance($pdo);
+  }
+} catch (Throwable $e) { /* ignore */ }
+
 // Plugin bridge (for portal UX)
 $GC_LEGALVOD_CFG = null;
 try {

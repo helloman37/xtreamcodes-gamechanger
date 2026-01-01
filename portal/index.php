@@ -124,10 +124,10 @@ if ($tmdbSeries) {
   <p>Featured Live TV is pulled from your channel database. “Latest” Movies/Series are pulled from TMDB Trending (and will play if that title exists in your library).</p>
 
   <div class="big-buttons">
-    <a class="btn primary" href="/portal/live/">📺 Live TV</a>
-    <a class="btn" href="/portal/movies/">🎬 Movies</a>
-    <a class="btn" href="/portal/series/">📼 Series</a>
-    <a class="btn ghost" href="/dashboard.php">👤 My Account</a>
+    <a class="btn primary" href="/portal/live/"><span class="btn-ico"><?= gc_svg_icon('tv') ?></span>Live TV</a>
+    <a class="btn" href="/portal/movies/"><span class="btn-ico"><?= gc_svg_icon('movies') ?></span>Movies</a>
+    <a class="btn" href="/portal/series/"><span class="btn-ico"><?= gc_svg_icon('series') ?></span>Series</a>
+    <a class="btn ghost" href="/dashboard.php"><span class="btn-ico"><?= gc_svg_icon('user') ?></span>My Account</a>
   </div>
 </div>
 

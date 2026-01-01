@@ -29,10 +29,10 @@ try {
   </div>
 
   <div class="hero-sub">
-    <span class="chip">⚡ Fast activation</span>
-    <span class="chip">📺 Works on any IPTV app</span>
-    <span class="chip">🧾 M3U + XMLTV</span>
-    <span class="chip">🔁 Renew anytime</span>
+    <span class="chip"><?= gc_svg_icon('bolt', 'chip-ico') ?> Fast activation</span>
+    <span class="chip"><?= gc_svg_icon('tv', 'chip-ico') ?> Works on any IPTV app</span>
+    <span class="chip"><?= gc_svg_icon('receipt', 'chip-ico') ?> M3U + XMLTV</span>
+    <span class="chip"><?= gc_svg_icon('repeat', 'chip-ico') ?> Renew anytime</span>
   </div>
 </div>
 

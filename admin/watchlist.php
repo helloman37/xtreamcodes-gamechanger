@@ -77,7 +77,7 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
 
   <div class="row" style="gap:12px">
     <div class="card" style="margin:0; flex:1;">
-      <div style="opacity:.9">Lets users add items to their Watchlist (★) from Live / Movies / Series / TMDB tiles.</div>
+      <div style="opacity:.9">Lets users add items to their Watchlist (<span class="inline-ico"><?= gc_svg_icon('star') ?></span>) from Live / Movies / Series / TMDB tiles.</div>
       <div style="margin-top:10px; opacity:.9">User page: <code>/portal/watchlist.php</code></div>
       <div style="margin-top:10px; opacity:.9">API: <code>/portal/watchlist_api.php</code></div>
     </div>

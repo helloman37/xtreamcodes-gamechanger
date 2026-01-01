@@ -40,7 +40,7 @@ $heroRating = (!empty($hero['ok']) && !empty($hero['rating'])) ? (string)$hero['
   <p>Search and explore movies.</p>
   <?php if ($heroTitle): ?>
     <div class="hero-sub">
-      <span class="chip">Trending Movie: <b><?= e($heroTitle) ?></b><?= $heroYear ? ' · ' . e($heroYear) : '' ?><?= $heroRating ? ' · ⭐ ' . e($heroRating) : '' ?></span>
+      <span class="chip">Trending Movie: <b><?= e($heroTitle) ?></b><?= $heroYear ? ' · ' . e($heroYear) : '' ?><?= $heroRating ? ' · ' . gc_svg_icon('star','chip-ico') . ' ' . e($heroRating) : '' ?></span>
     </div>
   <?php endif; ?>
 </div>

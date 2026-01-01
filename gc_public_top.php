@@ -7,6 +7,18 @@ if (session_status() === PHP_SESSION_NONE) {
   session_start();
 }
 
+
+// Enforce maintenance mode for public storefront pages (frontend)
+try {
+  $pdo_maint = db();
+  if (function_exists('gc_enforce_maintenance')) {
+    gc_enforce_maintenance($pdo_maint, ['format' => 'html']);
+  }
+} catch (Throwable $e) {
+  // ignore (never block rendering due to maintenance check errors)
+}
+
+
 $page = basename($_SERVER['PHP_SELF'] ?? '');
 
 function _gc_active(string $file): string {
@@ -96,7 +108,7 @@ try {
   <?php elseif (!$user): ?>
     <img src="/portal/assets/guest.svg" alt="Guest">
   <?php else: ?>
-    <?= e($initial) ?>
+    <img src="/default-avatar.png" alt="Default Avatar">
   <?php endif; ?>
 </div>
       <div>
@@ -116,15 +128,15 @@ try {
   <div class="sidebar">
     <div class="sidegroup">
       <div class="label">Browse</div>
-      <a class="sideitem" href="/portal/"><span class="icon">🏠</span>Portal Home</a>
-      <a class="sideitem" href="/portal/live/"><span class="icon">📺</span>Live TV</a>
-      <a class="sideitem" href="/portal/movies/"><span class="icon">🎬</span>Movies</a>
-      <a class="sideitem" href="/portal/series/"><span class="icon">📼</span>Series</a>
+      <a class="sideitem" href="/portal/"><span class="icon"><?= gc_svg_icon('home') ?></span>Portal Home</a>
+      <a class="sideitem" href="/portal/live/"><span class="icon"><?= gc_svg_icon('tv') ?></span>Live TV</a>
+      <a class="sideitem" href="/portal/movies/"><span class="icon"><?= gc_svg_icon('movies') ?></span>Movies</a>
+      <a class="sideitem" href="/portal/series/"><span class="icon"><?= gc_svg_icon('series') ?></span>Series</a>
     </div>
 
     <div class="sidegroup">
       <div class="label">Account</div>
-      <a class="sideitem active" href="/dashboard.php"><span class="icon">👤</span>My Account</a>
+      <a class="sideitem active" href="/dashboard.php"><span class="icon"><?= gc_svg_icon('user') ?></span>My Account</a>
     </div>
   </div>
   <?php endif; ?>

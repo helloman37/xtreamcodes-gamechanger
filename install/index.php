@@ -222,7 +222,7 @@ $baseUrl = (string)($_SESSION['base_url'] ?? '');
           </div>
           <div class="gc">GAME CHANGER</div>
           <div class="installer-meta">
-            <span class="pill"><?= $installed ? '✓ Installed' : 'Installer' ?></span>
+            <span class="pill"><?= $installed ? '<svg class="ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg> Installed' : 'Installer' ?></span>
             <span class="muted">No code editing. ~60 seconds. Writes <code>config.php</code>.</span>
           </div>
         </div>
@@ -424,7 +424,7 @@ $baseUrl = (string)($_SESSION['base_url'] ?? '');
 
               <?php if (isset($_GET['done']) && $_GET['done'] === '1'): ?>
                 <div class="notice good">
-                  ✅ Installed.<br>
+                  <svg class="ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg> Installed.<br>
                   <div style="margin-top:6px">
                     Admin username: <code><?= h((string)($_SESSION['admin_user'] ?? 'admin')) ?></code><br>
                     Admin password: <code><?= h((string)($_SESSION['admin_pass'] ?? ($_SESSION['generated_admin_pass'] ?? ''))) ?></code>

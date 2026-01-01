@@ -83,7 +83,7 @@ function wl_kind_label(string $k): string {
       <?php endforeach; ?>
 
       <?php if (!$items): ?>
-        <div class="notice">No watchlist items yet. Tap the ★ on movies/series/live to add.</div>
+        <div class="notice">No watchlist items yet. Tap the Watchlist icon on movies/series/live to add.</div>
       <?php endif; ?>
     </div>
   </div>

@@ -492,12 +492,13 @@ tr:hover td{background:#fafbff}
 }
 .xtile-circle{
   width:34px; height:34px; border-radius:50%;
-  display:grid; place-items:center;
+  display:flex; align-items:center; justify-content:center;
   background:rgba(255,255,255,.22);
   box-shadow:none;
   font-size:16px;
 }
-.xtile-circle span{line-height:1; transform:translateY(-1px);}
+.xtile-circle svg{width:18px; height:18px; display:block;}
+.xtile-circle span{display:flex; align-items:center; justify-content:center; line-height:1; transform:none;}
 .xtile-arrow{font-size:14px; vertical-align:-1px;}
 .xtile-green{background:linear-gradient(135deg,#16a34a 0%,#22c55e 55%,#86efac 100%);}
 .xtile-blue{background:linear-gradient(135deg,#2563eb 0%,#3b82f6 55%,#93c5fd 100%);}
@@ -789,11 +790,6 @@ tr:hover td{background:#fafbff}
 .admin-app .xt-iconbtn:focus,
 .reseller-app .xt-iconbtn:focus{ outline: 2px solid rgba(59,130,246,.55); outline-offset: 2px; }
 
-/* Emoji glyphs can sit slightly low on some platforms; nudge the power icon upward */
-.admin-app a.xt-iconbtn[aria-label="Logout"],
-.reseller-app a.xt-iconbtn[aria-label="Logout"]{
-  padding-bottom: 2px;
-}
 
 .admin-app .xt-dropdown,
 .reseller-app .xt-dropdown{
@@ -1089,3 +1085,43 @@ tr:hover td{background:#fafbff}
   color: #0b1020;
 }
 .xt-notifs-card .xt-notif-item .muted{ color: rgba(124,45,18,.85); opacity: 1; }
+
+
+/* SVG icons (avoid emoji/font baseline issues) */
+.admin-app .xt-iconbtn svg,
+.reseller-app .xt-iconbtn svg{
+  width:18px;
+  height:18px;
+  display:block;
+}
+
+.admin-app .xt-caret,
+.reseller-app .xt-caret{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.admin-app .xt-caret svg,
+.reseller-app .xt-caret svg{
+  width:14px;
+  height:14px;
+  display:block;
+}
+
+.admin-app .inline-ico svg,
+.reseller-app .inline-ico svg{
+  width:14px;
+  height:14px;
+  display:inline-block;
+  vertical-align:-2px;
+}
+
+
+.notice-icon{display:flex;align-items:center;justify-content:center;}
+.notice-icon svg{width:18px;height:18px;display:block;}
+.pill-mini .pill-ico svg{width:14px;height:14px;display:block;}
+
+.btn svg{width:16px;height:16px;display:block;}
+
+.xt-modal-close svg{width:18px;height:18px;display:block;}

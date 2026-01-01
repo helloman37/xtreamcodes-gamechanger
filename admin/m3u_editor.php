@@ -153,7 +153,7 @@ $groupList = $content ? m3u_collect_groups($content) : [];
     <h2 style="margin:0 0 10px;">M3U Real-time Editor</h2>
     <?php if ($error): ?>
       <div class="notice notice-warn" style="margin-bottom:12px;">
-        <div class="notice-icon">⚠️</div>
+        <div class="notice-icon"><?= gc_svg_icon('alert') ?></div>
         <div class="notice-body"><div class="notice-title">Error</div><div class="notice-text"><?= e($error) ?></div></div>
       </div>
     <?php endif; ?>
@@ -185,8 +185,8 @@ $groupList = $content ? m3u_collect_groups($content) : [];
 
     <div class="toolbar">
       <div class="left">
-        <div class="pill-mini">🧾 Lines: <span id="lineCount">0</span></div>
-        <div class="pill-mini">🗂️ Groups: <span><?= (int)count($groupList) ?></span></div>
+        <div class="pill-mini"><?= gc_svg_icon('receipt', 'pill-ico') ?> Lines: <span id="lineCount">0</span></div>
+        <div class="pill-mini"><?= gc_svg_icon('folder', 'pill-ico') ?> Groups: <span><?= (int)count($groupList) ?></span></div>
       </div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;">
         <a class="btn btn-ghost" href="m3u_editor.php">Start Over</a>
@@ -195,7 +195,7 @@ $groupList = $content ? m3u_collect_groups($content) : [];
 
     <?php if ($error): ?>
       <div class="notice notice-warn" style="margin-bottom:12px;">
-        <div class="notice-icon">⚠️</div>
+        <div class="notice-icon"><?= gc_svg_icon('alert') ?></div>
         <div class="notice-body"><div class="notice-title">Action blocked</div><div class="notice-text"><?= e($error) ?></div></div>
       </div>
     <?php endif; ?>
@@ -319,7 +319,7 @@ $groupList = $content ? m3u_collect_groups($content) : [];
     <div class="modal" role="dialog" aria-modal="true">
       <div class="modal-header">
         <div class="modal-title" id="modalTitle">Edit group</div>
-        <button type="button" id="modalCancel" class="btn btn-ghost" style="padding:7px 10px;">✕</button>
+        <button type="button" id="modalCancel" class="btn btn-ghost" style="padding:7px 10px;"><?= gc_svg_icon('x') ?></button>
       </div>
       <div class="modal-body">
         <label style="display:block;margin-bottom:8px;">Only this group (EXTINF + URL lines)</label>

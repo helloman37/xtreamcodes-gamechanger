@@ -8,6 +8,14 @@ if (session_status() === PHP_SESSION_NONE) {
 
 $pdo = db();
 
+
+// Global maintenance mode: block storefront pages while enabled
+try {
+  if (function_exists('gc_enforce_maintenance')) {
+    gc_enforce_maintenance($pdo, ['format' => 'html']);
+  }
+} catch (Throwable $e) { /* ignore */ }
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $username = trim($_POST['username'] ?? '');
   $password = $_POST['password'] ?? '';

@@ -3,6 +3,14 @@ require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/helpers.php';
 $pdo=db();
 
+
+// Global maintenance mode: block storefront pages while enabled
+try {
+  if (function_exists('gc_enforce_maintenance')) {
+    gc_enforce_maintenance($pdo, ['format' => 'html']);
+  }
+} catch (Throwable $e) { /* ignore */ }
+
 session_start();
 
 $planId=(int)($_GET['plan'] ?? 0);

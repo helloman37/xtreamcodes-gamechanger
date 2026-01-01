@@ -77,41 +77,64 @@ if (preg_match('~/public$~', $site_url)) {
 <div class="stat-tiles xtream-tiles">
   <div class="xtile xtile-green">
     <div class="xtile-left">
-      <div class="xtile-value"><?= (int)$online['streams'] ?> / <?= (int)$counts['channels'] ?></div>
+      <div class="xtile-value"><span id="dashOnlineStreams"><?= (int)$online['streams'] ?></span> / <span id="dashTotalChannels"><?= (int)$counts['channels'] ?></span></div>
       <div class="xtile-label">Online Streams</div>
     </div>
     <div class="xtile-right">
-      <div class="xtile-circle"><span>▶️</span></div>
+      <div class="xtile-circle" aria-hidden="true">
+        <svg class="xtile-ico" viewBox="0 0 24 24" role="img" focusable="false">
+          <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2" />
+          <polygon points="10 8 16 12 10 16 10 8" fill="currentColor" stroke="none" />
+        </svg>
+      </div>
     </div>
 </div>
 
   <div class="xtile xtile-blue">
     <div class="xtile-left">
-      <div class="xtile-value"><?= (int)$online['users'] ?> / <?= (int)$counts['users'] ?></div>
+      <div class="xtile-value"><span id="dashOnlineUsers"><?= (int)$online['users'] ?></span> / <span id="dashTotalUsers"><?= (int)$counts['users'] ?></span></div>
       <div class="xtile-label">Online Users</div>
     </div>
     <div class="xtile-right">
-      <div class="xtile-circle"><span>👥</span></div>
+      <div class="xtile-circle" aria-hidden="true">
+        <svg class="xtile-ico" viewBox="0 0 24 24" role="img" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+          <circle cx="9" cy="7" r="4" />
+          <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        </svg>
+      </div>
     </div>
 </div>
 
   <div class="xtile xtile-yellow">
     <div class="xtile-left">
-      <div class="xtile-value"><?= (int)$online['connections'] ?> / ∞</div>
+      <div class="xtile-value"><span id="dashOnlineConnections"><?= (int)$online['connections'] ?></span> / ∞</div>
       <div class="xtile-label">Online Connections</div>
     </div>
     <div class="xtile-right">
-      <div class="xtile-circle"><span>⚡</span></div>
+      <div class="xtile-circle" aria-hidden="true">
+        <svg class="xtile-ico" viewBox="0 0 24 24" role="img" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+        </svg>
+      </div>
     </div>
 </div>
 
   <div class="xtile xtile-gray">
     <div class="xtile-left">
-      <div class="xtile-value"><?= (int)$online['servers'] ?> / <?= (int)$online['servers'] ?></div>
+      <div class="xtile-value"><span id="dashOnlineServers"><?= (int)$online['servers'] ?></span> / <span id="dashTotalServers"><?= (int)$online['servers'] ?></span></div>
       <div class="xtile-label">Online Servers</div>
     </div>
     <div class="xtile-right">
-      <div class="xtile-circle"><span>🗄️</span></div>
+      <div class="xtile-circle" aria-hidden="true">
+        <svg class="xtile-ico" viewBox="0 0 24 24" role="img" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="18" height="7" rx="2" />
+          <rect x="3" y="14" width="18" height="7" rx="2" />
+          <circle cx="7" cy="6.5" r="1" fill="currentColor" stroke="none" />
+          <circle cx="7" cy="17.5" r="1" fill="currentColor" stroke="none" />
+        </svg>
+      </div>
     </div>
 </div>
 </div>
@@ -125,9 +148,12 @@ if (preg_match('~/public$~', $site_url)) {
   </div>
   <div class="dash-table-wrap">
     <table class="dash-table">
-      <tr>
-        <th>Time</th><th>User</th><th>Channel</th><th>IP</th>
-      </tr>
+      <thead>
+        <tr>
+          <th>Time</th><th>User</th><th>Channel</th><th>IP</th>
+        </tr>
+      </thead>
+      <tbody id="dashRecentAccessRows">
       <?php foreach($access_logs as $log): ?>
       <tr>
         <td><?= e($log['last_seen']) ?></td>
@@ -139,6 +165,7 @@ if (preg_match('~/public$~', $site_url)) {
       <?php if(empty($access_logs)): ?>
       <tr><td colspan="4" style="text-align:center; opacity:.7;">No recent sessions</td></tr>
       <?php endif; ?>
+      </tbody>
     </table>
   </div>
 </div>
@@ -202,6 +229,64 @@ if (preg_match('~/public$~', $site_url)) {
   update();
 })();
 </script>
+<script>
+(function(){
+  const streamsEl = document.getElementById('dashOnlineStreams');
+  const usersEl = document.getElementById('dashOnlineUsers');
+  const connsEl = document.getElementById('dashOnlineConnections');
+  const serversEl = document.getElementById('dashOnlineServers');
+
+  const totalChEl = document.getElementById('dashTotalChannels');
+  const totalUsersEl = document.getElementById('dashTotalUsers');
+  const totalServersEl = document.getElementById('dashTotalServers');
+
+  const logsBody = document.getElementById('dashRecentAccessRows');
+
+  if(!streamsEl || !usersEl || !connsEl || !logsBody){ return; }
+
+  const url = 'ajax/dashboard_live.php';
+  let inFlight = false;
+
+  async function refresh(){
+    if(inFlight) return;
+    inFlight = true;
+    try{
+      const r = await fetch(url, {
+        method: 'GET',
+        cache: 'no-store',
+        credentials: 'same-origin',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      });
+      if(!r.ok) throw new Error('HTTP ' + r.status);
+      const j = await r.json();
+      if(!j || !j.ok) throw new Error('Bad response');
+
+      if(j.online){
+        if(typeof j.online.streams !== 'undefined') streamsEl.textContent = j.online.streams;
+        if(typeof j.online.users !== 'undefined') usersEl.textContent = j.online.users;
+        if(typeof j.online.connections !== 'undefined') connsEl.textContent = j.online.connections;
+        if(serversEl && typeof j.online.servers !== 'undefined') serversEl.textContent = j.online.servers;
+      }
+      if(j.counts){
+        if(totalChEl && typeof j.counts.channels !== 'undefined') totalChEl.textContent = j.counts.channels;
+        if(totalUsersEl && typeof j.counts.users !== 'undefined') totalUsersEl.textContent = j.counts.users;
+        if(totalServersEl && typeof j.online?.servers !== 'undefined') totalServersEl.textContent = j.online.servers;
+      }
+      if(typeof j.logs_html === 'string'){
+        logsBody.innerHTML = j.logs_html;
+      }
+    }catch(e){
+      // silent
+    }finally{
+      inFlight = false;
+    }
+  }
+
+  refresh();
+  setInterval(refresh, 1000);
+})();
+</script>
+
 </div><!-- container -->
 </main>
 </div><!-- app -->

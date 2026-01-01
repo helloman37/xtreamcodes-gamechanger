@@ -455,7 +455,8 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
     .m3u-order-list li{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid rgba(0,0,0,.06);cursor:grab;user-select:none;}
     .m3u-order-list li:last-child{border-bottom:none;}
     .m3u-order-list li.dragging{opacity:.5;}
-    .m3u-order-list .handle{font-weight:700;opacity:.55;}
+    .m3u-order-list .handle{display:inline-flex;align-items:center;justify-content:center;opacity:.55;}
+.handle svg{width:16px;height:16px;display:block;}
     .m3u-order-list .fname{font-weight:600;}
     .m3u-order-list .meta{margin-left:auto;opacity:.6;font-size:12px;}
     .m3u-mini-btn{padding:6px 10px;border:1px solid rgba(0,0,0,.2);background:#fff;border-radius:10px;cursor:pointer;}
@@ -627,7 +628,7 @@ if (urlField && urlField.value.trim() !== '' && radioUrl) {
       const li = document.createElement('li');
       li.draggable = true;
       li.setAttribute('data-idx', String(i));
-      li.innerHTML = '<span class="handle">☰</span>' +
+      li.innerHTML = '<span class=\"handle\"><svg class="gc-ico" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 8h.01"/><path d="M14 8h.01"/><path d="M10 12h.01"/><path d="M14 12h.01"/><path d="M10 16h.01"/><path d="M14 16h.01"/></svg></span>' +
         '<span class="fname"></span>' +
         '<span class="meta"></span>';
       const fname = f.name || ('file-'+(i+1));

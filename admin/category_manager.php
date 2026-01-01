@@ -424,8 +424,8 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
           <form method="post" class="cat-form" style="gap:6px;">
             <input type="hidden" name="category_id" value="<?=$c['id']?>">
             <input type="hidden" name="move_cat" value="1">
-            <button class="btn gray btn-small" name="dir" value="up" <?= ((int)$c['id'] === $uncat_id) ? 'disabled' : '' ?> title="Move up">▲</button>
-            <button class="btn gray btn-small" name="dir" value="down" <?= ((int)$c['id'] === $uncat_id) ? 'disabled' : '' ?> title="Move down">▼</button>
+            <button class="btn gray btn-small" name="dir" value="up" <?= ((int)$c['id'] === $uncat_id) ? 'disabled' : '' ?> title="Move up"><?= gc_svg_icon('chevron-up') ?></button>
+            <button class="btn gray btn-small" name="dir" value="down" <?= ((int)$c['id'] === $uncat_id) ? 'disabled' : '' ?> title="Move down"><?= gc_svg_icon('chevron-down') ?></button>
           </form>
 
           <form method="post" class="cat-form">

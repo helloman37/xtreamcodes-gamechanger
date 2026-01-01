@@ -12,6 +12,14 @@ if (empty($_SESSION['store_user'])) {
 }
 
 $pdo = db();
+
+// Global maintenance mode: block storefront pages while enabled
+try {
+  if (function_exists('gc_enforce_maintenance')) {
+    gc_enforce_maintenance($pdo, ['format' => 'html']);
+  }
+} catch (Throwable $e) { /* ignore */ }
+
 $userId = is_array($_SESSION['store_user']) ? (int)($_SESSION['store_user']['id'] ?? 0) : (int)$_SESSION['store_user'];
 
 // Global toggle (controlled from Admin -> Plans)
@@ -81,11 +89,11 @@ $initial = strtoupper(substr($displayName, 0, 1));
       <?php if ($avatarUrl): ?>
         <img src="<?= e($avatarUrl) ?>" alt="Avatar">
       <?php else: ?>
-        <?= e($initial) ?>
+        <img src="/default-avatar.png" alt="Default Avatar">
       <?php endif; ?>
     </div>
     <div class="muted avatarhelp">
-      Upload a square image (JPG/PNG/WEBP). If you don’t upload, we’ll show the first letter of your name.
+      Upload a square image (JPG/PNG/WEBP). If you don’t upload, we’ll show a default profile icon.
     </div>
   </div>
 

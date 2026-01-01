@@ -5,6 +5,14 @@ require_once __DIR__ . '/admin_notifications_lib.php';
 session_start();
 $pdo = db();
 
+
+// Global maintenance mode: block storefront pages while enabled
+try {
+  if (function_exists('gc_enforce_maintenance')) {
+    gc_enforce_maintenance($pdo, ['format' => 'html']);
+  }
+} catch (Throwable $e) { /* ignore */ }
+
 $err = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {

@@ -7,6 +7,32 @@ function _portal_active(string $file): string {
   return $base === $file ? 'active' : '';
 }
 
+
+function _portal_svg(string $name): string {
+  // Simple, consistent sidebar icons (SVG) to avoid emoji baseline misalignment.
+  // Uses currentColor so styling can be controlled via CSS.
+  switch ($name) {
+    case 'home':
+      return '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5L12 3l9 7.5"></path><path d="M5 10v10h14V10"></path><path d="M9 20v-6h6v6"></path></svg>';
+    case 'tv':
+      return '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="12" rx="2"></rect><path d="M7 7l-2-3"></path><path d="M17 7l2-3"></path></svg>';
+    case 'calendar':
+      return '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><path d="M16 2v4"></path><path d="M8 2v4"></path><path d="M3 10h18"></path></svg>';
+    case 'support':
+      return '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V6l-8-4-8 4v6c0 6 8 10 8 10z"></path><path d="M12 8v5"></path><path d="M12 16h.01"></path></svg>';
+    case 'movies':
+      return '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="15" rx="2"></rect><path d="M7 6l2 4"></path><path d="M17 6l-2 4"></path><path d="M3 10h18"></path></svg>';
+    case 'series':
+      return '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="M7 19v2"></path><path d="M17 19v2"></path><path d="M8 9l8 4-8 4V9z"></path></svg>';
+    case 'watchlist':
+      return '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17.3l-6.2 3.3 1.2-6.9L2 8.9l7-1L12 2l3 5.9 7 1-5 4.8 1.2 6.9z"></path></svg>';
+    case 'user':
+      return '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21a8 8 0 0 0-16 0"></path><circle cx="12" cy="7" r="4"></circle></svg>';
+    default:
+      return '';
+  }
+}
+
 $uname = (string)($user['username'] ?? '');
 $displayName = trim((string)($user['name'] ?? ''));
 if ($displayName === '') $displayName = $uname;
@@ -142,7 +168,7 @@ window.__watchlist = {enabled: <?= !empty($__watchlist_enabled) ? 'true' : 'fals
   $unread = (int)($__notif_unread ?? 0);
 ?>
 <a class="bell<?= $isNotif ? ' active' : '' ?>" href="/portal/notifications/" title="Notifications">
-  🔔<?php if ($unread > 0): ?><span class="nbadge"><?= (int)$unread ?></span><?php endif; ?>
+  <?= gc_svg_icon('bell') ?><?php if ($unread > 0): ?><span class="nbadge"><?= (int)$unread ?></span><?php endif; ?>
 </a>
 
 
@@ -152,7 +178,7 @@ window.__watchlist = {enabled: <?= !empty($__watchlist_enabled) ? 'true' : 'fals
   <?php elseif (!$user): ?>
     <img src="/portal/assets/guest.svg" alt="Guest">
   <?php else: ?>
-    <?= e($initial) ?>
+    <img src="/default-avatar.png" alt="Default Avatar">
   <?php endif; ?>
 </div>
       <div>
@@ -168,11 +194,11 @@ window.__watchlist = {enabled: <?= !empty($__watchlist_enabled) ? 'true' : 'fals
     <div class="sidegroup">
       <div class="label">Browse</div>
       <a class="sideitem <?= _portal_active('index.php') ?>" href="/portal/">
-        <span class="icon"><span class="glyph">🏠</span></span>
+        <span class="icon"><?=_portal_svg("home")?></span>
         Home
       </a>
       <a class="sideitem <?= _portal_active('live.php') ?>" href="/portal/live/">
-        <span class="icon"><span class="glyph">📺</span></span>
+        <span class="icon"><?=_portal_svg("tv")?></span>
         Live TV
       </a>
       <?php
@@ -180,27 +206,27 @@ window.__watchlist = {enabled: <?= !empty($__watchlist_enabled) ? 'true' : 'fals
         $isGuide = (strpos($req, '/portal/guide') === 0) || (strpos($req, '/portal/guide.php') === 0);
       ?>
       <a class="sideitem <?= $isGuide ? 'active' : '' ?>" href="/portal/guide/">
-        <span class="icon"><span class="glyph">🗓️</span></span>
+        <span class="icon"><?=_portal_svg("calendar")?></span>
         Guide
       </a>
       <?php if (!empty($__supportdesk_enabled)): ?>
       <?php $isSupport = (strpos($req, '/portal/support') === 0); ?>
       <a class="sideitem <?= $isSupport ? 'active' : '' ?>" href="/portal/support/">
-        <span class="icon"><span class="glyph">🆘</span></span>
+        <span class="icon"><?=_portal_svg("support")?></span>
         Support
       </a>
       <?php endif; ?>
       <a class="sideitem <?= _portal_active('movies.php') ?>" href="/portal/movies/">
-        <span class="icon"><span class="glyph">🎬</span></span>
+        <span class="icon"><?=_portal_svg("movies")?></span>
         Movies
       </a>
       <a class="sideitem <?= _portal_active('series.php') ?>" href="/portal/series/">
-        <span class="icon"><span class="glyph">📼</span></span>
+        <span class="icon"><?=_portal_svg("series")?></span>
         Series
       </a>
       <?php if (!empty($__watchlist_enabled)): ?>
       <a class="sideitem <?= _portal_active('watchlist.php') ?>" href="/portal/watchlist/">
-        <span class="icon"><span class="glyph">⭐</span></span>
+        <span class="icon"><?=_portal_svg("watchlist")?></span>
         Watchlist
       </a>
       <?php endif; ?>
@@ -209,7 +235,7 @@ window.__watchlist = {enabled: <?= !empty($__watchlist_enabled) ? 'true' : 'fals
     <div class="sidegroup">
       <div class="label">Account</div>
       <a class="sideitem" href="/dashboard.php">
-        <span class="icon"><span class="glyph">👤</span></span>
+        <span class="icon"><?=_portal_svg("user")?></span>
         My Account
       </a>
     </div>

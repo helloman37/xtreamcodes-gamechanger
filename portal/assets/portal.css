@@ -256,22 +256,28 @@ body::after{
 }
 .sideitem .icon{
   width:28px;height:28px;border-radius:10px;
-  /* Use grid centering for consistent emoji alignment */
   display:grid;
   place-items:center;
   background: rgba(0,0,0,.22);
   border:1px solid rgba(255,255,255,.10);
-  /* emoji glyphs sit low on some platforms; keep the box fixed and nudge glyph only */
   padding:0;
+  color: rgba(255,255,255,.90);
+}
+.sideitem.active .icon{ color: rgba(255,255,255,.98); }
+
+.sideitem .icon svg{
+  width:18px;height:18px;
+  display:block;
+  /* Make icons "fill in" on the active page */
+  stroke: currentColor !important;
+  fill: currentColor !important;
+  fill-opacity: 0;
+}
+.sideitem.active .icon svg{
+  fill-opacity: 1;
 }
 
-.sideitem .icon .glyph{
-  display:block;
-  line-height:1;
-  /* Slightly smaller + a touch higher keeps emoji visually centered across fonts */
-  font-size:15px;
-  transform: translateY(-2px);
-}
+
 
 .main{
   grid-row:2;
@@ -735,3 +741,18 @@ select optgroup{
 .bell:hover{background:rgba(255,255,255,0.06);text-decoration:none;}
 .bell.active{background:rgba(255,255,255,0.08);}
 .nbadge{position:absolute;top:3px;right:4px;min-width:18px;height:18px;padding:0 5px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;border-radius:999px;background:#ff3b3b;color:#fff;box-shadow:0 6px 16px rgba(0,0,0,0.35);}
+
+
+/* SVG icon helpers */
+.btn-ico{ display:inline-flex; align-items:center; }
+.btn-ico svg{ width:18px; height:18px; display:block; }
+
+.hero .chip svg,
+.chip svg{ width:16px; height:16px; display:block; }
+
+.badge .bico{ width:14px; height:14px; display:block; margin-right:6px; }
+.badge .btxt{ line-height:1; }
+
+
+.bell svg{width:18px;height:18px;display:block;stroke:currentColor !important;fill:currentColor !important;fill-opacity:0;}
+.bell.active svg{fill-opacity:1;}

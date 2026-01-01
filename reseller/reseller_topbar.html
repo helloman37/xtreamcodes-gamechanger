@@ -20,8 +20,8 @@
             <div class="xt-userlabel" title="Signed in user">{{USERNAME}}</div>
 
             <!-- Settings opens Change Password modal -->
-            <button class="xt-iconbtn" id="xtGear" type="button" aria-haspopup="dialog" aria-expanded="false" title="Settings">⚙️</button>
-            <a class="xt-iconbtn" href="reseller_signout.php" title="Logout" aria-label="Logout">⏻</a>
+            <button class="xt-iconbtn" id="xtGear" type="button" aria-haspopup="dialog" aria-expanded="false" title="Settings"><svg class="xt-ico" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="M4.93 4.93l1.41 1.41"/><path d="M17.66 17.66l1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="M4.93 19.07l1.41-1.41"/><path d="M17.66 6.34l1.41-1.41"/></svg></button>
+            <a class="xt-iconbtn" href="reseller_signout.php" title="Logout" aria-label="Logout"><svg class="xt-ico" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v10"/><path d="M5.5 5.5a9 9 0 1 0 13 0"/></svg></a>
 
             <!-- (Optional) dropdown container kept for future settings; hidden unless .open -->
             <div class="xt-dropdown" id="xtDrop" aria-label="Settings menu" style="display:none"></div>
@@ -36,7 +36,7 @@
 
           <div class="xt-nav-dd">
             <button class="xt-nav-link xt-nav-btn" type="button" aria-haspopup="true" aria-expanded="false">
-              Users <span class="xt-caret">▾</span>
+              Users <span class="xt-caret"><svg class="xt-caret-ico" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></span>
             </button>
             <div class="xt-nav-menu" role="menu">
               <a href="reseller_users.php" data-active="reseller_users.php">My Users</a>
@@ -53,7 +53,7 @@
       <div class="xt-modal" role="dialog" aria-modal="true" aria-label="Change password">
         <div class="xt-modal-head">
           <div class="xt-modal-title">Change password</div>
-          <button class="xt-modal-close" type="button" id="xtPassClose" aria-label="Close">✕</button>
+          <button class="xt-modal-close" type="button" id="xtPassClose" aria-label="Close"><svg class="xt-ico" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg></button>
         </div>
         <form class="xt-modal-body" id="xtPassForm" autocomplete="off">
           <input type="hidden" name="change_password" value="1">
@@ -80,7 +80,7 @@
     <div class="container reseller-container">
 
       <div class="notice notice-warn reseller-notice">
-        <div class="notice-icon">⚠️</div>
+        <div class="notice-icon"><svg class="xt-ico" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></div>
         <div class="notice-body">
           <div class="notice-title">Your Clients — do NOT give free access.</div>
           <div class="notice-text">If you are found giving free accounts away without prior approval from the website owner, your reseller account &amp; your website account will be terminated.</div>

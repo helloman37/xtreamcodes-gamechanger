@@ -95,7 +95,7 @@
     btn.className = 'wl-star' + (state.set.has(key) ? ' wl-on' : '');
     btn.title = 'Watchlist';
     btn.setAttribute('aria-label','Watchlist');
-    btn.innerHTML = '★';
+    btn.innerHTML = `<svg class="ico" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2l3.09 6.26L22 9.24l-5 4.87L18.18 22 12 18.56 5.82 22 7 14.11 2 9.24l6.91-.98z"/></svg>`;
 
     btn.addEventListener('click', async (e) => {
       e.preventDefault();

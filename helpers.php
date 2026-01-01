@@ -1128,6 +1128,154 @@ function system_setting_set(PDO $pdo, string $key, ?string $value): void {
 }
 
 
+
+/* ---------- MAINTENANCE MODE (frontend + portal) ---------- */
+
+function gc_maintenance_get(PDO $pdo): array {
+  $enabled = (system_setting_get($pdo, 'maintenance_mode', '0') === '1');
+  $message = (string)system_setting_get(
+    $pdo,
+    'maintenance_message',
+    'Service is temporarily under maintenance. Please try again later.'
+  );
+  $video_url = trim((string)system_setting_get($pdo, 'maintenance_video_url', ''));
+  $custom_html = (string)system_setting_get($pdo, 'maintenance_custom_html', '');
+  return [
+    'enabled' => $enabled,
+    'message' => $message,
+    'video_url' => $video_url,
+    'custom_html' => $custom_html,
+  ];
+}
+
+function gc_is_json_request(): bool {
+  $accept = strtolower((string)($_SERVER['HTTP_ACCEPT'] ?? ''));
+  if ($accept !== '' && strpos($accept, 'application/json') !== false) return true;
+
+  $xhr = strtolower((string)($_SERVER['HTTP_X_REQUESTED_WITH'] ?? ''));
+  if ($xhr === 'xmlhttprequest') return true;
+
+  $uri = (string)($_SERVER['REQUEST_URI'] ?? '');
+  if ($uri !== '' && preg_match('~/(api|ajax)~i', $uri)) return true;
+
+  return false;
+}
+
+function gc_render_maintenance_html(string $message, string $video_url = ''): void {
+  $title = 'Maintenance Mode';
+  $msg = htmlspecialchars((string)$message, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+  $vid = trim((string)$video_url);
+  $vidEsc = htmlspecialchars($vid, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+
+  http_response_code(503);
+  header('Content-Type: text/html; charset=utf-8');
+  header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+  header('Pragma: no-cache');
+  header('Retry-After: 300');
+
+  echo "<!doctype html>\n";
+  echo "<html><head>\n";
+  echo "  <meta charset=\"utf-8\">\n";
+  echo "  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n";
+  echo "  <title>{$title}</title>\n";
+  echo "  <link rel=\"icon\" href=\"/favicon.ico\">\n";
+  echo "  <link rel=\"stylesheet\" href=\"/portal/assets/portal.css\">\n";
+  echo "  <link rel=\"stylesheet\" href=\"/portal/assets/public.css\">\n";
+  echo "  <style>\n";
+  echo "    .gc-maint-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;}\n";
+  echo "    .gc-maint-card{max-width:760px;width:100%;}\n";
+  echo "    .gc-maint-card .btnrow{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px;}\n";
+  echo "    .gc-maint-card .btnrow a{display:inline-flex;align-items:center;justify-content:center;}\n";
+  echo "  </style>\n";
+  echo "</head><body>\n";
+  echo "<div class=\"gc-maint-wrap\">\n";
+  echo "  <div class=\"card hero gc-maint-card\">\n";
+  echo "    <h1>We&rsquo;ll be back soon</h1>\n";
+  echo "    <p class=\"muted\">{$msg}</p>\n";
+  if ($vid !== '') {
+    echo "    <div class=\"btnrow\">\n";
+    echo "      <a class=\"btn primary\" href=\"{$vidEsc}\" target=\"_blank\" rel=\"noopener\">Open maintenance video</a>\n";
+    echo "      <a class=\"btn\" href=\"/\">Refresh</a>\n";
+    echo "    </div>\n";
+  } else {
+    echo "    <div class=\"btnrow\">\n";
+    echo "      <a class=\"btn primary\" href=\"/\">Refresh</a>\n";
+    echo "    </div>\n";
+  }
+  echo "    <div class=\"hero-sub\" style=\"margin-top:14px;\">\n";
+  echo "      <span class=\"chip\">" . gc_svg_icon('wrench', 'chip-ico') . " Maintenance</span>\n";
+  echo "      <span class=\"chip\">" . gc_svg_icon('clock', 'chip-ico') . " Please try again soon</span>\n";
+  echo "    </div>\n";
+  echo "  </div>\n";
+  echo "</div>\n";
+  echo "</body></html>\n";
+}
+
+
+function gc_render_maintenance_custom_html(string $custom_html, string $message, string $video_url = ''): void {
+  $html = (string)$custom_html;
+  $msg = (string)$message;
+  $vid = trim((string)$video_url);
+
+  // Allow simple placeholders in the custom HTML:
+  //  - {{message}} (escaped)
+  //  - {{video_url}} (escaped)
+  //  - {{message_raw}} (raw)
+  //  - {{video_url_raw}} (raw)
+  $msgEsc = htmlspecialchars($msg, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+  $vidEsc = htmlspecialchars($vid, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+
+  $out = str_replace(
+    ['{{message}}','{{video_url}}','{{message_raw}}','{{video_url_raw}}'],
+    [$msgEsc, $vidEsc, $msg, $vid],
+    $html
+  );
+
+  http_response_code(503);
+  header('Content-Type: text/html; charset=utf-8');
+  header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+  header('Pragma: no-cache');
+  header('Retry-After: 300');
+
+  echo $out;
+}
+
+
+
+function gc_enforce_maintenance(PDO $pdo, array $opts = []): void {
+  $m = gc_maintenance_get($pdo);
+  if (empty($m['enabled'])) return;
+
+  $format = $opts['format'] ?? null;
+  if ($format === null) {
+    $format = gc_is_json_request() ? 'json' : 'html';
+  }
+
+  if ($format === 'json') {
+    http_response_code(503);
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    header('Pragma: no-cache');
+    header('Retry-After: 300');
+    echo json_encode([
+      'maintenance' => true,
+      'message' => (string)($m['message'] ?? 'Maintenance mode'),
+    ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    exit;
+  }
+
+  $custom = trim((string)($m['custom_html'] ?? ''));
+  if ($custom !== '') {
+    gc_render_maintenance_custom_html($custom, (string)($m['message'] ?? ''), (string)($m['video_url'] ?? ''));
+    exit;
+  }
+
+  gc_render_maintenance_html((string)($m['message'] ?? ''), (string)($m['video_url'] ?? ''));
+  exit;
+}
+
+
+
 /* ---------- SUBSCRIPTIONS (single active subscription guard) ---------- */
 
 /**
@@ -1267,3 +1415,53 @@ function iptv_cancel_other_active_subscriptions(PDO $pdo, int $user_id, int $kee
     // ignore
   }
 }
+
+/**
+ * Inline SVG icons (avoid emoji baseline/OS font weirdness).
+ * Usage: echo gc_svg_icon('home', 'extra-class');
+ */
+function gc_svg_icon(string $name, string $class = '', array $attrs = []): string {
+  static $icons = null;
+  if ($icons === null) {
+    $icons = [
+      'home' => '<path d="M3 11l9-8 9 8v10a2 2 0 0 1-2 2h-4v-6H9v6H5a2 2 0 0 1-2-2z"/>',
+      'tv' => '<rect x="3" y="7" width="18" height="12" rx="2"/><path d="M7 7l5-4 5 4"/><path d="M8 21h8"/>',
+      'movies' => '<path d="M3 7h18l-2-4H5L3 7z"/><rect x="3" y="7" width="18" height="14" rx="2"/><path d="M7 7l3 4"/><path d="M12 7l3 4"/><path d="M17 7l3 4"/>',
+      'series' => '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 9h10"/><path d="M7 13h10"/><path d="M7 17h6"/>',
+      'user' => '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+      'calendar' => '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/>',
+      'support' => '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><path d="M4.93 4.93l4.24 4.24"/><path d="M14.83 14.83l4.24 4.24"/><path d="M14.83 9.17l4.24-4.24"/><path d="M4.93 19.07l4.24-4.24"/>',
+      'star' => '<path d="M12 2l3.09 6.26L22 9.24l-5 4.87L18.18 22 12 18.56 5.82 22 7 14.11 2 9.24l6.91-.98z"/>',
+      'bell' => '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
+      'gear' => '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-1.41 3.41h-.2a1.65 1.65 0 0 0-1.54 1.1l-.02.08a2 2 0 0 1-3.77 0l-.02-.08a1.65 1.65 0 0 0-1.54-1.1H10a1.65 1.65 0 0 0-1.82.33l-.06.06A2 2 0 0 1 4.7 19.4l.06-.06A1.65 1.65 0 0 0 5.1 17.5l-.01-.08a1.65 1.65 0 0 0-1.1-1.54l-.08-.02a2 2 0 0 1 0-3.77l.08-.02a1.65 1.65 0 0 0 1.1-1.54l.01-.08A1.65 1.65 0 0 0 4.76 8.1l-.06-.06A2 2 0 0 1 8.1 4.7l.06.06A1.65 1.65 0 0 0 10 5.1l.08-.01a1.65 1.65 0 0 0 1.54-1.1l.02-.08a2 2 0 0 1 3.77 0l.02.08a1.65 1.65 0 0 0 1.54 1.1l.08.01a1.65 1.65 0 0 0 1.82-.33l.06-.06A2 2 0 0 1 19.4 8.1l-.06.06A1.65 1.65 0 0 0 18.9 10l.01.08a1.65 1.65 0 0 0 1.1 1.54l.08.02a2 2 0 0 1 0 3.77l-.08.02a1.65 1.65 0 0 0-1.1 1.54z"/>',
+      'power' => '<path d="M12 2v10"/><path d="M5.5 5.5a9 9 0 1 0 13 0"/>',
+      'x' => '<path d="M18 6L6 18"/><path d="M6 6l12 12"/>',
+      'alert' => '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+      'check' => '<path d="M20 6L9 17l-5-5"/>',
+      'menu' => '<path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/>',
+      'chevron-down' => '<path d="M6 9l6 6 6-6"/>',
+      'chevron-up' => '<path d="M18 15l-6-6-6 6"/>',
+      'chevron-left' => '<path d="M15 18l-6-6 6-6"/>',
+      'chevron-right' => '<path d="M9 18l6-6-6-6"/>',
+      'folder' => '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h9a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+      'receipt' => '<path d="M6 2h12v20l-2-1-2 1-2-1-2 1-2-1-2 1z"/><path d="M8 6h8"/><path d="M8 10h8"/><path d="M8 14h6"/>',
+      'bolt' => '<path d="M13 2L3 14h7l-1 8 10-12h-7z"/>',
+      'repeat' => '<path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/>',
+      'wrench' => '<path d="M14.7 6.3a4 4 0 0 0-5.6 5.6l-6.6 6.6a2 2 0 0 0 2.8 2.8l6.6-6.6a4 4 0 0 0 5.6-5.6l-2.1 2.1-3-3z"/>',
+      'clock' => '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+      'grip' => '<path d="M10 8h.01"/><path d="M14 8h.01"/><path d="M10 12h.01"/><path d="M14 12h.01"/><path d="M10 16h.01"/><path d="M14 16h.01"/>',
+    ];
+  }
+
+  if (!isset($icons[$name])) return '';
+
+  $cls = trim('gc-ico ' . $class);
+  $extra = '';
+  foreach ($attrs as $k => $v) {
+    $k = preg_replace('/[^a-zA-Z0-9_:-]/', '', (string)$k);
+    $extra .= ' ' . $k . '="' . htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8') . '"';
+  }
+
+  return '<svg class="' . htmlspecialchars($cls, ENT_QUOTES, 'UTF-8') . '" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"' . $extra . '>' . $icons[$name] . '</svg>';
+}
+

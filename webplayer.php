@@ -357,7 +357,10 @@ body.auth-open{overflow:hidden}
 .auth-actions{display:flex;gap:6px;margin-top:10px}
 .auth-actions button{flex:1}
 
-  </style>
+  
+/* SVG icons */
+#epgPrev svg.ico,#epgNext svg.ico,#epgClose svg.ico{width:18px;height:18px;display:block;}
+</style>
 </head>
 <body>
   <header>
@@ -454,10 +457,10 @@ body.auth-open{overflow:hidden}
         <select id="epgCategory">
           <option value="">All Categories</option>
         </select>
-        <button class="ghost" id="epgPrev" title="Back 30 min" type="button">◀</button>
+        <button class="ghost" id="epgPrev" title="Back 30 min" type="button"><svg class="ico" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg></button>
         <button class="ghost" id="epgNowBtn" type="button">Now</button>
-        <button class="ghost" id="epgNext" title="Forward 30 min" type="button">▶</button>
-        <button id="epgClose" title="Close" type="button">✕</button>
+        <button class="ghost" id="epgNext" title="Forward 30 min" type="button"><svg class="ico" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg></button>
+        <button id="epgClose" title="Close" type="button"><svg class="ico" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg></button>
       </div>
 
       <div class="epg-wrap" id="epgWrap">
@@ -1192,7 +1195,7 @@ function hideAuth(){
         return false;
       }
 
-      // validated ✅
+      // validated
       isAuthed = true;
       saveCreds();
       if (els.accountSection) els.accountSection.style.display = "block";
