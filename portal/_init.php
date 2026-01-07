@@ -7,6 +7,7 @@ require_once __DIR__ . '/../helpers.php';
 require_once __DIR__ . '/../plugins_core.php';
 require_once __DIR__ . '/../api_common.php';
 require_once __DIR__ . '/../notifications_lib.php';
+require_once __DIR__ . '/../email_lib.php';
 
 session_start();
 
@@ -98,6 +99,24 @@ if (!$user || ($user['status'] ?? 'active') !== 'active') {
   header('Location: /logout.php');
   exit;
 }
+
+// If verification is required, block portal until the email is verified.
+try {
+  if (gc_email_verification_required($pdo) && !gc_email_user_is_verified($user)) {
+    $em = trim((string)($user['email'] ?? ''));
+    if ($em !== '' && filter_var($em, FILTER_VALIDATE_EMAIL)) {
+      $__is_api = (basename($_SERVER['PHP_SELF'] ?? '') === 'watchlist_api.php');
+      if ($__is_api) {
+        http_response_code(403);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['error'=>'email_verification_required']);
+        exit;
+      }
+      header('Location: /verify_needed.php');
+      exit;
+    }
+  }
+} catch (Throwable $e) { /* ignore */ }
 
 // Must have an active subscription to use the portal.
 $subSql = "SELECT s.*, p.name AS plan_name, p.max_streams, p.max_devices

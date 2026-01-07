@@ -179,6 +179,21 @@ function db_migrate(PDO $pdo): void {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   ");
 
+  // Outbound email log (dedupe reminders / prevent repeated sends)
+  $pdo->exec("
+    CREATE TABLE IF NOT EXISTS email_logs (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NULL,
+      email VARCHAR(190) NULL,
+      type VARCHAR(64) NOT NULL,
+      uniq_key VARCHAR(190) NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_email_logs (uniq_key),
+      INDEX idx_email_user (user_id),
+      INDEX idx_email_type (type)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  ");
+
   // XMLTV sources (upstream EPG providers). Used by xmltv.php proxy mode and importer.
   $pdo->exec("
     CREATE TABLE IF NOT EXISTS epg_sources (
@@ -232,10 +247,15 @@ function db_migrate(PDO $pdo): void {
   // User profile fields (optional)
   _ensure_col($pdo, 'users', 'name',  'name VARCHAR(190) NULL');
   _ensure_col($pdo, 'users', 'email', 'email VARCHAR(190) NULL');
+  // Email verification (optional but can be enforced by settings)
+  _ensure_col($pdo, 'users', 'email_verified_at', 'email_verified_at DATETIME NULL');
+  _ensure_col($pdo, 'users', 'email_verify_token', 'email_verify_token VARCHAR(128) NULL');
+  _ensure_col($pdo, 'users', 'email_verify_sent_at', 'email_verify_sent_at DATETIME NULL');
   _ensure_col($pdo, 'users', 'password_enc', 'password_enc TEXT NULL');
   // Reseller attribution (used for reseller dashboards + admin reporting)
   _ensure_col($pdo, 'users', 'reseller_id', 'reseller_id INT NULL');
   _ensure_index($pdo, 'users', 'idx_users_email', 'INDEX idx_users_email (email)');
+  _ensure_index($pdo, 'users', 'idx_users_email_verify_token', 'INDEX idx_users_email_verify_token (email_verify_token)');
   _ensure_index($pdo, 'users', 'idx_users_reseller_id', 'INDEX idx_users_reseller_id (reseller_id)');
 
   /* ---------- EPG source options ---------- */

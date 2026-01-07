@@ -3,6 +3,7 @@ require_once __DIR__ . '/../db.php';
 require_once __DIR__ . '/../auth.php';
 require_once __DIR__ . '/../helpers.php';
 require_once __DIR__ . '/../admin_notifications_lib.php';
+require_once __DIR__ . '/../email_lib.php';
 require_reseller();
 
 $pdo = db();
@@ -144,6 +145,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['create_user'])) {
       $msg = $rname . ' created subscriber ' . $username . ' (plan_id ' . (int)$plan_id . ').';
       admin_notifications_broadcast($pdo, 'reseller', $title, $msg, '/admin/reseller_details.php?id=' . (int)$reseller_id, 'reseller_newsub:' . (int)$user_id);
     } catch (Throwable $t) {}
+    // Email notifications (if subscriber email was provided)
+    try {
+      if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        gc_email_send_welcome($pdo, (int)$user_id);
+        gc_email_send_verification($pdo, (int)$user_id);
+        if ($ends_at !== null) {
+          gc_email_send_subscription($pdo, (int)$user_id, (string)($plan['name'] ?? 'Plan'), (string)$ends_at);
+        }
+      }
+    } catch (Throwable $t) {}
+
     flash_set("User created. Credits used: ".$cost, "success");
   } catch (Exception $e) {
 	    if ($pdo->inTransaction()) { $pdo->rollBack(); }

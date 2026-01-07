@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/api_common.php';
+require_once __DIR__ . '/email_lib.php';
 
 $config   = require __DIR__ . '/config.php';
 $base_url = rtrim($config['base_url'], '/');
@@ -114,6 +115,25 @@ if (!$user || !password_verify($password, $user['password_hash'])) {
 }
 
 telemetry_set_user((int)$user['id'], (string)$user['username']);
+
+// If email verification is required, block playlist/API until verified.
+try {
+  if (gc_email_verification_required($pdo) && !gc_email_user_is_verified($user)) {
+    $em = trim((string)($user['email'] ?? ''));
+    if ($em !== '' && filter_var($em, FILTER_VALIDATE_EMAIL)) {
+      telemetry_reason('email_verification_required');
+      if ($type === 'config') {
+        header('Content-Type: application/json; charset=utf-8');
+        http_response_code(403);
+        echo json_encode(['user_info'=>['auth'=>0],'error'=>'email_verification_required']);
+        exit;
+      }
+      http_response_code(403);
+      echo "Email verification required";
+      exit;
+    }
+  }
+} catch (Throwable $e) {}
 
 // Policy: IP allow/deny
 $ip = get_client_ip();

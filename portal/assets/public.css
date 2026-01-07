@@ -34,6 +34,23 @@
 .auth-wrap .checkline input[type="checkbox"]{width:16px; height:16px; margin:0;}
 .auth-wrap .checkline label{display:inline; margin:0; font-weight:700; font-size:14px; color: rgba(255,255,255,.82);} 
 
+/* Checkout */
+.checkout-grid{display:grid; grid-template-columns: 1fr 1fr; gap:18px; align-items:start;}
+.checkout-form label{display:block; margin: 10px 0 6px; color: rgba(255,255,255,.70); font-weight: 800; font-size: 13px;}
+.checkout-form .input{display:block; width:100%; box-sizing:border-box;}
+.checkout-form .two{display:grid; grid-template-columns: 1fr 1fr; gap:12px;}
+/* Reuse the auth checkbox styling outside auth pages */
+.checkline{display:flex; gap:10px; align-items:center;}
+.checkline input[type="checkbox"]{width:16px; height:16px; margin:0;}
+.checkline label{display:inline; margin:0; font-weight:700; font-size:14px; color: rgba(255,255,255,.82);} 
+
+@media (max-width: 900px){
+  .checkout-grid{grid-template-columns: 1fr;}
+}
+@media (max-width: 720px){
+  .checkout-form .two{grid-template-columns: 1fr;}
+}
+
 @media (max-width: 1020px){
   .grid.plans-grid{grid-template-columns: repeat(2, minmax(0, 1fr));}
 }

@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../db.php';
 require_once __DIR__ . '/../auth.php';
 require_once __DIR__ . '/../helpers.php';
+require_once __DIR__ . '/../email_lib.php';
 require_admin();
 
 $pdo = db();
@@ -114,7 +115,8 @@ if (isset($_POST['sub_create'])) {
   } else {
     $ends = (new DateTime())->modify("+" . (int)$plan['duration_days'] . " days");
   }
-$pdo->prepare("INSERT INTO subscriptions (user_id, plan_id, starts_at, ends_at, status)
+
+  $pdo->prepare("INSERT INTO subscriptions (user_id, plan_id, starts_at, ends_at, status)
                  VALUES (?,?,?,?, 'active')")
       ->execute([
         $user_id,
@@ -122,6 +124,11 @@ $pdo->prepare("INSERT INTO subscriptions (user_id, plan_id, starts_at, ends_at, 
         $starts->format('Y-m-d H:i:s'),
         $ends->format('Y-m-d H:i:s')
       ]);
+
+  // Email subscriber
+  try {
+    gc_email_send_subscription($pdo, $user_id, (string)($plan['name'] ?? 'Plan'), $ends->format('Y-m-d H:i:s'));
+  } catch (Throwable $t) {}
 
   flash_set("Subscription assigned", "success");
   header("Location: plans_subs.php"); exit;

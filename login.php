@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/helpers.php';
+require_once __DIR__ . '/email_lib.php';
 
 if (session_status() === PHP_SESSION_NONE) {
   session_start();
@@ -17,17 +18,38 @@ try {
 } catch (Throwable $e) { /* ignore */ }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-  $username = trim($_POST['username'] ?? '');
+  // Allow login using either username OR email
+  $identity = trim((string)($_POST['username'] ?? ''));
   $password = $_POST['password'] ?? '';
-  $st = $pdo->prepare("SELECT * FROM users WHERE username=?");
-  $st->execute([$username]);
+  // reCAPTCHA (if enabled)
+  $rec = gc_recaptcha_verify_post($pdo, $_POST['g-recaptcha-response'] ?? null, $_SERVER['REMOTE_ADDR'] ?? null);
+  if (!$rec['ok']) {
+    $err = $rec['error'] ?? 'reCAPTCHA verification failed.';
+  }
+
+  if (empty($err)) {
+  $st = $pdo->prepare("SELECT * FROM users WHERE username=? OR email=? LIMIT 1");
+  $st->execute([$identity, $identity]);
   $u = $st->fetch();
   if ($u && password_verify($password, $u['password_hash'])) {
     $_SESSION['store_user'] = (int)$u['id'];
     // Store plain portal creds for internal XMLTV fetch (server-side only)
-    $_SESSION['store_user_username'] = $username;
+    // IMPORTANT: if the user logged in using email, keep the true username here.
+    $_SESSION['store_user_username'] = (string)$u['username'];
     $_SESSION['store_user_pass'] = $password;
 
+
+    // If email verification is required, block service access until verified.
+    try {
+      if (gc_email_verification_required($pdo) && !gc_email_user_is_verified($u)) {
+        // If they don't have an email saved, they can't verify.
+        $em = trim((string)($u['email'] ?? ''));
+        if ($em !== '' && filter_var($em, FILTER_VALIDATE_EMAIL)) {
+          header('Location: /verify_needed.php');
+          exit;
+        }
+      }
+    } catch (Throwable $e) {}
 
     // If they have an active subscription, send them straight to the portal.
     try {
@@ -41,6 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     header("Location: /dashboard.php");
     exit;
+  }
   }
   $err = "Invalid login";
 }
@@ -63,11 +86,13 @@ require_once __DIR__ . '/gc_public_top.php';
   <?php endif; ?>
 
   <form method="post" autocomplete="on" style="margin-top:10px;">
-    <label>Username</label>
+    <label>Email or Username</label>
     <input class="input" name="username" required>
 
     <label>Password</label>
     <input class="input" type="password" name="password" required>
+
+    <?= gc_recaptcha_render_widget($pdo) ?>
 
     <div style="display:flex; gap:10px; align-items:center; margin-top:14px; flex-wrap:wrap;">
       <button class="btn primary" type="submit">Login</button>

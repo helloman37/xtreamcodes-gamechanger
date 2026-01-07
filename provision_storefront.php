@@ -2,6 +2,7 @@
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/helpers.php';
 require_once __DIR__ . '/admin_notifications_lib.php';
+require_once __DIR__ . '/email_lib.php';
 
 function provision_storefront_order($orderId, $providerTxn){
   $pdo=db();
@@ -27,9 +28,11 @@ function provision_storefront_order($orderId, $providerTxn){
     if(!$checkout) throw new Exception("Checkout session missing");
 
     // create user
-    $uSt=$pdo->prepare("INSERT INTO users (username,password_hash,password_enc,status,allow_adult,reseller_id)
-                        VALUES (?,?,?, 'active', ?, NULL)");
-    $uSt->execute([$checkout['username'],$checkout['password_hash'],$checkout['password_enc'] ?? '', $want_adult]);
+    $email = trim((string)($checkout['email'] ?? ''));
+    if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) $email = '';
+    $uSt=$pdo->prepare("INSERT INTO users (username,email,password_hash,password_enc,status,allow_adult,reseller_id)
+                        VALUES (?,?,?,?,'active', ?, NULL)");
+    $uSt->execute([$checkout['username'],$email,$checkout['password_hash'],$checkout['password_enc'] ?? '', $want_adult]);
     $userId=$pdo->lastInsertId();
     $createdUser = true;
   }
@@ -113,5 +116,16 @@ function provision_storefront_order($orderId, $providerTxn){
   } catch (Throwable $t) {}
 
   unset($_SESSION['checkout_'.$orderId]);
+
+  // Email notifications
+  try {
+    if ($createdUser) {
+      gc_email_send_welcome($pdo, (int)$userId);
+      gc_email_send_verification($pdo, (int)$userId);
+    }
+    $planNameE = (string)($plan['name'] ?? 'Plan');
+    gc_email_send_subscription($pdo, (int)$userId, $planNameE, (string)$expires);
+  } catch (Throwable $e) {}
+
   return $userId;
 }

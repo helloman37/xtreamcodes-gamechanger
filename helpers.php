@@ -403,6 +403,14 @@ function csrf_validate(): void {
     die('Forbidden (CSRF)');
   }
 }
+
+// Backwards-compatible alias used by some pages.
+// Older versions of this panel used csrf_check(); keep it working.
+if (!function_exists('csrf_check')) {
+  function csrf_check(): void {
+    csrf_validate();
+  }
+}
 // --- end CSRF helpers ---
 
 
@@ -537,19 +545,41 @@ function iptv_secret_key(): string {
 
 function iptv_encrypt(string $plain): string {
   if ($plain === '') return '';
-  if (!function_exists('openssl_encrypt')) return '';
+  // If OpenSSL isn't available (common on some shared/WAMP setups),
+  // fall back to a reversible, explicitly-marked plaintext encoding.
+  if (!function_exists('openssl_encrypt')) {
+    return 'plain:' . base64_encode($plain);
+  }
+
   $secret = iptv_secret_key();
+  if ($secret === '') {
+    // Should not happen, but don't break settings if secret is missing.
+    return 'plain:' . base64_encode($plain);
+  }
   $key = hash('sha256', $secret, true); // 32 bytes
   $iv = random_bytes(16);
   $cipher = openssl_encrypt($plain, 'AES-256-CBC', $key, OPENSSL_RAW_DATA, $iv);
-  if ($cipher === false) return '';
+  if ($cipher === false) {
+    return 'plain:' . base64_encode($plain);
+  }
   $mac = hash_hmac('sha256', $iv . $cipher, $key, true);
   return base64_encode($iv . $mac . $cipher);
 }
 
 function iptv_decrypt(?string $enc): string {
   if (!$enc) return '';
-  if (!function_exists('openssl_decrypt')) return '';
+
+  // Plaintext fallback format.
+  if (str_starts_with($enc, 'plain:')) {
+    $b64 = substr($enc, 6);
+    $out = base64_decode($b64, true);
+    return ($out === false) ? '' : (string)$out;
+  }
+
+  if (!function_exists('openssl_decrypt')) {
+    // If OpenSSL isn't available but we have a value, treat it as plaintext.
+    return (string)$enc;
+  }
   $raw = base64_decode($enc, true);
   if ($raw === false || strlen($raw) < (16+32+1)) return '';
   $iv = substr($raw, 0, 16);
@@ -1127,6 +1157,108 @@ function system_setting_set(PDO $pdo, string $key, ?string $value): void {
   }
 }
 
+
+
+
+
+/* ---------- GOOGLE RECAPTCHA ---------- */
+
+function gc_recaptcha_settings(PDO $pdo): array {
+  $enabled = (system_setting_get($pdo, 'recaptcha_enabled', '0') === '1');
+  $site_key = trim((string)system_setting_get($pdo, 'recaptcha_site_key', ''));
+  $secret_enc = (string)system_setting_get($pdo, 'recaptcha_secret_enc', '');
+  $secret_key = iptv_decrypt($secret_enc);
+
+  // If keys are missing, treat as disabled.
+  if ($site_key === '' || $secret_key === '') {
+    $enabled = false;
+  }
+
+  return [
+    'enabled' => $enabled,
+    'site_key' => $site_key,
+    'secret_key' => $secret_key,
+    // Future-proofing: allow v2 checkbox by default.
+    'version' => (string)system_setting_get($pdo, 'recaptcha_version', 'v2'),
+  ];
+}
+
+function gc_recaptcha_is_enabled(PDO $pdo): bool {
+  $s = gc_recaptcha_settings($pdo);
+  return !empty($s['enabled']);
+}
+
+function gc_recaptcha_render_widget(PDO $pdo): string {
+  $s = gc_recaptcha_settings($pdo);
+  if (empty($s['enabled']) || empty($s['site_key'])) return '';
+  // Default: v2 checkbox widget
+  $site = htmlspecialchars($s['site_key'], ENT_QUOTES, 'UTF-8');
+  return '<div style="margin-top:12px;" class="g-recaptcha" data-sitekey="'.$site.'"></div>'
+    . '<script src="https://www.google.com/recaptcha/api.js" async defer></script>';
+}
+
+/**
+ * Verify the reCAPTCHA token from form POST.
+ * Returns ['ok'=>bool, 'error'=>string]
+ */
+function gc_recaptcha_verify_post(PDO $pdo, ?string $token, ?string $remote_ip = null): array {
+  $s = gc_recaptcha_settings($pdo);
+  if (empty($s['enabled'])) return ['ok' => true];
+  $token = trim((string)$token);
+  if ($token === '') return ['ok' => false, 'error' => 'Please complete the reCAPTCHA.'];
+
+  $secret = $s['secret_key'];
+  if ($secret === '') return ['ok' => false, 'error' => 'reCAPTCHA is not configured.'];
+
+  $payload = [
+    'secret' => $secret,
+    'response' => $token,
+  ];
+  $rip = trim((string)$remote_ip);
+  if ($rip !== '') $payload['remoteip'] = $rip;
+
+  $url = 'https://www.google.com/recaptcha/api/siteverify';
+  $resp = null;
+
+  // Prefer cURL when available
+  if (function_exists('curl_init')) {
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($payload));
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+    $resp = curl_exec($ch);
+    curl_close($ch);
+  } else {
+    $ctx = stream_context_create([
+      'http' => [
+        'method' => 'POST',
+        'header' => "Content-Type: application/x-www-form-urlencoded\r\n",
+        'content' => http_build_query($payload),
+        'timeout' => 10,
+      ],
+    ]);
+    $resp = @file_get_contents($url, false, $ctx);
+  }
+
+  if (!$resp) return ['ok' => false, 'error' => 'reCAPTCHA verification failed (no response).'];
+
+  $data = json_decode($resp, true);
+  if (!is_array($data)) return ['ok' => false, 'error' => 'reCAPTCHA verification failed (invalid response).'];
+
+  if (!empty($data['success'])) return ['ok' => true];
+
+  // Optionally show the first error code
+  $code = '';
+  if (!empty($data['error-codes']) && is_array($data['error-codes'])) {
+    $code = (string)($data['error-codes'][0] ?? '');
+  }
+  return ['ok' => false, 'error' => 'reCAPTCHA verification failed.' . ($code ? ' (' . $code . ')' : '')];
+}
+
+
+/* ---------- END GOOGLE RECAPTCHA ---------- */
 
 
 /* ---------- MAINTENANCE MODE (frontend + portal) ---------- */

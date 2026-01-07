@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/helpers.php';
+require_once __DIR__ . '/email_lib.php';
 
 if (session_status() === PHP_SESSION_NONE) {
   session_start();
@@ -29,6 +30,14 @@ $uSt = $pdo->prepare("SELECT * FROM users WHERE id=?");
 $uSt->execute([$userId]);
 $user = $uSt->fetch();
 if (!$user) { header("Location: /logout.php"); exit; }
+
+$verifyNeeded = false;
+try {
+  if (gc_email_verification_required($pdo) && !gc_email_user_is_verified($user)) {
+    $em = trim((string)($user['email'] ?? ''));
+    if ($em !== '' && filter_var($em, FILTER_VALIDATE_EMAIL)) $verifyNeeded = true;
+  }
+} catch (Throwable $e) {}
 
 // active sub
 $subSt = $pdo->prepare("SELECT s.*, p.name plan_name, p.duration_days, p.is_trial
@@ -74,6 +83,12 @@ require_once __DIR__ . '/gc_public_top.php';
     <a class="btn primary" href="/portal/">Open Portal</a>
     <a class="btn" href="/plans.php">Plans</a>
   </div>
+
+  <?php if ($verifyNeeded): ?>
+    <div class="notice" style="margin-top:12px;border-color: rgba(255,187,0,.35); background: rgba(120,80,0,.18);">
+      Your email is not verified yet. Please verify before using the portal / playlists. <a href="/verify_needed.php">Verify now</a>
+    </div>
+  <?php endif; ?>
 
 <?php
 $avatarUrl = gc_avatar_url((int)$userId);

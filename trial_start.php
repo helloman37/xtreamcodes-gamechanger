@@ -1,6 +1,7 @@
 <?php
 require_once 'db.php';
 require_once 'helpers.php';
+require_once 'email_lib.php';
 session_start();
 
 $pdo = db();
@@ -101,7 +102,14 @@ $pdo->prepare("
   VALUES (?,?,?,?, 'USD', 'cashapp', ?, 'paid', NOW())
 ")->execute([
   $userId,
-  (string)($userId.'@trial.local'),
+  (function() use ($pdo, $userId) {
+    try {
+      $u = gc_email_user_row($pdo, $userId);
+      $em = trim((string)($u['email'] ?? ''));
+      if ($em !== '' && filter_var($em, FILTER_VALIDATE_EMAIL)) return $em;
+    } catch (Throwable $e) {}
+    return (string)($userId.'@trial.local');
+  })(),
   $trialPlan['id'],
   0.00,
   $providerTxn
@@ -115,6 +123,11 @@ $pdo->prepare("
   INSERT INTO subscriptions (user_id, plan_id, starts_at, ends_at, status, order_id, source)
   VALUES (?,?,?,?, 'active', ?, 'storefront')
 ")->execute([$userId, $trialPlan['id'], $starts, $ends, $orderId]);
+
+// Email notifications
+try {
+  gc_email_send_subscription($pdo, (int)$userId, (string)($trialPlan['name'] ?? 'Trial'), (string)$ends);
+} catch (Throwable $t) {}
 
 // lock trial by IP + user
 $pdo->prepare("INSERT INTO trial_claims (ip,user_id) VALUES (?,?)")->execute([$ip,$userId]);

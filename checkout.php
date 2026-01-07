@@ -45,7 +45,10 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
   $want_adult = isset($_POST['allow_adult']) ? 1 : 0;
 
   if($loggedInUser){
-    $email = $loggedInUser['username']."@local"; // fallback if no email column
+    $email = trim((string)($loggedInUser['email'] ?? ''));
+    if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+      $email = $loggedInUser['username']."@local"; // fallback
+    }
     $username = $loggedInUser['username'];
     $password_hash = $loggedInUser['password_hash'];
     $userId = (int)$loggedInUser['id'];
@@ -98,9 +101,9 @@ require_once __DIR__ . '/gc_public_top.php';
 </div>
 
 <form method="post" style="margin:0;">
-  <div class="grid" style="grid-template-columns: 1fr 1fr; gap:18px;">
+  <div class="checkout-grid">
 
-    <div class="card">
+    <div class="card pad checkout-card checkout-form">
       <h3 style="margin:0 0 10px;">Account</h3>
 
       <?php if ($loggedInUser): ?>
@@ -109,19 +112,24 @@ require_once __DIR__ . '/gc_public_top.php';
       <?php else: ?>
         <div class="muted" style="margin-bottom:10px;">Create your account during checkout:</div>
 
-        <label>Email</label>
-        <input class="input" name="email" value="<?= e($_POST['email'] ?? '') ?>" required>
+        <div class="two">
+          <div>
+            <label>Email</label>
+            <input class="input" type="email" name="email" autocomplete="email" value="<?= e($_POST['email'] ?? '') ?>" required>
+          </div>
+          <div>
+            <label>Username</label>
+            <input class="input" name="username" autocomplete="username" value="<?= e($_POST['username'] ?? '') ?>" required>
+          </div>
+        </div>
 
-        <label style="margin-top:10px;">Username</label>
-        <input class="input" name="username" value="<?= e($_POST['username'] ?? '') ?>" required>
+        <label>Password</label>
+        <input class="input" type="password" name="password" autocomplete="new-password" required>
 
-        <label style="margin-top:10px;">Password</label>
-        <input class="input" type="password" name="password" required>
-
-        <label style="margin-top:10px;display:flex;gap:8px;align-items:center;">
+        <div class="checkline" style="margin-top:12px;">
           <input type="checkbox" name="allow_adult" value="1" <?= !empty($_POST['allow_adult']) ? 'checked' : '' ?>>
-          Allow adult content on this account (optional)
-        </label>
+          <label>Allow adult content on this account (optional)</label>
+        </div>
 
         <div class="muted" style="margin-top:12px;">
           Prefer to register first? <a href="/register.php">Register</a> or <a href="/login.php">Login</a>.
@@ -129,10 +137,10 @@ require_once __DIR__ . '/gc_public_top.php';
       <?php endif; ?>
     </div>
 
-    <div class="card">
+    <div class="card pad checkout-card">
       <h3 style="margin:0 0 10px;">Choose Payment</h3>
 
-      <div class="grid" style="grid-template-columns: 1fr; gap:10px;">
+      <div style="display:grid; grid-template-columns: 1fr; gap:10px;">
         <button class="btn primary" type="submit" name="provider" value="paypal" style="width:100%;">Pay with PayPal</button>
         <button class="btn" type="submit" name="provider" value="cashapp" style="width:100%;">Pay with CashApp</button>
       </div>
