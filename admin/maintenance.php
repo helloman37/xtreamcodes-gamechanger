@@ -53,6 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $enabled = isset($_POST['enabled']) ? '1' : '0';
   $message = trim((string)($_POST['message'] ?? ''));
   $video_url = trim((string)($_POST['video_url'] ?? ''));
+  $streams_enabled = isset($_POST['streams_enabled']) ? '1' : '0';
 
   $use_custom = isset($_POST['use_custom_html']);
   $custom_html = (string)($_POST['custom_html'] ?? '');
@@ -61,6 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   system_setting_set($pdo, 'maintenance_mode', $enabled);
   system_setting_set($pdo, 'maintenance_message', $message);
   system_setting_set($pdo, 'maintenance_video_url', $video_url);
+  system_setting_set($pdo, 'maintenance_streams_mode', $streams_enabled);
 
   if ($use_custom && $custom_html !== '') {
     system_setting_set($pdo, 'maintenance_custom_html', $custom_html);
@@ -75,6 +77,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $enabled = (system_setting_get($pdo, 'maintenance_mode', '0') === '1');
+$streams_enabled = (system_setting_get($pdo, 'maintenance_streams_mode', '0') === '1');
 $message = (string)system_setting_get($pdo, 'maintenance_message', 'Service is temporarily under maintenance. Please try again later.');
 $video_url = trim((string)system_setting_get($pdo, 'maintenance_video_url', ''));
 $custom_html = (string)system_setting_get($pdo, 'maintenance_custom_html', '');
@@ -140,7 +143,17 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
         <input type="checkbox" name="enabled" value="1" <?= $enabled ? 'checked' : '' ?>>
         <span>Enable maintenance mode</span>
       </label>
-    </div>
+</div>
+
+<div style="margin-bottom:12px;margin-left:24px;">
+  <label style="display:flex;gap:8px;align-items:center;">
+    <input type="checkbox" name="streams_enabled" value="1" <?= $streams_enabled ? 'checked' : '' ?>>
+    <span>Also put streams in maintenance mode (use maintenance video / block Live TV)</span>
+  </label>
+  <div class="muted2" style="margin-top:6px;margin-left:26px;">
+    If unchecked, only the website shows maintenance; Live TV streams continue normally.
+  </div>
+</div>
 
     <div class="row2" style="margin-bottom:12px;">
       <div>

@@ -69,30 +69,19 @@ $pdo = db();
 
 // Global maintenance mode
 $maint_enabled = system_setting_get($pdo, 'maintenance_mode', '0') === '1';
+$maint_streams = (system_setting_get($pdo, 'maintenance_streams_mode', '0') === '1');
 $maint_msg = system_setting_get(
   $pdo,
   'maintenance_message',
   'Service is temporarily under maintenance. Please try again later.'
 );
 $maint_video = trim((string)system_setting_get($pdo, 'maintenance_video_url', ''));
-$maint_has_video = ($maint_enabled && $maint_video !== '');
 
-// Backward-compatible behavior: if maintenance is enabled but no video URL is set, block requests like before.
-if ($maint_enabled && !$maint_has_video) {
-  if ($type === 'config') {
-    header('Content-Type: application/json; charset=utf-8');
-    echo json_encode([
-      'maintenance' => true,
-      'message'     => $maint_msg,
-      'video_url'   => '',
-    ], JSON_UNESCAPED_SLASHES);
-    exit;
-  }
-  http_response_code(503);
-  header('Content-Type: text/plain; charset=utf-8');
-  echo $maint_msg;
-  exit;
-}
+// NOTE:
+// Maintenance mode should NOT deliver live TV streams.
+// We still allow playlist/API to load so apps can authenticate and list channels,
+// but the actual live stream endpoints will be blocked/redirected (see stream/index.php).
+// Also, during maintenance we MUST avoid leaking upstream URLs (direct_play) in the playlist.
 
 ensure_categories($pdo);
 
@@ -233,6 +222,7 @@ if ($type === 'config') {
     'site_url'     => $site_url,
     'token_ttl'    => $ttl,
     'maintenance'  => $maint_enabled,
+    'maintenance_streams' => ($maint_enabled && $maint_streams),
     'message'      => $maint_enabled ? $maint_msg : '',
     'video_url'    => $maint_video
   ], JSON_UNESCAPED_SLASHES);
@@ -293,7 +283,8 @@ foreach ($channels as $c) {
     $hidden .= "?exp=".$exp."&token=".$token;
 
   } elseif ($link_type === 'auto') {
-    if ((int)$c['direct_play'] === 1 && !$maint_has_video) {
+    // Never leak upstream URLs while maintenance mode is enabled.
+    if ((int)$c['direct_play'] === 1 && !($maint_enabled && $maint_streams)) {
       echo $c['stream_url']."\n";
       continue;
     }

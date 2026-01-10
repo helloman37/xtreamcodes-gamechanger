@@ -40,6 +40,19 @@ if ($username === '' || $password === '') {
 $pdo = db();
 ensure_categories($pdo);
 
+// Global maintenance mode
+// Requirement: when maintenance is ON, do NOT deliver LIVE TV streams.
+// - Live playback is blocked/redirected in stream/index.php.
+// - Here, we also avoid leaking upstream "direct_source" URLs.
+$maint_enabled = (system_setting_get($pdo, 'maintenance_mode', '0') === '1');
+$maint_streams = (system_setting_get($pdo, 'maintenance_streams_mode', '0') === '1');
+$maint_msg = (string)system_setting_get(
+  $pdo,
+  'maintenance_message',
+  'Service is temporarily under maintenance. Please try again later.'
+);
+$maint_video = trim((string)system_setting_get($pdo, 'maintenance_video_url', ''));
+
 // Hard bans (IP)
 $ban = abuse_ip_ban_lookup($pdo, $ip);
 if ($ban) {
@@ -135,6 +148,11 @@ if ($action === '') {
       "auth" => 1,
       "username" => $username,
       "password" => $password,
+      // Maintenance hints (apps may ignore unknown keys; safe additive change)
+      "maintenance" => $maint_enabled ? 1 : 0,
+      "maintenance_streams" => ($maint_enabled && $maint_streams) ? 1 : 0,
+      "maintenance_message" => $maint_enabled ? $maint_msg : "",
+      "maintenance_video_url" => $maint_video,
       "status" => "Active",
       "exp_date" => (string)$exp,
       "is_trial" => "0",
@@ -231,7 +249,11 @@ if ($action === 'get_live_streams') {
       "category_id" => (string)((int)$category_id > 0 ? $category_id : (int)($c['category_id'] ?? 0)),
       "custom_sid" => "",
       "tv_archive" => 0,
-      "direct_source" => ((int)$c["direct_play"]===1 ? $c["stream_url"] : ""),
+      // During maintenance, never leak upstream stream_url. Optionally point to the
+      // configured maintenance video so apps can play it immediately.
+      "direct_source" => ($maint_enabled && $maint_streams)
+        ? ($maint_video !== '' ? $maint_video : '')
+        : (((int)$c["direct_play"]===1) ? $c["stream_url"] : ""),
       "container_extension" => $ext
     ];
   }

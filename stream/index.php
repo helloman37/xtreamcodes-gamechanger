@@ -209,6 +209,43 @@ if (!ip_allowed($ip, $user['ip_allowlist'] ?? null, $user['ip_denylist'] ?? null
   exit("IP not allowed");
 }
 
+// -----------------------------------------------------------------------------
+// Global maintenance mode
+// Requirement: when maintenance is ON, do NOT deliver LIVE TV streams.
+// - If admin set a maintenance video URL, redirect the channel play request to it.
+// - Otherwise, return a 503 so the channel doesn't load.
+// NOTE: We check this AFTER basic auth/bans/IP-policy, but BEFORE subscription/session
+// enforcement so maintenance does not consume stream slots.
+// -----------------------------------------------------------------------------
+try {
+  $maint_enabled = (system_setting_get($pdo, 'maintenance_mode', '0') === '1');
+  $maint_streams = (system_setting_get($pdo, 'maintenance_streams_mode', '0') === '1');
+  if ($maint_enabled && $maint_streams && $type === 'live') {
+    $maint_msg = (string)system_setting_get(
+      $pdo,
+      'maintenance_message',
+      'Service is temporarily under maintenance. Please try again later.'
+    );
+    $maint_video = trim((string)system_setting_get($pdo, 'maintenance_video_url', ''));
+
+    telemetry_reason('maintenance');
+    if ($maint_video !== '') {
+      http_response_code(302);
+      header('Cache-Control: no-store, no-cache, must-revalidate');
+      header('Pragma: no-cache');
+      header('Location: ' . $maint_video);
+      exit;
+    }
+
+    http_response_code(503);
+    header('Content-Type: text/plain; charset=utf-8');
+    echo $maint_msg;
+    exit;
+  }
+} catch (Throwable $e) {
+  // If maintenance check fails for any reason, fall through to normal streaming.
+}
+
 /* active sub + plan (cached) */
 $sub = iptv_cached_active_subscription($pdo, (int)$user['id'], $sub_cache_ttl);
 if (!$sub) {
