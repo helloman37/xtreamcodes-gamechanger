@@ -273,6 +273,16 @@ if ($edit) {
   $st->execute([$edit['id']]);
   $subs_edit = $st->fetchAll(PDO::FETCH_ASSOC);
 
+  // Recent per-user request logs (get.php loads, stream starts, etc.)
+  $user_logs = [];
+  try {
+    $st = $pdo->prepare("\n      SELECT rl.created_at, rl.endpoint, rl.action, rl.ip, rl.device_fp, rl.user_agent, rl.status_code, rl.reason\n      FROM request_logs rl\n      WHERE rl.user_id=?\n      ORDER BY rl.id DESC\n      LIMIT 20\n    ");
+    $st->execute([(int)$edit['id']]);
+    $user_logs = $st->fetchAll(PDO::FETCH_ASSOC);
+  } catch (Throwable $e) {
+    $user_logs = [];
+  }
+
 $plans_all = [];
 try {
   $plans_all = $pdo->query("SELECT id,name,duration_days,max_streams,IFNULL(max_devices,2) AS max_devices, IFNULL(price,0) AS price FROM plans ORDER BY price ASC, id ASC")->fetchAll(PDO::FETCH_ASSOC);
@@ -568,6 +578,47 @@ if (!function_exists('iptv_dt_local')) {
         <input type="hidden" name="id" value="<?=$edit['id']?>">
         <button class="btn red" type="submit">Kill Sessions</button>
       </form>
+    </div>
+
+    <div class="card" style="margin-top:14px;">
+      <h4 style="margin-top:0;">Recent API / App Activity</h4>
+      <div class="muted" style="margin-bottom:8px;">Shows recent requests tied to this user (e.g. <code>get</code> loads, stream starts). Device ID is parsed from the User-Agent if present.</div>
+      <div style="overflow:auto;">
+        <table>
+          <tr>
+            <th>Time</th>
+            <th>Endpoint</th>
+            <th>IP</th>
+            <th>Device ID</th>
+            <th>Device FP</th>
+            <th>User-Agent</th>
+            <th>Status</th>
+            <th>Reason</th>
+          </tr>
+          <?php if(!empty($user_logs)): ?>
+            <?php foreach($user_logs as $rl):
+              $ua = (string)($rl['user_agent'] ?? '');
+              $device_id = '';
+              if ($ua !== '' && preg_match('/device_id=([a-f0-9\-]{8,64})/i', $ua, $m)) {
+                $device_id = $m[1];
+              }
+            ?>
+              <tr>
+                <td><?=e($rl['created_at'] ?? '')?></td>
+                <td><?=e($rl['endpoint'] ?? '')?></td>
+                <td><?=e($rl['ip'] ?? '')?></td>
+                <td style="font-family:monospace; font-size:12px;"><?=e($device_id)?></td>
+                <td style="font-family:monospace; font-size:12px;"><?=e($rl['device_fp'] ?? '')?></td>
+                <td style="max-width:520px; word-break:break-word;"><?=e($ua)?></td>
+                <td><?=e($rl['status_code'] ?? '')?></td>
+                <td><?=e($rl['reason'] ?? '')?></td>
+              </tr>
+            <?php endforeach; ?>
+          <?php else: ?>
+            <tr><td colspan="8" class="muted">No request logs yet for this user.</td></tr>
+          <?php endif; ?>
+        </table>
+      </div>
     </div>
   <?php endif; ?>
 </div>

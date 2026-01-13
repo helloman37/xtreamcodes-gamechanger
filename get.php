@@ -29,6 +29,11 @@ $link_type = strtolower($_GET['link'] ?? 'token_protected');
 // Request telemetry (admin -> Telemetry)
 telemetry_init('get', $type);
 telemetry_meta(['link'=>$link_type]);
+// Capture attempted username even before auth so Telemetry can show who is hitting get.php.
+// (Avoids logging raw password/querystring.)
+if (function_exists('telemetry_set_username')) {
+  telemetry_set_username($username);
+}
 
 // -----------------------------------------------------------------------------
 // Optional fail-video redirect (System -> Fail Videos).

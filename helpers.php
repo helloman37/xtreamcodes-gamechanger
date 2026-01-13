@@ -1055,6 +1055,15 @@ function telemetry_set_user(int $user_id, string $username='', ?int $reseller_id
   if ($reseller_id !== null) $GLOBALS['__telemetry']['reseller_id'] = (int)$reseller_id;
 }
 
+// Set username for telemetry without binding a known user_id.
+// Useful for auth-fail and pre-auth logging where we still want to see who is attempting.
+function telemetry_set_username(string $username): void {
+  if (!isset($GLOBALS['__telemetry']) || !is_array($GLOBALS['__telemetry'])) return;
+  $u = trim($username);
+  if ($u === '') return;
+  $GLOBALS['__telemetry']['username'] = substr($u, 0, 64);
+}
+
 function telemetry_reason(string $reason, array $meta_add=[]): void {
   if (!isset($GLOBALS['__telemetry']) || !is_array($GLOBALS['__telemetry'])) return;
   $GLOBALS['__telemetry']['reason'] = substr($reason, 0, 64);
