@@ -275,10 +275,77 @@ if ($edit) {
 
   // Recent per-user request logs (get.php loads, stream starts, etc.)
   $user_logs = [];
+  // Suspicious-activity summary for admin prompt (computed from recent logs)
+  $user_suspicious = [
+    'flag' => false,
+    'reasons' => [],
+    'unique_ips' => 0,
+    'unique_fps' => 0,
+    'unique_device_ids' => 0,
+    'error_hits' => 0,
+    'window' => '',
+  ];
   try {
     $st = $pdo->prepare("\n      SELECT rl.created_at, rl.endpoint, rl.action, rl.ip, rl.device_fp, rl.user_agent, rl.status_code, rl.reason\n      FROM request_logs rl\n      WHERE rl.user_id=?\n      ORDER BY rl.id DESC\n      LIMIT 20\n    ");
     $st->execute([(int)$edit['id']]);
     $user_logs = $st->fetchAll(PDO::FETCH_ASSOC);
+
+    // Compute simple suspicious activity indicators (based on last N logs).
+    // Goal: lightweight prompt for admins without heavy queries.
+    $ips = [];
+    $fps = [];
+    $devs = [];
+    $min_ts = null;
+    $max_ts = null;
+    $err = 0;
+    foreach ($user_logs as $r) {
+      $ipx = (string)($r['ip'] ?? '');
+      if ($ipx !== '') $ips[$ipx] = true;
+      $fpx = (string)($r['device_fp'] ?? '');
+      if ($fpx !== '') $fps[$fpx] = true;
+      $ua = (string)($r['user_agent'] ?? '');
+      if ($ua !== '' && preg_match('/device_id=([a-zA-Z0-9\-]{8,})/i', $ua, $m)) {
+        $devs[$m[1]] = true;
+      }
+      $sc = (int)($r['status_code'] ?? 0);
+      if ($sc >= 400) $err++;
+      $t = $r['created_at'] ?? null;
+      if ($t) {
+        $ts = strtotime((string)$t);
+        if ($ts !== false) {
+          if ($min_ts === null || $ts < $min_ts) $min_ts = $ts;
+          if ($max_ts === null || $ts > $max_ts) $max_ts = $ts;
+        }
+      }
+    }
+
+    $user_suspicious['unique_ips'] = count($ips);
+    $user_suspicious['unique_fps'] = count($fps);
+    $user_suspicious['unique_device_ids'] = count($devs);
+    $user_suspicious['error_hits'] = $err;
+    if ($min_ts !== null && $max_ts !== null) {
+      $user_suspicious['window'] = date('Y-m-d H:i', $min_ts) . ' → ' . date('Y-m-d H:i', $max_ts);
+    }
+
+    // Heuristics (tuned for low false positives):
+    // - 3+ different IPs in recent window
+    // - 3+ different device_ids OR fingerprints
+    // - Many error hits (auth_fail / banned / ip_not_allowed)
+    if ($user_suspicious['unique_ips'] >= 3) {
+      $user_suspicious['flag'] = true;
+      $user_suspicious['reasons'][] = 'Multiple IPs detected (' . $user_suspicious['unique_ips'] . ')';
+    }
+    if ($user_suspicious['unique_device_ids'] >= 3) {
+      $user_suspicious['flag'] = true;
+      $user_suspicious['reasons'][] = 'Multiple device IDs detected (' . $user_suspicious['unique_device_ids'] . ')';
+    } elseif ($user_suspicious['unique_fps'] >= 4) {
+      $user_suspicious['flag'] = true;
+      $user_suspicious['reasons'][] = 'Multiple device fingerprints detected (' . $user_suspicious['unique_fps'] . ')';
+    }
+    if ($user_suspicious['error_hits'] >= 5) {
+      $user_suspicious['flag'] = true;
+      $user_suspicious['reasons'][] = 'High error rate in recent activity (' . $user_suspicious['error_hits'] . ' errors)';
+    }
   } catch (Throwable $e) {
     $user_logs = [];
   }
@@ -583,6 +650,23 @@ if (!function_exists('iptv_dt_local')) {
     <div class="card" style="margin-top:14px;">
       <h4 style="margin-top:0;">Recent API / App Activity</h4>
       <div class="muted" style="margin-bottom:8px;">Shows recent requests tied to this user (e.g. <code>get</code> loads, stream starts). Device ID is parsed from the User-Agent if present.</div>
+      <?php if (!empty($user_suspicious['flag'])): ?>
+        <div style="border:1px solid #b91c1c; background:#fee2e2; color:#7f1d1d; padding:10px 12px; border-radius:8px; margin:10px 0;">
+          <strong>Suspicious activity detected</strong>
+          <?php if (!empty($user_suspicious['window'])): ?>
+            <span class="muted" style="color:#7f1d1d;">(window: <?=e($user_suspicious['window'])?>)</span>
+          <?php endif; ?>
+          <div style="margin-top:6px;">
+            <?=e(implode(' • ', (array)$user_suspicious['reasons']))?>
+          </div>
+          <div class="muted" style="margin-top:6px; color:#7f1d1d;">
+            Unique IPs: <?= (int)$user_suspicious['unique_ips'] ?>,
+            Device IDs: <?= (int)$user_suspicious['unique_device_ids'] ?>,
+            Device FPs: <?= (int)$user_suspicious['unique_fps'] ?>,
+            Errors: <?= (int)$user_suspicious['error_hits'] ?>
+          </div>
+        </div>
+      <?php endif; ?>
       <div style="overflow:auto;">
         <table>
           <tr>
