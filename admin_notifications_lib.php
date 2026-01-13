@@ -140,3 +140,105 @@ function admin_notifications_generate_sub_expiry(PDO $pdo, array $config = []): 
     }
   } catch (Throwable $t) {}
 }
+
+
+/**
+ * Generate (deduped) admin notifications for suspicious account activity based on recent request_logs.
+ * This is intentionally login/poll-triggered (via the bell count endpoint) and throttled via system_settings.
+ *
+ * Heuristics (defaults; override via config):
+ *  - window_minutes: 30
+ *  - ip_threshold: 3 (unique IPs within window)
+ *  - device_fp_threshold: 4 (unique device fingerprints within window)
+ *  - error_threshold: 5 (HTTP status >= 400 within window)
+ *  - cooldown_sec: 60 (minimum seconds between generator runs)
+ *  - limit: 25 (max users flagged per run)
+ */
+function admin_notifications_generate_suspicious_activity(PDO $pdo, array $config = []): void {
+  $windowMin = (int)($config['admin_notify_suspicious_window_minutes'] ?? 30);
+  if ($windowMin < 5) $windowMin = 5;
+  if ($windowMin > 360) $windowMin = 360;
+
+  $ipThr = (int)($config['admin_notify_suspicious_ip_threshold'] ?? 3);
+  if ($ipThr < 2) $ipThr = 2;
+  if ($ipThr > 20) $ipThr = 20;
+
+  $fpThr = (int)($config['admin_notify_suspicious_device_fp_threshold'] ?? 4);
+  if ($fpThr < 2) $fpThr = 2;
+  if ($fpThr > 50) $fpThr = 50;
+
+  $errThr = (int)($config['admin_notify_suspicious_error_threshold'] ?? 5);
+  if ($errThr < 1) $errThr = 1;
+  if ($errThr > 200) $errThr = 200;
+
+  $limit = (int)($config['admin_notify_suspicious_limit'] ?? 25);
+  if ($limit < 1) $limit = 1;
+  if ($limit > 200) $limit = 200;
+
+  $cooldown = (int)($config['admin_notify_suspicious_cooldown_sec'] ?? 60);
+  if ($cooldown < 10) $cooldown = 10;
+  if ($cooldown > 3600) $cooldown = 3600;
+
+  // Throttle generator runs (notif_count.php may be polled frequently).
+  $now = time();
+  $last = (int)(system_setting_get($pdo, 'admin_notify_suspicious_last_run', '0') ?? '0');
+  if (($now - $last) < $cooldown) return;
+  system_setting_set($pdo, 'admin_notify_suspicious_last_run', (string)$now);
+
+  try {
+    $st = $pdo->prepare("
+      SELECT rl.user_id,
+             MAX(rl.username) AS username,
+             COUNT(*) AS hits,
+             COUNT(DISTINCT rl.ip) AS ip_cnt,
+             COUNT(DISTINCT rl.device_fp) AS fp_cnt,
+             SUM(CASE WHEN rl.status_code >= 400 THEN 1 ELSE 0 END) AS err_cnt,
+             MAX(rl.created_at) AS last_at
+      FROM request_logs rl
+      WHERE rl.created_at >= (NOW() - INTERVAL ? MINUTE)
+        AND rl.user_id IS NOT NULL
+        AND rl.user_id > 0
+        AND rl.endpoint IN ('get','player_api','stream')
+      GROUP BY rl.user_id
+      HAVING ip_cnt >= ? OR fp_cnt >= ? OR err_cnt >= ?
+      ORDER BY last_at DESC
+      LIMIT {$limit}
+    ");
+    $st->execute([$windowMin, $ipThr, $fpThr, $errThr]);
+    $rows = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+
+    // Dedup bucket (30-minute buckets by default). Keeps notifications from spamming.
+    $bucketSize = (int)($config['admin_notify_suspicious_bucket_sec'] ?? 1800);
+    if ($bucketSize < 300) $bucketSize = 300;
+    if ($bucketSize > 86400) $bucketSize = 86400;
+    $bucket = (int)(floor($now / $bucketSize) * $bucketSize);
+    $bucketKey = date('YmdHi', $bucket);
+
+    foreach ($rows as $r) {
+      $uid = (int)($r['user_id'] ?? 0);
+      if ($uid < 1) continue;
+      $uname = trim((string)($r['username'] ?? ''));
+      if ($uname === '') $uname = 'user#' . $uid;
+
+      $ipCnt = (int)($r['ip_cnt'] ?? 0);
+      $fpCnt = (int)($r['fp_cnt'] ?? 0);
+      $errCnt = (int)($r['err_cnt'] ?? 0);
+      $hits = (int)($r['hits'] ?? 0);
+
+      $reasons = [];
+      if ($ipCnt >= $ipThr) $reasons[] = "{$ipCnt} IPs";
+      if ($fpCnt >= $fpThr) $reasons[] = "{$fpCnt} devices";
+      if ($errCnt >= $errThr) $reasons[] = "{$errCnt} errors";
+      if (!$reasons) continue;
+
+      $title = 'Suspicious activity: ' . $uname;
+      $msg = "Flagged in last {$windowMin} min: " . implode(', ', $reasons) . " (hits: {$hits}).";
+      $link = '/admin/user_accounts.php?edit=' . $uid;
+
+      $uniq = 'sus:' . $uid . ':' . $bucketKey;
+      admin_notifications_broadcast($pdo, 'security', $title, $msg, $link, $uniq);
+    }
+  } catch (Throwable $t) {
+    // ignore
+  }
+}

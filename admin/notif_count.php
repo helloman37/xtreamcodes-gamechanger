@@ -13,6 +13,7 @@ $cfg = require __DIR__ . '/../config.php';
 
 // Generate a few key admin alerts on-demand (login-triggered).
 admin_notifications_generate_sub_expiry($pdo, is_array($cfg) ? $cfg : []);
+admin_notifications_generate_suspicious_activity($pdo, is_array($cfg) ? $cfg : []);
 
 $adminId = (int)($_SESSION['admin_id'] ?? 0);
 $count = admin_notifications_unread_count($pdo, $adminId);
