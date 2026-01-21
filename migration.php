@@ -82,9 +82,7 @@ function db_migrate(PDO $pdo): void {
       package_id INT NOT NULL,
       channel_id INT NOT NULL,
       PRIMARY KEY (package_id, channel_id),
-      INDEX idx_pc_channel (channel_id),
-      FOREIGN KEY (package_id) REFERENCES packages(id) ON DELETE CASCADE,
-      FOREIGN KEY (channel_id) REFERENCES channels(id) ON DELETE CASCADE
+      INDEX idx_pc_channel (channel_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   ");
 
@@ -93,9 +91,7 @@ function db_migrate(PDO $pdo): void {
       user_id INT NOT NULL,
       package_id INT NOT NULL,
       PRIMARY KEY (user_id, package_id),
-      INDEX idx_up_package (package_id),
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-      FOREIGN KEY (package_id) REFERENCES packages(id) ON DELETE CASCADE
+      INDEX idx_up_package (package_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   ");
 
@@ -108,8 +104,7 @@ function db_migrate(PDO $pdo): void {
       last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       last_ip VARCHAR(45) DEFAULT NULL,
       UNIQUE KEY uniq_user_device (user_id, fingerprint),
-      INDEX idx_user_devices_user (user_id),
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      INDEX idx_user_devices_user (user_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   ");
 
@@ -229,8 +224,7 @@ function db_migrate(PDO $pdo): void {
       last_fail TIMESTAMP NULL,
       fail_count INT NOT NULL DEFAULT 0,
       last_http INT NULL,
-      last_error VARCHAR(255) NULL,
-      FOREIGN KEY (channel_id) REFERENCES channels(id) ON DELETE CASCADE
+      last_error VARCHAR(255) NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   ");
 
@@ -306,8 +300,7 @@ function db_migrate(PDO $pdo): void {
       container_ext VARCHAR(10) NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       INDEX idx_movies_cat (category_id),
-      INDEX idx_movies_tmdb (tmdb_id),
-      FOREIGN KEY (category_id) REFERENCES vod_categories(id) ON DELETE SET NULL
+      INDEX idx_movies_tmdb (tmdb_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   ");
 
@@ -334,8 +327,7 @@ function db_migrate(PDO $pdo): void {
       is_adult TINYINT(1) DEFAULT 0,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       INDEX idx_series_cat (category_id),
-      INDEX idx_series_tmdb (tmdb_id),
-      FOREIGN KEY (category_id) REFERENCES series_categories(id) ON DELETE SET NULL
+      INDEX idx_series_tmdb (tmdb_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   ");
 
@@ -349,8 +341,7 @@ function db_migrate(PDO $pdo): void {
       stream_url TEXT NOT NULL,
       container_ext VARCHAR(10) NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      INDEX idx_ep_series (series_id, season_num, episode_num),
-      FOREIGN KEY (series_id) REFERENCES series(id) ON DELETE CASCADE
+      INDEX idx_ep_series (series_id, season_num, episode_num)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   ");
 
@@ -360,9 +351,7 @@ function db_migrate(PDO $pdo): void {
       package_id INT NOT NULL,
       movie_id INT NOT NULL,
       PRIMARY KEY (package_id, movie_id),
-      INDEX idx_pm_movie (movie_id),
-      FOREIGN KEY (package_id) REFERENCES packages(id) ON DELETE CASCADE,
-      FOREIGN KEY (movie_id) REFERENCES movies(id) ON DELETE CASCADE
+      INDEX idx_pm_movie (movie_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   ");
 
@@ -371,9 +360,7 @@ function db_migrate(PDO $pdo): void {
       package_id INT NOT NULL,
       series_id INT NOT NULL,
       PRIMARY KEY (package_id, series_id),
-      INDEX idx_ps_series (series_id),
-      FOREIGN KEY (package_id) REFERENCES packages(id) ON DELETE CASCADE,
-      FOREIGN KEY (series_id) REFERENCES series(id) ON DELETE CASCADE
+      INDEX idx_ps_series (series_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   ");
 
@@ -400,9 +387,7 @@ function db_migrate(PDO $pdo): void {
       notes TEXT NULL,
       tags VARCHAR(255) NULL,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        ON UPDATE CURRENT_TIMESTAMP,
-      CONSTRAINT fk_user_notes_user
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+        ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   ");
 
@@ -422,9 +407,7 @@ $pdo->exec("
     read_at DATETIME NULL,
     INDEX idx_notif_user (user_id),
     INDEX idx_notif_user_read (user_id, is_read, created_at),
-    UNIQUE KEY uniq_notif_user_key (user_id, uniq_key),
-    CONSTRAINT fk_notifications_user
-      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    UNIQUE KEY uniq_notif_user_key (user_id, uniq_key)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
 ");
 
@@ -443,9 +426,7 @@ $pdo->exec("
     read_at DATETIME NULL,
     INDEX idx_admin_notif_admin (admin_id),
     INDEX idx_admin_notif_admin_read (admin_id, is_read, created_at),
-    UNIQUE KEY uniq_admin_notif_key (admin_id, uniq_key),
-    CONSTRAINT fk_admin_notifications_admin
-      FOREIGN KEY (admin_id) REFERENCES admins(id) ON DELETE CASCADE
+    UNIQUE KEY uniq_admin_notif_key (admin_id, uniq_key)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
 ");
 }
