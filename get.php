@@ -72,6 +72,81 @@ if ($username === '' || $password === '') {
 
 $pdo = db();
 
+// -----------------------------------------------------------------------------
+// Load balancers (reverse proxies) for protected stream links.
+// If no enabled LBs exist, we fall back to $site_url automatically.
+// This does NOT affect direct_play links (upstream URLs) when link=auto.
+// -----------------------------------------------------------------------------
+function _lb_cache_get(string $key, bool &$hit): ?string {
+  $hit = false;
+  if (function_exists('apcu_fetch')) {
+    $ok = false;
+    $val = apcu_fetch($key, $ok);
+    if ($ok) { $hit = true; return is_string($val) ? $val : null; }
+  }
+  $file = rtrim(sys_get_temp_dir(), '/\\') . DIRECTORY_SEPARATOR . $key . '.json';
+  if (is_file($file) && (time() - (int)@filemtime($file) < 60)) {
+    $hit = true;
+    return (string)@file_get_contents($file);
+  }
+  return null;
+}
+
+function _lb_cache_set(string $key, string $val): void {
+  if (function_exists('apcu_store')) {
+    @apcu_store($key, $val, 60);
+    return;
+  }
+  $file = rtrim(sys_get_temp_dir(), '/\\') . DIRECTORY_SEPARATOR . $key . '.json';
+  @file_put_contents($file, $val, LOCK_EX);
+}
+
+function _lb_active_pool(PDO $pdo): array {
+  $key = 'iptv_lb_pool';
+  $hit = false;
+  $cached = _lb_cache_get($key, $hit);
+  if ($hit && $cached !== null) {
+    $arr = json_decode($cached, true);
+    if (is_array($arr)) return $arr;
+  }
+
+  $rows = [];
+  try {
+    $rows = $pdo->query("SELECT base_url, weight FROM lb_servers WHERE enabled=1 ORDER BY id ASC")->fetchAll(PDO::FETCH_ASSOC);
+  } catch (Throwable $e) {
+    $rows = [];
+  }
+
+  $pool = [];
+  foreach ($rows as $r) {
+    $u = rtrim(trim((string)($r['base_url'] ?? '')), '/');
+    if ($u === '') continue;
+    $w = (int)($r['weight'] ?? 1);
+    if ($w < 1) $w = 1;
+    // weight by duplication (simple + fast)
+    for ($i=0; $i<$w; $i++) $pool[] = $u;
+  }
+
+  _lb_cache_set($key, json_encode($pool, JSON_UNESCAPED_SLASHES));
+  return $pool;
+}
+
+function _stream_site_url(PDO $pdo, string $fallback, string $username): string {
+  $lbs = _lb_active_pool($pdo);
+  if (!$lbs) return $fallback;
+
+  // Manual override for testing: &lb=1 (or 2/3/etc)
+  $force = (int)($_GET['lb'] ?? 0);
+  if ($force >= 1 && $force <= count($lbs)) {
+    return $lbs[$force - 1];
+  }
+
+  $idx = (int)(sprintf('%u', crc32($username)) % count($lbs));
+  return $lbs[$idx];
+}
+
+$stream_site_url = _stream_site_url($pdo, $site_url, $username);
+
 // Global maintenance mode
 $maint_enabled = system_setting_get($pdo, 'maintenance_mode', '0') === '1';
 $maint_streams = (system_setting_get($pdo, 'maintenance_streams_mode', '0') === '1');
@@ -279,12 +354,12 @@ foreach ($channels as $c) {
 
   if ($link_type === 'direct_protected') {
     // stream proxy URL (querystring)
-    $hidden = $site_url."/stream/index.php?u=".rawurlencode($username)."&p=".rawurlencode($p_empty)."&id=".$c['id'];
+    $hidden = $stream_site_url."/stream/index.php?u=".rawurlencode($username)."&p=".rawurlencode($p_empty)."&id=".$c['id'];
     $hidden .= "&exp=".$exp."&token=".$token;
 
   } elseif ($link_type === 'standard_protected') {
     // /live/u/p/id.ext (legacy password in path)
-    $hidden = $site_url."/live/".rawurlencode($username)."/".rawurlencode($password)."/".$c['id'].".".$ext;
+    $hidden = $stream_site_url."/live/".rawurlencode($username)."/".rawurlencode($password)."/".$c['id'].".".$ext;
     $hidden .= "?exp=".$exp."&token=".$token;
 
   } elseif ($link_type === 'auto') {
@@ -293,12 +368,12 @@ foreach ($channels as $c) {
       echo $c['stream_url']."\n";
       continue;
     }
-    $hidden = $site_url."/stream/index.php?u=".rawurlencode($username)."&p=".rawurlencode($p_empty)."&id=".$c['id'];
+    $hidden = $stream_site_url."/stream/index.php?u=".rawurlencode($username)."&p=".rawurlencode($p_empty)."&id=".$c['id'];
     $hidden .= "&exp=".$exp."&token=".$token;
 
   } else { // token_protected (recommended)
     // /live/u/token/id.ext?exp=...
-    $hidden = $site_url."/live/".rawurlencode($username)."/".rawurlencode($token)."/".$c['id'].".".$ext;
+    $hidden = $stream_site_url."/live/".rawurlencode($username)."/".rawurlencode($token)."/".$c['id'].".".$ext;
     $hidden .= "?exp=".$exp;
   }
 
@@ -333,11 +408,11 @@ if ($type === 'm3u_plus') {
     $tok = make_token($username, (int)$m['id'], $exp, 'movie');
 
     if ($link_type === 'direct_protected') {
-      $url = $site_url."/stream/index.php?u=".rawurlencode($username)."&p=&id=".$m['id']."&type=movie&exp=".$exp."&token=".$tok;
+      $url = $stream_site_url."/stream/index.php?u=".rawurlencode($username)."&p=&id=".$m['id']."&type=movie&exp=".$exp."&token=".$tok;
     } elseif ($link_type === 'standard_protected') {
-      $url = $site_url."/movie/".rawurlencode($username)."/".rawurlencode($password)."/".$m['id'].".".$ext."?exp=".$exp."&token=".$tok;
+      $url = $stream_site_url."/movie/".rawurlencode($username)."/".rawurlencode($password)."/".$m['id'].".".$ext."?exp=".$exp."&token=".$tok;
     } else {
-      $url = $site_url."/movie/".rawurlencode($username)."/".rawurlencode($tok)."/".$m['id'].".".$ext."?exp=".$exp;
+      $url = $stream_site_url."/movie/".rawurlencode($username)."/".rawurlencode($tok)."/".$m['id'].".".$ext."?exp=".$exp;
     }
 
     echo $url."\n";
@@ -370,11 +445,11 @@ if ($type === 'm3u_plus') {
     $tok = make_token($username, (int)$e['id'], $exp, 'episode');
 
     if ($link_type === 'direct_protected') {
-      $url = $site_url."/stream/index.php?u=".rawurlencode($username)."&p=&id=".$e['id']."&type=episode&exp=".$exp."&token=".$tok;
+      $url = $stream_site_url."/stream/index.php?u=".rawurlencode($username)."&p=&id=".$e['id']."&type=episode&exp=".$exp."&token=".$tok;
     } elseif ($link_type === 'standard_protected') {
-      $url = $site_url."/series/".rawurlencode($username)."/".rawurlencode($password)."/".$e['id'].".".$ext."?exp=".$exp."&token=".$tok;
+      $url = $stream_site_url."/series/".rawurlencode($username)."/".rawurlencode($password)."/".$e['id'].".".$ext."?exp=".$exp."&token=".$tok;
     } else {
-      $url = $site_url."/series/".rawurlencode($username)."/".rawurlencode($tok)."/".$e['id'].".".$ext."?exp=".$exp;
+      $url = $stream_site_url."/series/".rawurlencode($username)."/".rawurlencode($tok)."/".$e['id'].".".$ext."?exp=".$exp;
     }
     echo $url."\n";
   }

@@ -202,6 +202,22 @@ function db_migrate(PDO $pdo): void {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   ");
 
+  // Load balancer / reverse proxy endpoints used for protected stream links.
+  // If no active LBs exist, the panel falls back to base_url automatically.
+  $pdo->exec("
+    CREATE TABLE IF NOT EXISTS lb_servers (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(190) NULL,
+      base_url VARCHAR(255) NOT NULL,
+      enabled TINYINT(1) NOT NULL DEFAULT 1,
+      weight INT NOT NULL DEFAULT 1,
+      notes VARCHAR(255) NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_lb_enabled (enabled)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  ");
+
 
 
   $pdo->exec("
