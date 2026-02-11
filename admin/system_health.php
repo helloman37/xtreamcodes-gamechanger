@@ -188,14 +188,55 @@ function sh_is_safe_log_path(string $path, string $panel_root): bool {
   return false;
 }
 
+
+// Disk space helpers (shared hosts may disable disk_total_space/disk_free_space)
+function sh_disk_space_bytes(string $path): array {
+  $path = $path ?: '.';
+
+  $total = null;
+  $free  = null;
+
+  // Prefer PHP built-ins when available
+  if (function_exists('disk_total_space') && function_exists('disk_free_space')) {
+    $t = @disk_total_space($path);
+    $f = @disk_free_space($path);
+    if ($t !== false) $total = (int)$t;
+    if ($f !== false) $free  = (int)$f;
+    return [$total, $free];
+  }
+
+  // Fallback: parse df output (most shared hosts allow this)
+  if (function_exists('shell_exec')) {
+    $cmd = 'df -Pk ' . escapeshellarg($path) . ' 2>/dev/null';
+    $out = @shell_exec($cmd);
+    if (is_string($out) && trim($out) !== '') {
+      $lines = preg_split('/\r?\n/', trim($out));
+      if (count($lines) >= 2) {
+        // Filesystem 1024-blocks Used Available Capacity Mounted on
+        $cols = preg_split('/\s+/', trim($lines[1]));
+        if (count($cols) >= 5) {
+          $blocks_total = (int)$cols[1];
+          $blocks_avail = (int)$cols[3];
+          if ($blocks_total > 0) $total = $blocks_total * 1024;
+          if ($blocks_avail >= 0) $free = $blocks_avail * 1024;
+          return [$total, $free];
+        }
+      }
+    }
+  }
+
+  // If everything is blocked by host settings, return nulls
+  return [$total, $free];
+}
+
+
 // ---------- compute snapshot ----------
 $panel_root = realpath(__DIR__ . '/..') ?: (__DIR__ . '/..');
 $load = function_exists('sys_getloadavg') ? (sys_getloadavg() ?: []) : [];
 $mem = sh_read_meminfo();
-$disk_total = @disk_total_space($panel_root);
-$disk_free  = @disk_free_space($panel_root);
-$disk_used  = ($disk_total && $disk_free !== false) ? max(0, (int)$disk_total - (int)$disk_free) : null;
-$disk_pct   = ($disk_total && $disk_used !== null && (int)$disk_total > 0) ? (int)round(($disk_used / (int)$disk_total) * 100) : null;
+[$disk_total, $disk_free] = sh_disk_space_bytes($panel_root);
+$disk_used  = ($disk_total !== null && $disk_free !== null) ? max(0, (int)$disk_total - (int)$disk_free) : null;
+$disk_pct   = ($disk_total !== null && $disk_used !== null && (int)$disk_total > 0) ? (int)round(($disk_used / (int)$disk_total) * 100) : null;
 
 $db_ok = true;
 $db_info = ['version'=>'', 'uptime'=>'', 'threads'=>'', 'slow_queries'=>''];
