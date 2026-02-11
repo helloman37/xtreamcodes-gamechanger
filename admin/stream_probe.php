@@ -29,6 +29,8 @@ $fail_threshold = (int)dsh_setting_get($pdo, $pid, 'fail_threshold', '3');
 $failover = (int)dsh_setting_get($pdo, $pid, 'failover', '1');
 $insecure_tls = (int)dsh_setting_get($pdo, $pid, 'insecure_tls', '0');
 $dead_group = dsh_setting_get($pdo, $pid, 'dead_group', 'DEAD');
+$keep_days = (int)dsh_setting_get($pdo, $pid, 'keep_days', '7');
+$auto_move_dead = (int)dsh_setting_get($pdo, $pid, 'auto_move_dead', '0');
 
 if ($timeout < 2) $timeout = 2;
 if ($timeout > 30) $timeout = 30;
@@ -36,6 +38,10 @@ if ($batch < 1) $batch = 1;
 if ($batch > 50) $batch = 50;
 if ($fail_threshold < 1) $fail_threshold = 1;
 if ($fail_threshold > 50) $fail_threshold = 50;
+if ($keep_days < 1) $keep_days = 1;
+if ($keep_days > 365) $keep_days = 365;
+
+$auto_move_dead = $auto_move_dead ? 1 : 0;
 
 // Save settings
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['dsh_save_settings'] ?? '') === '1') {
@@ -44,6 +50,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['dsh_save_settings'] ?? '')
   $fail_threshold = max(1, min(50, (int)($_POST['fail_threshold'] ?? $fail_threshold)));
   $failover = isset($_POST['failover']) ? 1 : 0;
   $insecure_tls = isset($_POST['insecure_tls']) ? 1 : 0;
+  $keep_days = max(1, min(365, (int)($_POST['keep_days'] ?? $keep_days)));
+  $auto_move_dead = isset($_POST['auto_move_dead']) ? 1 : 0;
   $dead_group = trim((string)($_POST['dead_group'] ?? $dead_group));
   if ($dead_group === '') $dead_group = 'DEAD';
   if (strlen($dead_group) > 40) $dead_group = substr($dead_group, 0, 40);
@@ -54,6 +62,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['dsh_save_settings'] ?? '')
   dsh_setting_set($pdo, $pid, 'failover', (string)$failover);
   dsh_setting_set($pdo, $pid, 'insecure_tls', (string)$insecure_tls);
   dsh_setting_set($pdo, $pid, 'dead_group', (string)$dead_group);
+  dsh_setting_set($pdo, $pid, 'keep_days', (string)$keep_days);
+  dsh_setting_set($pdo, $pid, 'auto_move_dead', (string)$auto_move_dead);
 
   flash_set("Saved.", "success");
   header("Location: stream_probe.php");
@@ -75,6 +85,8 @@ if (isset($_GET['ajax'])) {
   $failover = (int)dsh_setting_get($pdo, $pid, 'failover', '1');
   $insecure_tls = (int)dsh_setting_get($pdo, $pid, 'insecure_tls', '0');
   $dead_group = dsh_setting_get($pdo, $pid, 'dead_group', 'DEAD');
+  $keep_days = (int)dsh_setting_get($pdo, $pid, 'keep_days', '7');
+  $auto_move_dead = (int)dsh_setting_get($pdo, $pid, 'auto_move_dead', '0');
 
   if ($timeout < 2) $timeout = 2;
   if ($timeout > 30) $timeout = 30;
@@ -82,6 +94,9 @@ if (isset($_GET['ajax'])) {
   if ($batch > 50) $batch = 50;
   if ($fail_threshold < 1) $fail_threshold = 1;
   if ($fail_threshold > 50) $fail_threshold = 50;
+  if ($keep_days < 1) $keep_days = 1;
+  if ($keep_days > 365) $keep_days = 365;
+  $auto_move_dead = $auto_move_dead ? 1 : 0;
 
   if ($ajax === 'scan') {
     $scope = (string)($_GET['scope'] ?? 'channels');
@@ -94,6 +109,10 @@ if (isset($_GET['ajax'])) {
     $total = 0;
 
     try {
+      // Cleanup history once at the start of a scan
+      if ($offset === 0) {
+        try { dsh_probe_history_cleanup($pdo, $keep_days); } catch (Throwable $t) {}
+      }
       if ($scope === 'channels') {
         $where = "1=1";
         if ($mode === 'failing') $where = "(works=0)";
@@ -131,6 +150,7 @@ if (isset($_GET['ajax'])) {
 
           $used_url = (string)($r['used_url'] ?? $primary);
           $switched = (bool)($r['switched'] ?? false);
+          $latency_ms = isset($r['latency_ms']) ? (int)$r['latency_ms'] : null;
 
           // If primary dead but backup works, optionally switch
           $final_url = $primary;
@@ -145,6 +165,11 @@ if (isset($_GET['ajax'])) {
 
           // Persist channel status
           $upd->execute([$final_url, $ok ? 1 : 0, $code ?: null, $id]);
+
+          // Log history
+          try {
+            dsh_probe_history_log($pdo, 'channel', $id, $name, $used_url, $ok, $code ?: null, $latency_ms, $err);
+          } catch (Throwable $t) {}
 
           // Admin notify when a stream flips from working -> dead
           try {
@@ -177,6 +202,7 @@ if (isset($_GET['ajax'])) {
             'group' => (string)($ch['group_title'] ?? ''),
             'ok' => $ok,
             'code' => $code,
+            'latency_ms' => $latency_ms,
             'switched' => ($ok && $switched && $failover) ? 1 : 0,
             'used_url' => $used_url,
             'checked' => (int)($r['checked'] ?? 1),
@@ -184,6 +210,15 @@ if (isset($_GET['ajax'])) {
 
           $processed++;
           usleep(120000);
+        }
+
+        // Optional auto-action: move dead channels to group
+        if ($auto_move_dead) {
+          try {
+            $dg = dsh_setting_get($pdo, $pid, 'dead_group', 'DEAD');
+            $st = $pdo->prepare("UPDATE channels c JOIN stream_health sh ON sh.channel_id=c.id SET c.group_title=? WHERE c.works=0 AND IFNULL(sh.fail_count,0) >= ?");
+            $st->execute([$dg, $fail_threshold]);
+          } catch (Throwable $t) {}
         }
       } elseif ($scope === 'movies') {
         $where = "1=1";
@@ -208,8 +243,13 @@ if (isset($_GET['ajax'])) {
           $ok = (bool)($r['works'] ?? false);
           $code = (int)($r['code'] ?? 0);
           $err = (string)($r['error'] ?? '');
+          $latency_ms = isset($r['latency_ms']) ? (int)$r['latency_ms'] : null;
 
           dsh_vod_health_upsert($pdo, 'movie', $id, $ok, $code ?: null, $err);
+
+          try {
+            dsh_probe_history_log($pdo, 'movie', $id, (string)($mrow['name'] ?? ''), $url, $ok, $code ?: null, $latency_ms, $err);
+          } catch (Throwable $t) {}
 
           $results[] = [
             'id' => $id,
@@ -217,6 +257,7 @@ if (isset($_GET['ajax'])) {
             'cat' => (string)($mrow['cat'] ?? ''),
             'ok' => $ok,
             'code' => $code,
+            'latency_ms' => $latency_ms,
           ];
           $processed++;
           usleep(120000);
@@ -244,8 +285,13 @@ if (isset($_GET['ajax'])) {
           $ok = (bool)($r['works'] ?? false);
           $code = (int)($r['code'] ?? 0);
           $err = (string)($r['error'] ?? '');
+          $latency_ms = isset($r['latency_ms']) ? (int)$r['latency_ms'] : null;
 
           dsh_vod_health_upsert($pdo, 'episode', $id, $ok, $code ?: null, $err);
+
+          try {
+            dsh_probe_history_log($pdo, 'episode', $id, (string)($erow['title'] ?? ''), $url, $ok, $code ?: null, $latency_ms, $err);
+          } catch (Throwable $t) {}
 
           $label = trim((string)($erow['series_name'] ?? '')) . ' S' . (int)($erow['season_num'] ?? 1) . 'E' . (int)($erow['episode_num'] ?? 1);
           $results[] = [
@@ -253,6 +299,7 @@ if (isset($_GET['ajax'])) {
             'name' => $label . ' - ' . (string)($erow['title'] ?? ''),
             'ok' => $ok,
             'code' => $code,
+            'latency_ms' => $latency_ms,
           ];
           $processed++;
           usleep(120000);
@@ -423,6 +470,9 @@ if (isset($_GET['ajax'])) {
 </style>
 <div class="card" style="margin:14px 0;">
   <h2>Settings</h2>
+  <div style="margin-top:6px;">
+    <a class="btn btn-small gray" href="stream_probe_history.php">View probe history</a>
+  </div>
   <form method="post">
     <input type="hidden" name="dsh_save_settings" value="1">
     <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end;">
@@ -442,9 +492,17 @@ if (isset($_GET['ajax'])) {
         <div class="muted">Dead group title (Live)</div>
         <input class="inp" type="text" name="dead_group" value="<?= e((string)$dead_group) ?>" style="width:200px;">
       </label>
+      <label style="display:block;">
+        <div class="muted">Keep probe history (days)</div>
+        <input class="inp" type="number" name="keep_days" min="1" max="365" value="<?= e((string)$keep_days) ?>" style="width:160px;">
+      </label>
       <label style="display:flex; gap:8px; align-items:center; margin-bottom:6px;">
         <input type="checkbox" name="failover" <?= $failover ? 'checked' : '' ?>>
         <span>Auto-failover to backup sources_json (Live)</span>
+      </label>
+      <label style="display:flex; gap:8px; align-items:center; margin-bottom:6px;">
+        <input type="checkbox" name="auto_move_dead" <?= $auto_move_dead ? 'checked' : '' ?>>
+        <span>Auto-move dead Live to group "<?= e($dead_group) ?>" (during scans)</span>
       </label>
       <label style="display:flex; gap:8px; align-items:center; margin-bottom:6px;">
         <input type="checkbox" name="insecure_tls" <?= $insecure_tls ? 'checked' : '' ?>>

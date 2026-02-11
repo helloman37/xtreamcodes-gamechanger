@@ -15,6 +15,23 @@ function dsh_db_init(PDO $pdo): void {
     INDEX idx_dsh_fail (fail_count, last_fail),
     INDEX idx_dsh_ok (last_ok)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+  // Probe history (optional)
+  $pdo->exec("CREATE TABLE IF NOT EXISTS dsh_probe_history (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    item_type ENUM('channel','movie','episode') NOT NULL,
+    item_id INT NOT NULL,
+    item_name VARCHAR(190) NULL,
+    url TEXT NULL,
+    ok TINYINT(1) NOT NULL DEFAULT 0,
+    http_code INT NULL,
+    latency_ms INT NULL,
+    error VARCHAR(255) NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    INDEX idx_dshph_item (item_type, item_id, created_at),
+    INDEX idx_dshph_ok (ok, created_at)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 }
 
 function dsh_setting_get(PDO $pdo, string $plugin_id, string $key, string $default=''): string {
@@ -52,7 +69,7 @@ function dsh_parse_sources_json(?string $raw): array {
 // - For .m3u8 we GET and check the playlist header.
 function dsh_probe_url(string $url, int $timeout=8, bool $insecure_tls=false): array {
   $url = trim($url);
-  if ($url === '') return ['works'=>false,'code'=>0,'error'=>'empty url'];
+  if ($url === '') return ['works'=>false,'code'=>0,'error'=>'empty url','latency_ms'=>null];
 
   $is_m3u8 = (stripos($url, '.m3u8') !== false) || (stripos($url, 'm3u8') !== false && stripos($url, 'live') !== false);
 
@@ -75,11 +92,12 @@ function dsh_probe_url(string $url, int $timeout=8, bool $insecure_tls=false): a
     ]);
     curl_exec($ch);
     $code = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+    $lat = (float)curl_getinfo($ch, CURLINFO_TOTAL_TIME);
     $err  = (string)curl_error($ch);
     curl_close($ch);
 
     if ($code >= 200 && $code < 400) {
-      return ['works'=>true,'code'=>$code,'error'=>''];
+      return ['works'=>true,'code'=>$code,'latency_ms'=>(int)round($lat*1000),'error'=>''];
     }
 
     // Some stream origins reject HEAD. Try a tiny GET.
@@ -92,14 +110,15 @@ function dsh_probe_url(string $url, int $timeout=8, bool $insecure_tls=false): a
       ]);
       $body = curl_exec($ch);
       $code2 = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+      $lat2 = (float)curl_getinfo($ch, CURLINFO_TOTAL_TIME);
       $err2  = (string)curl_error($ch);
       curl_close($ch);
 
       $ok = ($code2 >= 200 && $code2 < 400) && (is_string($body) ? strlen($body) > 0 : true);
-      return ['works'=>$ok,'code'=>$code2,'error'=> $ok ? '' : ($err2 ?: $err ?: 'GET failed')];
+      return ['works'=>$ok,'code'=>$code2,'latency_ms'=>(int)round($lat2*1000),'error'=> $ok ? '' : ($err2 ?: $err ?: 'GET failed')];
     }
 
-    return ['works'=>false,'code'=>$code,'error'=>$err ?: 'unhealthy'];
+    return ['works'=>false,'code'=>$code,'latency_ms'=>(int)round($lat*1000),'error'=>$err ?: 'unhealthy'];
   }
 
   // m3u8: GET the playlist
@@ -111,6 +130,7 @@ function dsh_probe_url(string $url, int $timeout=8, bool $insecure_tls=false): a
   ]);
   $body = curl_exec($ch);
   $code = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+  $lat = (float)curl_getinfo($ch, CURLINFO_TOTAL_TIME);
   $err  = (string)curl_error($ch);
   curl_close($ch);
 
@@ -131,7 +151,7 @@ function dsh_probe_url(string $url, int $timeout=8, bool $insecure_tls=false): a
     }
   }
 
-  return ['works'=>$works,'code'=>$code,'error'=>$works ? '' : ($err ?: 'unhealthy')];
+  return ['works'=>$works,'code'=>$code,'latency_ms'=>(int)round($lat*1000),'error'=>$works ? '' : ($err ?: 'unhealthy')];
 }
 
 // returns: ['ok'=>bool,'used_url'=>string,'code'=>int,'error'=>string,'switched'=>bool,'checked'=>int]
@@ -152,11 +172,42 @@ function dsh_check_with_sources(string $primary, array $sources, int $timeout, b
     $r = dsh_probe_url($u, $timeout, $insecure_tls);
     $last = $r;
     if (!empty($r['works'])) {
-      return ['ok'=>true,'used_url'=>$u,'code'=>(int)$r['code'],'error'=>'','switched'=> ($primary !== '' && $u !== $primary),'checked'=>$checked];
+      return ['ok'=>true,'used_url'=>$u,'code'=>(int)$r['code'],'latency_ms'=>(int)($r['latency_ms'] ?? 0),'error'=>'','switched'=> ($primary !== '' && $u !== $primary),'checked'=>$checked];
     }
   }
 
-  return ['ok'=>false,'used_url'=>$primary,'code'=>(int)($last['code'] ?? 0),'error'=>(string)($last['error'] ?? ''),'switched'=>false,'checked'=>$checked];
+  return ['ok'=>false,'used_url'=>$primary,'code'=>(int)($last['code'] ?? 0),'latency_ms'=>(int)($last['latency_ms'] ?? 0),'error'=>(string)($last['error'] ?? ''),'switched'=>false,'checked'=>$checked];
+}
+
+function dsh_probe_history_log(PDO $pdo, string $item_type, int $item_id, string $item_name, string $url, bool $ok, ?int $http, ?int $latency_ms, string $error): void {
+  $item_name = trim($item_name);
+  if ($item_name !== '') $item_name = mb_substr($item_name, 0, 190);
+  else $item_name = null;
+  $url = trim($url);
+  $url = $url !== '' ? $url : null;
+  $error = trim($error);
+  $error = $error !== '' ? mb_substr($error, 0, 255) : null;
+
+  $st = $pdo->prepare("INSERT INTO dsh_probe_history (item_type,item_id,item_name,url,ok,http_code,latency_ms,error,created_at)
+    VALUES (?,?,?,?,?,?,?,?,NOW())");
+  $st->execute([
+    $item_type,
+    $item_id,
+    $item_name,
+    $url,
+    $ok ? 1 : 0,
+    $http,
+    $latency_ms,
+    $error,
+  ]);
+}
+
+function dsh_probe_history_cleanup(PDO $pdo, int $keep_days): void {
+  $keep_days = (int)$keep_days;
+  if ($keep_days < 1) $keep_days = 1;
+  if ($keep_days > 365) $keep_days = 365;
+  $pdo->prepare("DELETE FROM dsh_probe_history WHERE created_at < (NOW() - INTERVAL ? DAY)")
+      ->execute([$keep_days]);
 }
 
 function dsh_vod_health_upsert(PDO $pdo, string $type, int $id, bool $ok, ?int $code, string $err): void {
