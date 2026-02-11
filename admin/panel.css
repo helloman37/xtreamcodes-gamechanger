@@ -1138,3 +1138,10 @@ tr:hover td{background:#fafbff}
 .btn svg{width:16px;height:16px;display:block;}
 
 .xt-modal-close svg{width:18px;height:18px;display:block;}
+
+
+/* Live connections pill trend */
+.xt-trend{margin-left:6px;font-weight:700;font-size:12px;opacity:.95;}
+.xt-trend-up{color:#3ad16a;}
+.xt-trend-down{color:#ff4b4b;}
+.xt-trend-flat{color:#b9c1cc;}

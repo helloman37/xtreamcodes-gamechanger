@@ -17,7 +17,14 @@
               <span id="xtHealthText">CPU -- | RAM -- | DISK -- | DB --</span>
             </a>
 
-            <a class="xt-pill credits" href="billing_reports.php" title="Billing / Reports">
+            
+            <a class="xt-pill credits livepill" id="xtLivePill" href="sessions.php" title="Live Connections">
+              <span class="dot-green" id="xtLiveDot"></span>
+              <span id="xtLiveText">LIVE --</span>
+              <span id="xtLiveTrend" class="xt-trend"></span>
+            </a>
+
+<a class="xt-pill credits" href="billing_reports.php" title="Billing / Reports">
               <span class="dot-green"></span>
               Credits
             </a>
@@ -316,7 +323,7 @@
 
                 if(!d || !d.ok){
                   txt.textContent = "CPU -- | RAM -- | DISK -- | DB --";
-                  setDot(dot, "dot-red");
+                  xtSetDot(dot, "dot-red");
                   return;
                 }
 
@@ -340,13 +347,13 @@
                 if(status !== "dot-red"){
                   if((ramPct !== null && ramPct >= 80) || (diskPct !== null && diskPct >= 80)) status = "dot-yellow";
                 }
-                setDot(dot, status);
+                xtSetDot(dot, status);
               })
               .catch(function(){
                 var dot  = document.getElementById("xtHealthDot");
                 var txt  = document.getElementById("xtHealthText");
                 if(txt) txt.textContent = "CPU -- | RAM -- | DISK -- | DB --";
-                setDot(dot, "dot-red");
+                xtSetDot(dot, "dot-red");
               });
           } catch(e) {}
         }
@@ -359,3 +366,63 @@
 
     <!-- Content wrapper (opened here, closed by each page) -->
     <div class="container">
+
+                <script>
+// Live connections pill (XUI-style)
+            function xtSetDot(dot, cls){ if(!dot) return; dot.className = cls; }
+            var xtPrevLiveCount = null;
+
+            function xtRefreshLive(){
+              fetch("ajax/live_connections_live.php", {credentials:"same-origin"})
+                .then(function(r){ return r.json(); })
+                .then(function(d){
+                  var dot = document.getElementById("xtLiveDot");
+                  var txt = document.getElementById("xtLiveText");
+                  var tr  = document.getElementById("xtLiveTrend");
+                  if(!dot || !txt || !tr) return;
+
+                  if(!d || !d.ok){
+                    txt.textContent = "LIVE --";
+                    tr.textContent = "";
+                    xtSetDot(dot, "dot-red");
+                    return;
+                  }
+
+                  var c = parseInt(d.count, 10);
+                  if(isNaN(c)) c = 0;
+
+                  txt.textContent = "LIVE " + c;
+
+                  if(xtPrevLiveCount === null){
+                    tr.textContent = "";
+                  } else if(c > xtPrevLiveCount){
+                    var delta = c - xtPrevLiveCount;
+                    tr.textContent = " ↑" + delta;
+                    tr.className = "xt-trend xt-trend-up";
+                  } else if(c < xtPrevLiveCount){
+                    var delta2 = xtPrevLiveCount - c;
+                    tr.textContent = " ↓" + delta2;
+                    tr.className = "xt-trend xt-trend-down";
+                  } else {
+                    tr.textContent = " ↔";
+                    tr.className = "xt-trend xt-trend-flat";
+                  }
+
+                  xtPrevLiveCount = c;
+                  xtSetDot(dot, "dot-green");
+                })
+                .catch(function(){
+                  var dot = document.getElementById("xtLiveDot");
+                  var txt = document.getElementById("xtLiveText");
+                  var tr  = document.getElementById("xtLiveTrend");
+                  if(txt) txt.textContent = "LIVE --";
+                  if(tr) tr.textContent = "";
+                  if(dot) xtSetDot(dot, "dot-red");
+                });
+            }
+
+            xtRefreshLive();
+            setInterval(xtRefreshLive, 5000);
+
+
+    </script>
