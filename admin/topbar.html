@@ -12,6 +12,11 @@
           </div>
 
           <div class="xt-head-actions">
+            <a class="xt-pill credits healthpill" id="xtHealthPill" href="system_health.php" title="System Health">
+              <span class="dot-green" id="xtHealthDot"></span>
+              <span id="xtHealthText">CPU -- | RAM -- | DISK -- | DB --</span>
+            </a>
+
             <a class="xt-pill credits" href="billing_reports.php" title="Billing / Reports">
               <span class="dot-green"></span>
               Credits
@@ -285,6 +290,72 @@
         refreshAdminNotifs();
       })();
     </script>
+
+    <script>
+      (function(){
+        function fmt2(n){
+          if(n === null || typeof n === "undefined") return "--";
+          var x = parseFloat(n);
+          if(!isFinite(x)) return "--";
+          return x.toFixed(2);
+        }
+        function setDot(dot, cls){
+          if(!dot) return;
+          dot.classList.remove("dot-green","dot-yellow","dot-red");
+          dot.classList.add(cls);
+        }
+        function refreshHealthPill(){
+          try {
+            fetch("ajax/system_health_live.php?_=" + Date.now(), {credentials:"same-origin"})
+              .then(function(r){ return r.json(); })
+              .then(function(d){
+                var pill = document.getElementById("xtHealthPill");
+                var dot  = document.getElementById("xtHealthDot");
+                var txt  = document.getElementById("xtHealthText");
+                if(!pill || !dot || !txt) return;
+
+                if(!d || !d.ok){
+                  txt.textContent = "CPU -- | RAM -- | DISK -- | DB --";
+                  setDot(dot, "dot-red");
+                  return;
+                }
+
+                var load1 = (d.load && typeof d.load[0] !== "undefined") ? d.load[0] : null;
+                var ramPct = (d.mem && d.mem.ok) ? d.mem.pct : null;
+                var diskPct = (d.disk && d.disk.ok) ? d.disk.pct : null;
+                var dbOk = (d.db && typeof d.db.ok !== "undefined") ? !!d.db.ok : false;
+
+                var dbTxt = dbOk ? "OK" : "DOWN";
+                var cpuTxt = (load1 === null) ? "--" : fmt2(load1);
+                var ramTxt = (ramPct === null) ? "--" : String(ramPct);
+                var diskTxt = (diskPct === null) ? "--" : String(diskPct);
+
+                txt.textContent = "CPU " + cpuTxt + " | RAM " + ramTxt + "% | DISK " + diskTxt + "% | DB " + dbTxt;
+
+                // Simple status coloring: green ok, yellow warn, red critical/down
+                var status = "dot-green";
+                if(!dbOk) status = "dot-red";
+                if(ramPct !== null && ramPct >= 90) status = "dot-red";
+                if(diskPct !== null && diskPct >= 90) status = "dot-red";
+                if(status !== "dot-red"){
+                  if((ramPct !== null && ramPct >= 80) || (diskPct !== null && diskPct >= 80)) status = "dot-yellow";
+                }
+                setDot(dot, status);
+              })
+              .catch(function(){
+                var dot  = document.getElementById("xtHealthDot");
+                var txt  = document.getElementById("xtHealthText");
+                if(txt) txt.textContent = "CPU -- | RAM -- | DISK -- | DB --";
+                setDot(dot, "dot-red");
+              });
+          } catch(e) {}
+        }
+
+        refreshHealthPill();
+        setInterval(refreshHealthPill, 15000);
+      })();
+    </script>
+
 
     <!-- Content wrapper (opened here, closed by each page) -->
     <div class="container">

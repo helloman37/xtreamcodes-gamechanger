@@ -139,6 +139,11 @@ body{
   width:8px; height:8px; border-radius:50%; background:#22c55e; box-shadow:0 0 8px rgba(34,197,94,.9);
 }
 
+
+.credits .dot-yellow{
+  width:8px; height:8px; border-radius:50%; background:#f59e0b; box-shadow:0 0 8px rgba(245,158,11,.9);
+}
+
 .credits .dot-red{
   width:8px; height:8px; border-radius:50%; background:#ef4444; box-shadow:0 0 8px rgba(239,68,68,.9);
 }
@@ -732,6 +737,14 @@ tr:hover td{background:#fafbff}
 }
 .admin-app .xt-pill.credits:hover,
 .reseller-app .xt-pill.credits:hover{ filter: brightness(1.05); }
+
+.admin-app .xt-pill.healthpill{
+  max-width: 460px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 
 .admin-app .xt-userlabel,
 .reseller-app .xt-userlabel{
