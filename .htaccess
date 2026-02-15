@@ -41,7 +41,7 @@ RewriteRule ^live/.*$ live.php [L,QSA]
 RewriteRule ^seg/.*$ seg.php [L,QSA]
 
 # VOD: /movie/user/token/id.mp4?exp=...
-RewriteRule ^movie/[0-9]+/?$ vod_enabler_routes.php [L,QSA]
+RewriteRule ^movie/.*$ movie.php [L,QSA]
 
 # Series: /series/user/token/episode_id.mp4?exp=...
 RewriteRule ^series/.*$ series.php [L,QSA]

@@ -598,7 +598,8 @@ function iptv_decrypt(?string $enc): string {
 
 function iptv_m3u_link(string $username, string $password): string {
   $base = iptv_base_url();
-  return $base . '/get.php?username=' . urlencode($username) . '&password=' . urlencode($password) . '&type=m3u';
+  // Use m3u_plus so clients receive Live + VOD + Series in one playlist.
+  return $base . '/get.php?username=' . urlencode($username) . '&password=' . urlencode($password) . '&type=m3u_plus';
 }
 /* ---------- END CREDENTIAL + LINK UTILITIES ---------- */
 

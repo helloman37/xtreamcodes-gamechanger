@@ -217,7 +217,7 @@ if (preg_match('~/public$~', $site_url)) {
   function update(){
     const mode = modeSel.value;
     const linkParam = (mode === 'auto') ? '' : '&link=' + encodeURIComponent(mode);
-    m3u.value = baseUrl + '/get.php?username=YOURUSER&password=YOURPASS&type=m3u' + linkParam;
+    m3u.value = baseUrl + '/get.php?username=YOURUSER&password=YOURPASS&type=m3u_plus' + linkParam;
     xml.value = baseUrl + '/xmltv.php?username=YOURUSER&password=YOURPASS';
 
     if(pill){

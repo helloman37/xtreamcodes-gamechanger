@@ -39,6 +39,27 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
     }
     header("Location: vod_manager.php"); exit;
   }
+
+  if (isset($_POST['update_movie'])) {
+    $mid = (int)($_POST['movie_id'] ?? 0);
+    $name = trim($_POST['movie_name'] ?? '');
+    $url  = trim($_POST['stream_url'] ?? '');
+    $cid  = (int)($_POST['category_id'] ?? 0);
+    $poster = trim($_POST['poster_url'] ?? '');
+    $adult = !empty($_POST['is_adult']) ? 1 : 0;
+    $ext = trim($_POST['container_ext'] ?? '');
+    $return_cid = (int)($_POST['return_category_id'] ?? 0);
+    if ($mid>0 && $name !== '' && $url !== '') {
+      $st = $pdo->prepare("UPDATE movies SET category_id=?, name=?, stream_url=?, poster_url=?, is_adult=?, container_ext=? WHERE id=?");
+      $st->execute([$cid?:null, $name, $url, $poster?:null, $adult, $ext?:null, $mid]);
+      flash_set("Movie updated.", "success");
+    } else {
+      flash_set("Name + URL required.", "error");
+    }
+    $redir = "vod_manager.php";
+    if ($return_cid>0) { $redir .= "?category_id=".$return_cid; }
+    header("Location: ".$redir); exit;
+  }
   if (isset($_POST['del_movie'])) {
     $mid = (int)($_POST['movie_id'] ?? 0);
     if ($mid>0) {
@@ -50,6 +71,15 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
 }
 
 $cats = $pdo->query("SELECT c.id,c.name, (SELECT COUNT(*) FROM movies m WHERE m.category_id=c.id) AS cnt FROM vod_categories c ORDER BY c.name")->fetchAll(PDO::FETCH_ASSOC);
+
+$edit_id = (int)($_GET['edit_id'] ?? 0);
+$edit_movie = null;
+if ($edit_id>0) {
+  $st = $pdo->prepare("SELECT id,category_id,name,stream_url,poster_url,container_ext,is_adult FROM movies WHERE id=?");
+  $st->execute([$edit_id]);
+  $edit_movie = $st->fetch(PDO::FETCH_ASSOC);
+  if (!$edit_movie) { $edit_id = 0; }
+}
 
 $filter = (int)($_GET['category_id'] ?? 0);
 $params = [];
@@ -112,6 +142,50 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
 
 <br>
 
+
+<?php if (!empty($edit_movie)): ?>
+<div class="card">
+  <h3>Edit Movie (ID <?=$edit_movie['id']?>)</h3>
+  <form method="post">
+    <input type="hidden" name="movie_id" value="<?=$edit_movie['id']?>">
+    <input type="hidden" name="return_category_id" value="<?=$filter?>">
+    <div class="row">
+      <label>Name</label>
+      <input name="movie_name" value="<?=e($edit_movie['name'])?>" required>
+    </div>
+    <div class="row">
+      <label>Stream URL</label>
+      <input name="stream_url" value="<?=e($edit_movie['stream_url'])?>" required>
+    </div>
+    <div class="row">
+      <label>Poster URL</label>
+      <input name="poster_url" value="<?=e($edit_movie['poster_url'] ?? '')?>">
+    </div>
+    <div class="row">
+      <label>Category</label>
+      <select name="category_id">
+        <option value="0" <?= (int)($edit_movie['category_id'] ?? 0)===0 ? 'selected' : '' ?>>Uncategorized</option>
+        <?php foreach($cats as $c): ?>
+          <option value="<?=$c['id']?>" <?= (int)($edit_movie['category_id'] ?? 0)===(int)$c['id'] ? 'selected' : '' ?>><?=e($c['name'])?></option>
+        <?php endforeach; ?>
+      </select>
+    </div>
+    <div class="row">
+      <label>Container Ext</label>
+      <input name="container_ext" value="<?=e($edit_movie['container_ext'] ?? '')?>" placeholder="mp4 / mkv / m3u8">
+    </div>
+    <div class="row">
+      <label>Adult</label>
+      <input type="checkbox" name="is_adult" value="1" <?= (int)($edit_movie['is_adult'] ?? 0) ? 'checked' : '' ?>>
+    </div>
+    <button class="btn" name="update_movie" value="1">Save Changes</button>
+    <a class="btn gray" href="vod_manager.php<?= $filter>0 ? '?category_id='.$filter : '' ?>">Cancel</a>
+  </form>
+</div>
+
+<br>
+<?php endif; ?>
+
 <div class="card">
   <h3>Add Movie</h3>
   <form method="post">
@@ -170,7 +244,8 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
         <td><?= (int)$m['is_adult'] ? 'Yes' : 'No' ?></td>
         <td><?=e($m['created_at'])?></td>
         <td>
-          <form method="post" style="margin:0;" onsubmit="return confirm('Delete this movie?');">
+          <a class="btn" href="vod_manager.php?edit_id=<?=$m['id']?><?= $filter>0 ? '&category_id='.$filter : '' ?>">Edit</a>
+          <form method="post" style="margin:0; display:inline-block;" onsubmit="return confirm('Delete this movie?');">
             <input type="hidden" name="movie_id" value="<?=$m['id']?>">
             <button class="btn red" name="del_movie" value="1">Delete</button>
           </form>

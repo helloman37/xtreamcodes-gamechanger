@@ -36,6 +36,22 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
     }
     header("Location: series_manager.php"); exit;
   }
+
+  if (isset($_POST['update_series'])) {
+    $sid = (int)($_POST['series_id'] ?? 0);
+    $name = trim($_POST['series_name'] ?? '');
+    $cid  = (int)($_POST['category_id'] ?? 0);
+    $cover = trim($_POST['cover_url'] ?? '');
+    $adult = !empty($_POST['is_adult']) ? 1 : 0;
+    if ($sid>0 && $name !== '') {
+      $pdo->prepare("UPDATE series SET category_id=?, name=?, cover_url=?, is_adult=? WHERE id=?")
+          ->execute([$cid?:null, $name, $cover?:null, $adult, $sid]);
+      flash_set("Series updated.", "success");
+    } else {
+      flash_set("Series name required.", "error");
+    }
+    header("Location: series_manager.php"); exit;
+  }
   if (isset($_POST['del_series'])) {
     $sid = (int)($_POST['series_id'] ?? 0);
     if ($sid>0) {
@@ -60,6 +76,24 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
     }
     header("Location: series_manager.php"); exit;
   }
+
+  if (isset($_POST['update_episode'])) {
+    $eid = (int)($_POST['episode_id'] ?? 0);
+    $series_id = (int)($_POST['series_id'] ?? 0);
+    $season = (int)($_POST['season_num'] ?? 1);
+    $epnum = (int)($_POST['episode_num'] ?? 1);
+    $title = trim($_POST['title'] ?? '');
+    $url = trim($_POST['stream_url'] ?? '');
+    $ext = trim($_POST['container_ext'] ?? '');
+    if ($eid>0 && $series_id>0 && $title !== '' && $url !== '') {
+      $pdo->prepare("UPDATE series_episodes SET series_id=?, season_num=?, episode_num=?, title=?, stream_url=?, container_ext=? WHERE id=?")
+          ->execute([$series_id, max(1,$season), max(1,$epnum), $title, $url, $ext?:null, $eid]);
+      flash_set("Episode updated.", "success");
+    } else {
+      flash_set("Series + title + URL required.", "error");
+    }
+    header("Location: series_manager.php"); exit;
+  }
   if (isset($_POST['del_episode'])) {
     $eid = (int)($_POST['episode_id'] ?? 0);
     if ($eid>0) {
@@ -71,6 +105,26 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
 }
 
 $cats = $pdo->query("SELECT id,name FROM series_categories ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
+
+$all_series = $pdo->query("SELECT id,name FROM series ORDER BY name LIMIT 2000")->fetchAll(PDO::FETCH_ASSOC);
+
+$edit_series_id = (int)($_GET['edit_series'] ?? 0);
+$edit_series = null;
+if ($edit_series_id>0) {
+  $st = $pdo->prepare("SELECT id,category_id,name,cover_url,is_adult FROM series WHERE id=?");
+  $st->execute([$edit_series_id]);
+  $edit_series = $st->fetch(PDO::FETCH_ASSOC);
+  if (!$edit_series) { $edit_series_id = 0; }
+}
+
+$edit_episode_id = (int)($_GET['edit_episode'] ?? 0);
+$edit_episode = null;
+if ($edit_episode_id>0) {
+  $st = $pdo->prepare("SELECT id,series_id,season_num,episode_num,title,stream_url,container_ext FROM series_episodes WHERE id=?");
+  $st->execute([$edit_episode_id]);
+  $edit_episode = $st->fetch(PDO::FETCH_ASSOC);
+  if (!$edit_episode) { $edit_episode_id = 0; }
+}
 $series = $pdo->query("
   SELECT s.id,s.name,s.cover_url,s.is_adult,s.created_at, c.name AS cat_name,
          (SELECT COUNT(*) FROM series_episodes e WHERE e.series_id=s.id) AS eps
@@ -133,6 +187,40 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
 
 <br>
 
+<?php if (!empty($edit_series)): ?>
+<div class="card">
+  <h3>Edit Series (ID <?=$edit_series['id']?>)</h3>
+  <form method="post">
+    <input type="hidden" name="series_id" value="<?=$edit_series['id']?>">
+    <div class="row">
+      <label>Name</label>
+      <input name="series_name" value="<?=e($edit_series['name'])?>" required>
+    </div>
+    <div class="row">
+      <label>Cover URL</label>
+      <input name="cover_url" value="<?=e($edit_series['cover_url'] ?? '')?>" placeholder="http(s)://...">
+    </div>
+    <div class="row">
+      <label>Category</label>
+      <select name="category_id">
+        <option value="0" <?= (int)($edit_series['category_id'] ?? 0)===0 ? 'selected' : '' ?>>Uncategorized</option>
+        <?php foreach($cats as $c): ?>
+          <option value="<?=$c['id']?>" <?= (int)($edit_series['category_id'] ?? 0)===(int)$c['id'] ? 'selected' : '' ?>><?=e($c['name'])?></option>
+        <?php endforeach; ?>
+      </select>
+    </div>
+    <div class="row">
+      <label>Adult</label>
+      <input type="checkbox" name="is_adult" value="1" <?= (int)($edit_series['is_adult'] ?? 0) ? 'checked' : '' ?>>
+    </div>
+    <button class="btn" name="update_series" value="1">Save Changes</button>
+    <a class="btn gray" href="series_manager.php">Cancel</a>
+  </form>
+</div>
+
+<br>
+<?php endif; ?>
+
 <div class="card">
   <h3>Add Series</h3>
   <form method="post">
@@ -162,6 +250,48 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
 </div>
 
 <br>
+
+<?php if (!empty($edit_episode)): ?>
+<div class="card">
+  <h3>Edit Episode (ID <?=$edit_episode['id']?>)</h3>
+  <form method="post">
+    <input type="hidden" name="episode_id" value="<?=$edit_episode['id']?>">
+    <div class="row">
+      <label>Series</label>
+      <select name="series_id" required>
+        <option value="">Choose…</option>
+        <?php foreach($all_series as $s2): ?>
+          <option value="<?=$s2['id']?>" <?= (int)($edit_episode['series_id'] ?? 0)===(int)$s2['id'] ? 'selected' : '' ?>><?=e($s2['name'])?></option>
+        <?php endforeach; ?>
+      </select>
+    </div>
+    <div class="row">
+      <label>Season</label>
+      <input name="season_num" type="number" value="<?= (int)($edit_episode['season_num'] ?? 1) ?>" min="1">
+    </div>
+    <div class="row">
+      <label>Episode</label>
+      <input name="episode_num" type="number" value="<?= (int)($edit_episode['episode_num'] ?? 1) ?>" min="1">
+    </div>
+    <div class="row">
+      <label>Title</label>
+      <input name="title" value="<?=e($edit_episode['title'])?>" required>
+    </div>
+    <div class="row">
+      <label>Stream URL</label>
+      <input name="stream_url" value="<?=e($edit_episode['stream_url'])?>" required>
+    </div>
+    <div class="row">
+      <label>Container Ext</label>
+      <input name="container_ext" value="<?=e($edit_episode['container_ext'] ?? '')?>" placeholder="mp4 / mkv / m3u8">
+    </div>
+    <button class="btn" name="update_episode" value="1">Save Changes</button>
+    <a class="btn gray" href="series_manager.php">Cancel</a>
+  </form>
+</div>
+
+<br>
+<?php endif; ?>
 
 <div class="card">
   <h3>Add Episode</h3>
@@ -214,7 +344,8 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
         <td><?= (int)$s['eps'] ?></td>
         <td><?=e($s['created_at'])?></td>
         <td>
-          <form method="post" style="margin:0;" onsubmit="return confirm('Delete this series (and episodes)?');">
+          <a class="btn" href="series_manager.php?edit_series=<?=$s['id']?>">Edit</a>
+          <form method="post" style="margin:0; display:inline-block;" onsubmit="return confirm('Delete this series (and episodes)?');">
             <input type="hidden" name="series_id" value="<?=$s['id']?>">
             <button class="btn red" name="del_series" value="1">Delete</button>
           </form>
@@ -239,7 +370,8 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
         <td class="code"><?=e($e['container_ext'] ?: '-')?></td>
         <td><?=e($e['created_at'])?></td>
         <td>
-          <form method="post" style="margin:0;" onsubmit="return confirm('Delete this episode?');">
+          <a class="btn" href="series_manager.php?edit_episode=<?=$e['id']?>">Edit</a>
+          <form method="post" style="margin:0; display:inline-block;" onsubmit="return confirm('Delete this episode?');">
             <input type="hidden" name="episode_id" value="<?=$e['id']?>">
             <button class="btn red" name="del_episode" value="1">Delete</button>
           </form>

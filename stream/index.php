@@ -635,7 +635,9 @@ if (!preg_match('/\.m3u8(\?|$)/i', $chosen)) {
     $pc = (int)($pr['code'] ?? 0);
     $perr = (string)($pr['error'] ?? '');
     // Treat any 4xx/5xx/timeout as offline/unreachable for this feature.
-    if ($pc === 0 || $pc >= 400) {
+    // Some origins respond 416 to Range probes even though the URL is reachable.
+    // Treat 416 as "reachable" for this offline-check feature.
+    if ($pc === 0 || ($pc >= 400 && $pc !== 416)) {
       telemetry_reason('upstream_offline', ['code'=>$pc, 'err'=>$perr]);
       _redirect_fail_video($offline_url);
     }

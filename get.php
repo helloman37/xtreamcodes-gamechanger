@@ -21,7 +21,14 @@ $ttl      = (int)($config['token_ttl'] ?? 3600);
 
 $username = trim($_GET['username'] ?? '');
 $password = (string)($_GET['password'] ?? '');
-$type     = strtolower($_GET['type'] ?? 'm3u');
+// Default to m3u_plus so VOD/Series are included even if a client uses the legacy
+// get.php URL without specifying &type=...
+$type     = strtolower($_GET['type'] ?? 'm3u_plus');
+// Backwards compat: many apps/providers still send type=m3u; treat it as m3u_plus.
+// Use type=live if you explicitly want Live-only.
+if ($type === 'm3u') {
+  $type = 'm3u_plus';
+}
 
 // auto|direct_protected|standard_protected|token_protected
 $link_type = strtolower($_GET['link'] ?? 'token_protected');
@@ -401,8 +408,26 @@ if ($type === 'm3u_plus') {
     $logo  = $m['poster_url'] ? ' tvg-logo="'.e($m['poster_url']).'"' : '';
     echo '#EXTINF:-1'.$logo.$group.','.$m['name']."\n";
 
-    $ext = $m['container_ext'];
-    if (!$ext) $ext = preg_match('/\.m3u8(\?|$)/i', (string)$m['stream_url']) ? 'm3u8' : 'mp4';
+    // Extension matters for many IPTV players (some pick demuxer from URL).
+    // Prefer DB override; otherwise infer from stream_url path; fallback to mp4.
+    $ext = (string)($m['container_ext'] ?? '');
+    if ($ext === '') {
+      $src = (string)($m['stream_url'] ?? '');
+      if (preg_match('/\.m3u8(\?|$)/i', $src)) {
+        $ext = 'm3u8';
+      } else {
+        $path = (string)(parse_url($src, PHP_URL_PATH) ?? '');
+        $cand = strtolower((string)pathinfo($path, PATHINFO_EXTENSION));
+        // Allow common containers only
+        if ($cand !== '' && preg_match('/^(mp4|mkv|m4v|mov|avi|wmv|flv|webm|ts)$/i', $cand)) {
+          $ext = $cand;
+        } else {
+          $ext = 'mp4';
+        }
+      }
+    } else {
+      $ext = strtolower($ext);
+    }
 
     $exp = $exp_global;
     $tok = make_token($username, (int)$m['id'], $exp, 'movie');
