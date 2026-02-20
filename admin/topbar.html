@@ -367,22 +367,37 @@
 
       // live pill
       var xtPrevLiveCount = null;
+      var xtLiveInFlight = false;
       function xtRefreshLive(){
-        fetch('ajax/live_connections_live.php', {credentials:'same-origin'})
+        if(xtLiveInFlight) return;
+        xtLiveInFlight = true;
+        fetch('ajax/live_connections_live.php?_=' + Date.now(), {credentials:'same-origin'})
           .then(function(r){ return r.json(); })
           .then(function(j){
             var dot = document.getElementById('xtLiveDot');
             var txt = document.getElementById('xtLiveText');
             var tr  = document.getElementById('xtLiveTrend');
             if(!txt) return;
+
             if(j && j.ok){
-              var n = parseInt(j.live || 0, 10);
+              // compat: allow {live}, {connections}, or {count}
+              var raw = (j && typeof j.live !== 'undefined') ? j.live
+                        : ((j && typeof j.connections !== 'undefined') ? j.connections
+                        : ((j && typeof j.count !== 'undefined') ? j.count : 0));
+
+              var n = parseInt(raw, 10) || 0;
               txt.textContent = 'LIVE ' + n;
-              if(xtPrevLiveCount !== null){
-                if(n > xtPrevLiveCount) tr.textContent = '↑';
-                else if(n < xtPrevLiveCount) tr.textContent = '↓';
-                else tr.textContent = '';
+
+              if(tr){
+                if(xtPrevLiveCount !== null){
+                  if(n > xtPrevLiveCount) tr.textContent = '↑';
+                  else if(n < xtPrevLiveCount) tr.textContent = '↓';
+                  else tr.textContent = '';
+                }else{
+                  tr.textContent = '';
+                }
               }
+
               xtPrevLiveCount = n;
               xtSetDot(dot, (n>0?'dot-green':'dot-yellow'));
             }else{
@@ -398,10 +413,11 @@
             if(txt) txt.textContent = 'LIVE --';
             if(tr) tr.textContent = '';
             xtSetDot(dot,'dot-red');
-          });
+          })
+          .then(function(){ xtLiveInFlight = false; });
       }
       xtRefreshLive();
-      setInterval(xtRefreshLive, 5000);
+      setInterval(xtRefreshLive, 1000);
     })();
   </script>
 

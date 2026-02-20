@@ -21,17 +21,24 @@ if (empty($_SESSION['admin_id'])) {
 
 $pdo = db();
 
-// Count live sessions seen in the last 60 seconds.
+// Count live connections (distinct IPs) in the last 5 minutes to match the dashboard.
+$window_min = 5;
+
 // If the table is missing, return ok=false without fatal.
 try {
-  $stmt = $pdo->query("SELECT COUNT(*) AS c FROM stream_sessions WHERE last_seen >= (NOW() - INTERVAL 60 SECOND)");
+  $stmt = $pdo->query("SELECT COUNT(DISTINCT ip) AS c FROM stream_sessions WHERE last_seen >= (NOW() - INTERVAL {$window_min} MINUTE)");
   $row = $stmt ? $stmt->fetch(PDO::FETCH_ASSOC) : null;
   $count = $row ? (int)$row['c'] : 0;
 
   echo json_encode([
     'ok' => true,
+
+    // keep multiple keys for backward/forward compatibility
+    'live' => $count,
+    'connections' => $count,
     'count' => $count,
-    'window_sec' => 60,
+
+    'window_min' => $window_min,
     'ts' => gmdate('c')
   ]);
 } catch (Throwable $e) {
