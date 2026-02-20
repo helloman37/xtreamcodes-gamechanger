@@ -21,24 +21,20 @@ if (empty($_SESSION['admin_id'])) {
 
 $pdo = db();
 
-// Count live connections (distinct IPs) in the last 5 minutes to match the dashboard.
-$window_min = 5;
-
-// If the table is missing, return ok=false without fatal.
+// Match dashboard semantics: last 5 minutes, distinct IPs (real "connections").
 try {
-  $stmt = $pdo->query("SELECT COUNT(DISTINCT ip) AS c FROM stream_sessions WHERE last_seen >= (NOW() - INTERVAL {$window_min} MINUTE)");
+  $stmt = $pdo->query("SELECT COUNT(DISTINCT ip) AS c FROM stream_sessions WHERE last_seen >= (NOW() - INTERVAL 5 MINUTE)");
   $row = $stmt ? $stmt->fetch(PDO::FETCH_ASSOC) : null;
-  $count = $row ? (int)$row['c'] : 0;
+  $connections = $row ? (int)$row['c'] : 0;
 
   echo json_encode([
     'ok' => true,
-
-    // keep multiple keys for backward/forward compatibility
-    'live' => $count,
-    'connections' => $count,
-    'count' => $count,
-
-    'window_min' => $window_min,
+    // preferred key for the pill:
+    'live' => $connections,
+    // compat keys (older JS / other places):
+    'connections' => $connections,
+    'count' => $connections,
+    'window' => '5m',
     'ts' => gmdate('c')
   ]);
 } catch (Throwable $e) {

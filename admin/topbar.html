@@ -78,7 +78,7 @@
   <aside class="app-sidebar bg-body-secondary shadow" data-bs-theme="dark">
     <div class="sidebar-brand">
       <a href="dashboard.php" class="brand-link">
-        <img src="assets/adminlte4/assets/img/AdminLTELogo.png" class="brand-image opacity-75 shadow" alt="Logo" />
+        <img src="assets/xui/assets/img/logo.png" class="brand-image opacity-75 shadow" alt="Logo" />
         <span class="brand-text fw-light">Game Changer</span>
       </a>
     </div>
@@ -209,7 +209,7 @@
     </div>
 
   <!-- AdminLTE JS -->
-  <script src="assets/adminlte4/js/adminlte.min.js"></script>
+  <script src="assets/xui/js/xui.min.js"></script>
 
   <script>
     (function(){
@@ -367,54 +367,48 @@
 
       // live pill
       var xtPrevLiveCount = null;
-      var xtLiveInFlight = false;
       function xtRefreshLive(){
-        if(xtLiveInFlight) return;
-        xtLiveInFlight = true;
-        fetch('ajax/live_connections_live.php?_=' + Date.now(), {credentials:'same-origin'})
-          .then(function(r){ return r.json(); })
-          .then(function(j){
-            var dot = document.getElementById('xtLiveDot');
-            var txt = document.getElementById('xtLiveText');
-            var tr  = document.getElementById('xtLiveTrend');
-            if(!txt) return;
+        try{
+          fetch('ajax/live_connections_live.php?_=' + Date.now(), {credentials:'same-origin'})
+            .then(function(r){ return r.json(); })
+            .then(function(j){
+              var dot = document.getElementById('xtLiveDot');
+              var txt = document.getElementById('xtLiveText');
+              var tr  = document.getElementById('xtLiveTrend');
+              if(!txt) return;
 
-            if(j && j.ok){
-              // compat: allow {live}, {connections}, or {count}
-              var raw = (j && typeof j.live !== 'undefined') ? j.live
-                        : ((j && typeof j.connections !== 'undefined') ? j.connections
-                        : ((j && typeof j.count !== 'undefined') ? j.count : 0));
+              if(j && j.ok){
+                var raw = (typeof j.live !== 'undefined') ? j.live :
+                          (typeof j.connections !== 'undefined') ? j.connections :
+                          (typeof j.count !== 'undefined') ? j.count :
+                          (j.online && typeof j.online.connections !== 'undefined') ? j.online.connections : 0;
+                var n = parseInt(raw || 0, 10) || 0;
 
-              var n = parseInt(raw, 10) || 0;
-              txt.textContent = 'LIVE ' + n;
+                txt.textContent = 'LIVE ' + n;
 
-              if(tr){
                 if(xtPrevLiveCount !== null){
                   if(n > xtPrevLiveCount) tr.textContent = '↑';
                   else if(n < xtPrevLiveCount) tr.textContent = '↓';
                   else tr.textContent = '';
-                }else{
-                  tr.textContent = '';
                 }
-              }
+                xtPrevLiveCount = n;
 
-              xtPrevLiveCount = n;
-              xtSetDot(dot, (n>0?'dot-green':'dot-yellow'));
-            }else{
-              txt.textContent = 'LIVE --';
+                xtSetDot(dot, (n>0?'dot-green':'dot-yellow'));
+              }else{
+                txt.textContent = 'LIVE --';
+                if(tr) tr.textContent = '';
+                xtSetDot(dot,'dot-red');
+              }
+            })
+            .catch(function(){
+              var dot = document.getElementById('xtLiveDot');
+              var txt = document.getElementById('xtLiveText');
+              var tr  = document.getElementById('xtLiveTrend');
+              if(txt) txt.textContent = 'LIVE --';
               if(tr) tr.textContent = '';
               xtSetDot(dot,'dot-red');
-            }
-          })
-          .catch(function(){
-            var dot = document.getElementById('xtLiveDot');
-            var txt = document.getElementById('xtLiveText');
-            var tr  = document.getElementById('xtLiveTrend');
-            if(txt) txt.textContent = 'LIVE --';
-            if(tr) tr.textContent = '';
-            xtSetDot(dot,'dot-red');
-          })
-          .then(function(){ xtLiveInFlight = false; });
+            });
+        }catch(e){}
       }
       xtRefreshLive();
       setInterval(xtRefreshLive, 1000);

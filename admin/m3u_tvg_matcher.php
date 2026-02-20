@@ -414,7 +414,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
   <meta charset="utf-8">
   <title>M3U TVG Matcher</title>
-  <link rel="stylesheet" href="assets/adminlte4/css/adminlte.min.css">
+  <link rel="stylesheet" href="assets/xui/css/xui.min.css">
   <link rel="stylesheet" href="panel.css?v=<?php echo @filemtime(__DIR__ . '/panel.css') ?: 1; ?>">
   <style>
     .badge{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;font-weight:900;border:1px solid var(--line);background:#fff;}

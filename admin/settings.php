@@ -114,7 +114,7 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
   <meta charset="utf-8">
   <title>Settings</title>
-  <link rel="stylesheet" href="assets/adminlte4/css/adminlte.min.css">
+  <link rel="stylesheet" href="assets/xui/css/xui.min.css">
   <link rel="stylesheet" href="panel.css?v=<?php echo @filemtime(__DIR__ . '/panel.css') ?: 1; ?>">
 </head>
 <body class="layout-fixed sidebar-expand-lg bg-body-tertiary">

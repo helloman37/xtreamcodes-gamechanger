@@ -117,7 +117,7 @@ $groupList = $content ? m3u_collect_groups($content) : [];
 
   <meta charset="utf-8">
   <title>M3U Editor</title>
-  <link rel="stylesheet" href="assets/adminlte4/css/adminlte.min.css">
+  <link rel="stylesheet" href="assets/xui/css/xui.min.css">
   <link rel="stylesheet" href="panel.css?v=<?php echo @filemtime(__DIR__ . '/panel.css') ?: 1; ?>">
   <style>
     /* Modal */
