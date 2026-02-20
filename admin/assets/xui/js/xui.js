@@ -1,4 +1,8 @@
-
+/*!
+ * AdminLTE v4.0.0-rc3 (https://adminlte.io)
+ * Copyright 2014-2025 Colorlib <https://colorlib.com>
+ * Licensed under MIT (https://github.com/ColorlibHQ/AdminLTE/blob/master/LICENSE)
+ */
 (function (global, factory) {
     typeof exports === 'object' && typeof module !== 'undefined' ? factory(exports) :
     typeof define === 'function' && define.amd ? define(['exports'], factory) :
@@ -1126,7 +1130,12 @@
         return new AccessibilityManager(config);
     };
 
-    
+    /**
+     * AdminLTE v4.0.0-rc3
+     * Author: Colorlib
+     * Website: AdminLTE.io <https://adminlte.io>
+     * License: Open source - MIT <https://opensource.org/licenses/MIT>
+     */
     onDOMContentLoaded(() => {
         /**
          * Initialize AdminLTE Core Components
