@@ -333,9 +333,10 @@ if (is_array($existing) && isset($existing['id'])) {
 
   <meta charset="utf-8">
   <title>Upload XMLTV</title>
-  <link rel="stylesheet" href="panel.css">
+  <link rel="stylesheet" href="assets/adminlte4/css/adminlte.min.css">
+  <link rel="stylesheet" href="panel.css?v=<?php echo @filemtime(__DIR__ . '/panel.css') ?: 1; ?>">
 </head>
-<body>
+<body class="layout-fixed sidebar-expand-lg bg-body-tertiary">
 <?= $topbar ?>
   <!-- container is opened by topbar.html -->
   <div class="card">

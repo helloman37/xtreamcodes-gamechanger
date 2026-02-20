@@ -59,7 +59,8 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
 
   <meta charset="utf-8">
   <title>Fail Videos</title>
-  <link rel="stylesheet" href="panel.css">
+  <link rel="stylesheet" href="assets/adminlte4/css/adminlte.min.css">
+  <link rel="stylesheet" href="panel.css?v=<?php echo @filemtime(__DIR__ . '/panel.css') ?: 1; ?>">
   <style>
     .grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
     .hint{opacity:.75;font-size:12px;margin-top:6px}
@@ -71,7 +72,7 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
     .row a.btn{display:inline-block}
   </style>
 </head>
-<body>
+<body class="layout-fixed sidebar-expand-lg bg-body-tertiary">
 <?= $topbar ?>
 
 <div class="card">

@@ -415,7 +415,8 @@ try {
 
   <meta charset="utf-8">
   <title>EPG Extract / Filter</title>
-  <link rel="stylesheet" href="panel.css">
+  <link rel="stylesheet" href="assets/adminlte4/css/adminlte.min.css">
+  <link rel="stylesheet" href="panel.css?v=<?php echo @filemtime(__DIR__ . '/panel.css') ?: 1; ?>">
   <style>
     .grid2{display:grid; grid-template-columns: 1.2fr .8fr; gap:14px;}
     @media (max-width: 980px){ .grid2{grid-template-columns:1fr;} }
@@ -426,7 +427,7 @@ try {
     .pill{display:inline-flex; align-items:center; gap:8px; padding:4px 10px; border-radius:999px; background:rgba(79,109,245,.18); border:1px solid rgba(79,109,245,.28); font-weight:800;}
   </style>
 </head>
-<body>
+<body class="layout-fixed sidebar-expand-lg bg-body-tertiary">
 <?= $topbar ?>
 
 <div class="card">

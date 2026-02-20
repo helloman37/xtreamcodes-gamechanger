@@ -98,7 +98,8 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
   <meta charset="utf-8">
   <title>Load Balancers</title>
-  <link rel="stylesheet" href="panel.css">
+  <link rel="stylesheet" href="assets/adminlte4/css/adminlte.min.css">
+  <link rel="stylesheet" href="panel.css?v=<?php echo @filemtime(__DIR__ . '/panel.css') ?: 1; ?>">
   <style>
     /* Page-specific layout tightening (keeps panel.css untouched) */
     .lb-form .row{align-items:flex-start}
@@ -134,7 +135,7 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
 
   </style>
 </head>
-<body>
+<body class="layout-fixed sidebar-expand-lg bg-body-tertiary">
 <?= $topbar ?>
 
 <div class="card">

@@ -117,7 +117,8 @@ $groupList = $content ? m3u_collect_groups($content) : [];
 
   <meta charset="utf-8">
   <title>M3U Editor</title>
-  <link rel="stylesheet" href="panel.css">
+  <link rel="stylesheet" href="assets/adminlte4/css/adminlte.min.css">
+  <link rel="stylesheet" href="panel.css?v=<?php echo @filemtime(__DIR__ . '/panel.css') ?: 1; ?>">
   <style>
     /* Modal */
     .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;padding:18px;z-index:9999;}
@@ -144,7 +145,7 @@ $groupList = $content ? m3u_collect_groups($content) : [];
     .hint{font-size:12px;color:var(--muted);margin-top:6px;}
   </style>
 </head>
-<body>
+<body class="layout-fixed sidebar-expand-lg bg-body-tertiary">
 <?= $topbar ?>
 
 <?php if (!$content): ?>

@@ -111,7 +111,8 @@ function _slot_inputs(string $row, array $vals): string {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Homepage Background</title>
-  <link rel="stylesheet" href="panel.css">
+  <link rel="stylesheet" href="assets/adminlte4/css/adminlte.min.css">
+  <link rel="stylesheet" href="panel.css?v=<?php echo @filemtime(__DIR__ . '/panel.css') ?: 1; ?>">
     <style>
     .hw-help{color:var(--muted); margin-top:6px; line-height:1.55;}
 
@@ -172,7 +173,7 @@ function _slot_inputs(string $row, array $vals): string {
     .hw-note{font-size:12px; color:var(--muted);}
   </style>
 </head>
-<body>
+<body class="layout-fixed sidebar-expand-lg bg-body-tertiary">
 <?= $topbar ?>
 
 

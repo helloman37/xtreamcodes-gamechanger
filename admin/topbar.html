@@ -1,145 +1,186 @@
-<div class="app admin-app">
-  <main class="main admin-main">
+<div class="app-wrapper adminlte4-wrap">
+  <!-- Header -->
+  <nav class="app-header navbar navbar-expand bg-body shadow-sm">
+    <div class="container-fluid">
+      <ul class="navbar-nav">
+        <li class="nav-item">
+          <a class="nav-link" data-lte-toggle="sidebar" href="#" role="button" aria-label="Toggle sidebar">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M3 12h18"></path><path d="M3 6h18"></path><path d="M3 18h18"></path>
+            </svg>
+          </a>
+        </li>
+        <li class="nav-item d-none d-md-inline-block">
+          <a href="dashboard.php" class="nav-link fw-semibold">XTREAMui <span class="opacity-75">GAME CHANGER</span></a>
+        </li>
+      </ul>
 
-    <!-- XTREAM-style header (menu moved to top, like the mockup) -->
-    <header class="xt-head" role="banner">
-      <!-- Top gradient bar -->
-      <div class="xt-head-top">
-        <div class="xt-head-top-inner">
-          <div class="xt-logo" aria-label="XTREAM ui GAME CHANGER">
-            <span class="xt-x">X</span><span class="xt-word">TREAM</span><span class="xt-ui">ui</span>
-            <span class="xt-sub">GAME CHANGER</span>
-          </div>
+      <ul class="navbar-nav ms-auto align-items-center">
+        <li class="nav-item me-2 d-none d-lg-inline-block">
+          <a class="btn btn-sm btn-outline-success" id="xtHealthPill" href="system_health.php" title="System Health">
+            <span class="dot-green me-2" id="xtHealthDot"></span>
+            <span id="xtHealthText" class="small">CPU -- | RAM -- | DISK -- | DB --</span>
+          </a>
+        </li>
 
-          <div class="xt-head-actions">
-            <a class="xt-pill credits healthpill" id="xtHealthPill" href="system_health.php" title="System Health">
-              <span class="dot-green" id="xtHealthDot"></span>
-              <span id="xtHealthText">CPU -- | RAM -- | DISK -- | DB --</span>
+        <li class="nav-item me-2 d-none d-lg-inline-block">
+          <a class="btn btn-sm btn-outline-primary" id="xtLivePill" href="sessions.php" title="Live Connections">
+            <span class="dot-green me-2" id="xtLiveDot"></span>
+            <span id="xtLiveText" class="small">LIVE --</span>
+            <span id="xtLiveTrend" class="small ms-2"></span>
+          </a>
+        </li>
+
+        <li class="nav-item me-2 d-none d-xl-inline-block">
+          <a class="btn btn-sm btn-outline-warning" href="billing_reports.php" title="Billing / Reports">
+            Credits
+          </a>
+        </li>
+
+        <li class="nav-item me-1">
+          <a class="nav-link position-relative" href="notifications.php" title="Notifications" aria-label="Notifications">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path>
+              <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+            </svg>
+            <span class="xt-notif-badge" id="xtNotifBadge" style="display:none">0</span>
+          </a>
+        </li>
+
+        <li class="nav-item d-none d-md-inline-block">
+          <span class="nav-link text-muted small" title="Signed in user">{{USERNAME}}</span>
+        </li>
+
+        <li class="nav-item">
+          <button class="nav-link btn" id="xtGear" type="button" title="Settings" aria-label="Settings">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M12 2v2"></path><path d="M12 20v2"></path>
+              <path d="M4.93 4.93l1.41 1.41"></path><path d="M17.66 17.66l1.41 1.41"></path>
+              <path d="M2 12h2"></path><path d="M20 12h2"></path>
+              <path d="M4.93 19.07l1.41-1.41"></path><path d="M17.66 6.34l1.41-1.41"></path>
+            </svg>
+          </button>
+        </li>
+
+        <li class="nav-item">
+          <a class="nav-link" href="signout.php" title="Logout" aria-label="Logout">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 2v10"></path><path d="M5.5 5.5a9 9 0 1 0 13 0"></path>
+            </svg>
+          </a>
+        </li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- Sidebar -->
+  <aside class="app-sidebar bg-body-secondary shadow" data-bs-theme="dark">
+    <div class="sidebar-brand">
+      <a href="dashboard.php" class="brand-link">
+        <img src="assets/adminlte4/assets/img/AdminLTELogo.png" class="brand-image opacity-75 shadow" alt="Logo" />
+        <span class="brand-text fw-light">Game Changer</span>
+      </a>
+    </div>
+
+    <div class="sidebar-wrapper d-flex flex-column">
+      <nav class="mt-2 flex-grow-1 d-flex flex-column">
+        <ul class="nav sidebar-menu flex-column flex-grow-1" data-lte-toggle="treeview" role="menu" data-accordion="false">
+          <li class="nav-item">
+            <a href="dashboard.php" class="nav-link" data-active="dashboard.php">
+              <p>Dashboard</p>
             </a>
+          </li>
 
-            
-            <a class="xt-pill credits livepill" id="xtLivePill" href="sessions.php" title="Live Connections">
-              <span class="dot-green" id="xtLiveDot"></span>
-              <span id="xtLiveText">LIVE --</span>
-              <span id="xtLiveTrend" class="xt-trend"></span>
+          <li class="nav-item">
+            <a href="#" class="nav-link">
+              <p>Content <i class="nav-arrow"></i></p>
             </a>
+            <ul class="nav nav-treeview">
+              <li class="nav-item"><a href="channels_manager.php" class="nav-link" data-active="channels_manager.php"><p>Contents</p></a></li>
+              <li class="nav-item"><a href="category_manager.php" class="nav-link" data-active="category_manager.php"><p>Categories</p></a></li>
+              <li class="nav-item"><a href="vod_manager.php" class="nav-link" data-active="vod_manager.php"><p>VOD Manager</p></a></li>
+              <li class="nav-item"><a href="vod_enabler.php" class="nav-link" data-active="vod_enabler.php"><p>VOD Enabler</p></a></li>
+              <li class="nav-item"><a href="series_manager.php" class="nav-link" data-active="series_manager.php"><p>Series Manager</p></a></li>
+              <li class="nav-item"><a href="upload_m3u.php" class="nav-link" data-active="upload_m3u.php"><p>Upload M3U</p></a></li>
+              <li class="nav-item"><a href="m3u_editor.php" class="nav-link" data-active="m3u_editor.php"><p>M3U Editor</p></a></li>
+              <li class="nav-item"><a href="m3u_tvg_matcher.php" class="nav-link" data-active="m3u_tvg_matcher.php"><p>TVG Matcher</p></a></li>
+              <li class="nav-item"><a href="m3u_logo_mapper.php" class="nav-link" data-active="m3u_logo_mapper.php"><p>Logo Mapper</p></a></li>
+              <li class="nav-item"><a href="nginx_panel.php" class="nav-link" data-active="nginx_panel.php"><p>Nginx Panel</p></a></li>
+              <li class="nav-item"><a href="m3u_builder.php" class="nav-link" data-active="m3u_builder.php"><p>M3U Builder</p></a></li>
+              <li class="nav-item"><a href="checker.php" class="nav-link" data-active="checker.php"><p>Checker</p></a></li>
+            </ul>
+          </li>
 
-<a class="xt-pill credits" href="billing_reports.php" title="Billing / Reports">
-              <span class="dot-green"></span>
-              Credits
+          <li class="nav-item">
+            <a href="#" class="nav-link">
+              <p>EPG <i class="nav-arrow"></i></p>
             </a>
+            <ul class="nav nav-treeview">
+              <li class="nav-item"><a href="epg_manager.php" class="nav-link" data-active="epg_manager.php"><p>EPG Manager</p></a></li>
+              <li class="nav-item"><a href="epg_upload.php" class="nav-link" data-active="epg_upload.php"><p>EPG Upload</p></a></li>
+              <li class="nav-item"><a href="epg_import.php" class="nav-link" data-active="epg_import.php"><p>EPG Import</p></a></li>
+              <li class="nav-item"><a href="epg_extract.php" class="nav-link" data-active="epg_extract.php"><p>EPG Extract</p></a></li>
+              <li class="nav-item"><a href="epg_sync.php" class="nav-link" data-active="epg_sync.php"><p>EPG Sync</p></a></li>
+            </ul>
+          </li>
 
-            <!-- Admin notifications -->
-            <a class="xt-iconbtn xt-bell" href="notifications.php" title="Notifications" aria-label="Notifications">
-              <svg class="xt-ico" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-              <span class="xt-notif-badge" id="xtNotifBadge" style="display:none">0</span>
+          <li class="nav-item">
+            <a href="#" class="nav-link">
+              <p>Users <i class="nav-arrow"></i></p>
             </a>
+            <ul class="nav nav-treeview">
+              <li class="nav-item"><a href="user_accounts.php" class="nav-link" data-active="user_accounts.php"><p>User Accounts</p></a></li>
+              <li class="nav-item"><a href="packages.php" class="nav-link" data-active="packages.php"><p>Packages</p></a></li>
+              <li class="nav-item"><a href="resellers.php" class="nav-link" data-active="resellers.php"><p>Resellers</p></a></li>
+              <li class="nav-item"><a href="sessions.php" class="nav-link" data-active="sessions.php"><p>Sessions</p></a></li>
+            </ul>
+          </li>
 
-            <div class="xt-userlabel" title="Signed in user">{{USERNAME}}</div>
+          <li class="nav-item">
+            <a href="#" class="nav-link">
+              <p>Billing <i class="nav-arrow"></i></p>
+            </a>
+            <ul class="nav nav-treeview">
+              <li class="nav-item"><a href="plans_subs.php" class="nav-link" data-active="plans_subs.php"><p>Plans / Subs</p></a></li>
+              <li class="nav-item"><a href="billing_reports.php" class="nav-link" data-active="billing_reports.php"><p>Billing Reports</p></a></li>
+            </ul>
+          </li>
 
-            <!-- Settings opens Change Password modal -->
-            <button class="xt-iconbtn" id="xtGear" type="button" aria-haspopup="dialog" aria-expanded="false" title="Settings"><svg class="xt-ico" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="M4.93 4.93l1.41 1.41"/><path d="M17.66 17.66l1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="M4.93 19.07l1.41-1.41"/><path d="M17.66 6.34l1.41-1.41"/></svg></button>
-            <a class="xt-iconbtn" href="signout.php" title="Logout" aria-label="Logout"><svg class="xt-ico" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2v10"/><path d="M5.5 5.5a9 9 0 1 0 13 0"/></svg></a>
+          <li class="nav-item">
+            <a href="#" class="nav-link">
+              <p>System <i class="nav-arrow"></i></p>
+            </a>
+            <ul class="nav nav-treeview">
+              <li class="nav-item"><a href="stream_probe.php" class="nav-link" data-active="stream_probe.php"><p>Stream Probe</p></a></li>
+              <li class="nav-item"><a href="support_desk.php" class="nav-link" data-active="support_desk.php"><p>Support Desk</p></a></li>
+              <li class="nav-item"><a href="watchlist.php" class="nav-link" data-active="watchlist.php"><p>Watchlist</p></a></li>
+              <li class="nav-item"><a href="health.php" class="nav-link" data-active="health.php"><p>Health</p></a></li>
+              <li class="nav-item"><a href="system_health.php" class="nav-link" data-active="system_health.php"><p>System Health</p></a></li>
+              <li class="nav-item"><a href="backup_restore.php" class="nav-link" data-active="backup_restore.php"><p>Backup / Restore</p></a></li>
+              <li class="nav-item"><a href="maintenance.php" class="nav-link" data-active="maintenance.php"><p>Maintenance</p></a></li>
+              <li class="nav-item"><a href="settings.php" class="nav-link" data-active="settings.php"><p>Settings</p></a></li>
+              <li class="nav-item"><a href="lb_servers.php" class="nav-link" data-active="lb_servers.php"><p>LB Servers</p></a></li>
+              <li class="nav-item"><a href="hero_wall.php" class="nav-link" data-active="hero_wall.php"><p>Hero Wall</p></a></li>
+              <li class="nav-item"><a href="audit_logs.php" class="nav-link" data-active="audit_logs.php"><p>Audit Logs</p></a></li>
+              <li class="nav-item"><a href="telemetry.php" class="nav-link" data-active="telemetry.php"><p>Telemetry</p></a></li>
+              <li class="nav-item"><a href="abuse_bans.php" class="nav-link" data-active="abuse_bans.php"><p>Abuse / Bans</p></a></li>
+              <li class="nav-item"><a href="bulk_delete.php" class="nav-link" data-active="bulk_delete.php"><p>Bulk Delete</p></a></li>
+              <li class="nav-item"><a href="fail_videos.php" class="nav-link" data-active="fail_videos.php"><p>Fail Videos</p></a></li>
+</ul>
+          </li>
+          <li class="nav-item mt-auto">
+            <a href="signout.php" class="nav-link" data-active="signout.php">
+              <p>Logout</p>
+            </a>
+          </li>
 
-            <!-- (Optional) dropdown container kept for future settings; hidden unless .open -->
-            <div class="xt-dropdown" id="xtDrop" aria-label="Settings menu" style="display:none"></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Menu bar -->
-      <nav class="xt-nav" role="navigation" aria-label="Admin menu">
-        <div class="xt-nav-inner">
-          <a class="xt-nav-link" href="dashboard.php" data-active="dashboard.php">Dashboard</a>
-
-          <div class="xt-nav-dd">
-            <button class="xt-nav-link xt-nav-btn" type="button" aria-haspopup="true" aria-expanded="false">
-              Content <span class="xt-caret"><svg class="xt-caret-ico" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></span>
-            </button>
-            <div class="xt-nav-menu" role="menu">
-              <a href="channels_manager.php" data-active="channels_manager.php">Contents</a>
-              <a href="category_manager.php" data-active="category_manager.php">Categories</a>
-              <a href="vod_manager.php" data-active="vod_manager.php">VOD</a>
-              <a href="vod_enabler.php" data-active="vod_enabler.php">VOD Enabler</a>
-              <a href="series_manager.php" data-active="series_manager.php">Series</a>
-              <div class="xt-dd-sep"></div>
-              <a href="upload_m3u.php" data-active="upload_m3u.php">Import M3U</a>
-              <a href="m3u_editor.php" data-active="m3u_editor.php">M3U Editor</a>
-              <a href="m3u_tvg_matcher.php" data-active="m3u_tvg_matcher.php">M3U TVG Matcher</a>
-              <a href="m3u_logo_mapper.php" data-active="m3u_logo_mapper.php">M3U Logo Mapper</a>
-              <a href="nginx_panel.php" data-active="nginx_panel.php">NGINX Panel</a>
-              <a href="m3u_builder.php" data-active="m3u_builder.php">M3U Builder</a>
-              <a href="checker.php" data-active="checker.php">Checker</a>
-            </div>
-          </div>
-
-          <div class="xt-nav-dd">
-            <button class="xt-nav-link xt-nav-btn" type="button" aria-haspopup="true" aria-expanded="false">
-              EPG <span class="xt-caret"><svg class="xt-caret-ico" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></span>
-            </button>
-            <div class="xt-nav-menu" role="menu">
-              <a href="epg_manager.php" data-active="epg_manager.php">Sources</a>
-              <a href="epg_upload.php" data-active="epg_upload.php">Upload XMLTV</a>
-              <a href="epg_import.php" data-active="epg_import.php">Import / Run</a>
-              <a href="epg_extract.php" data-active="epg_extract.php">Extract / Filter</a>
-              <a href="epg_sync.php" data-active="epg_sync.php">Synchronizer</a>
-            </div>
-          </div>
-
-          <div class="xt-nav-dd">
-            <button class="xt-nav-link xt-nav-btn" type="button" aria-haspopup="true" aria-expanded="false">
-              Users <span class="xt-caret"><svg class="xt-caret-ico" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></span>
-            </button>
-            <div class="xt-nav-menu" role="menu">
-              <a href="user_accounts.php" data-active="user_accounts.php">Clients</a>
-              <a href="packages.php" data-active="packages.php">Packages</a>
-              <a href="resellers.php" data-active="resellers.php">Resellers</a>
-              <a href="sessions.php" data-active="sessions.php">Sessions</a>
-            </div>
-          </div>
-
-          <div class="xt-nav-dd">
-            <button class="xt-nav-link xt-nav-btn" type="button" aria-haspopup="true" aria-expanded="false">
-              Billing <span class="xt-caret"><svg class="xt-caret-ico" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></span>
-            </button>
-            <div class="xt-nav-menu" role="menu">
-              <a href="plans_subs.php" data-active="plans_subs.php">Plans / Subs</a>
-              <a href="billing_reports.php" data-active="billing_reports.php">Reports</a>
-            </div>
-          </div>
-
-          <div class="xt-nav-dd">
-            <button class="xt-nav-link xt-nav-btn" type="button" aria-haspopup="true" aria-expanded="false">
-              System <span class="xt-caret"><svg class="xt-caret-ico" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></span>
-            </button>
-            <div class="xt-nav-menu" role="menu">
-              <a href="stream_probe.php" data-active="stream_probe.php">Dead Stream Hunter</a>
-              <a href="support_desk.php" data-active="support_desk.php">Support Desk</a>
-              <a href="watchlist.php" data-active="watchlist.php">Watchlist</a>
-              <a href="health.php" data-active="health.php">Health</a>
-              <a href="system_health.php" data-active="system_health.php">System Health</a>
-              <a href="backup_restore.php" data-active="backup_restore.php">Backup &amp; Restore</a>
-              <a href="maintenance.php" data-active="maintenance.php">Maintenance</a>
-              <a href="settings.php" data-active="settings.php">Settings</a>
-              <a href="lb_servers.php" data-active="lb_servers.php">Load Balancers</a>
-              <a href="hero_wall.php" data-active="hero_wall.php">Homepage Background</a>
-              <a href="audit_logs.php" data-active="audit_logs.php">Audit Logs</a>
-              <a href="telemetry.php" data-active="telemetry.php">Telemetry</a>
-              <a href="abuse_bans.php" data-active="abuse_bans.php">Abuse Bans</a>
-              <a href="bulk_delete.php" data-active="bulk_delete.php">Bulk Delete</a>
-              <a href="fail_videos.php" data-active="fail_videos.php">Fail Videos</a>
-
-              <div class="xt-dd-sep"></div>
-              <a href="signout.php">Logout</a>
-            </div>
-          </div>
-
-          <div class="xt-nav-spacer"></div>
-        </div>
+        </ul>
       </nav>
-    </header>
+    </div>
+  </aside>
 
-    <!-- Change Password Modal (MUST be outside any dropdown so it can display) -->
+  <!-- Change Password Modal -->
     <div class="xt-modal-overlay" id="xtPassOverlay" aria-hidden="true">
       <div class="xt-modal" role="dialog" aria-modal="true" aria-label="Change password">
         <div class="xt-modal-head">
@@ -167,262 +208,203 @@
       </div>
     </div>
 
-    <script>
-      (function(){
-        function closeNav(){
-          document.querySelectorAll('.xt-nav-dd.open').forEach(function(dd){ dd.classList.remove('open'); });
-          document.querySelectorAll('.xt-nav-dd .xt-nav-btn[aria-expanded="true"]').forEach(function(btn){ btn.setAttribute('aria-expanded','false'); });
-        }
+  <!-- AdminLTE JS -->
+  <script src="assets/adminlte4/js/adminlte.min.js"></script>
 
-        // nav dropdowns
-        document.addEventListener('click', function(e){
-          var el = (e.target && e.target.nodeType === 1) ? e.target : (e.target && e.target.parentElement ? e.target.parentElement : null);
-          if(!el){ return; }
-          var dd = el.closest('.xt-nav-dd');
-          var btn = el.closest('.xt-nav-btn');
-          if(btn && dd){
-            e.preventDefault();
-            var isOpen = dd.classList.contains('open');
-            closeNav();
-            if(!isOpen){
-              dd.classList.add('open');
-              btn.setAttribute('aria-expanded','true');
-            }
-            return;
-          }
-          closeNav();
-        });
-        document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeNav(); });
-
-        // active state by filename
-        var path = (window.location.pathname || '').split('/').pop() || '';
-        var links = document.querySelectorAll('.xt-nav [data-active]');
-        links.forEach(function(a){
-          var want = a.getAttribute('data-active');
-          if(want === path){
-            a.classList.add('active');
-            var wrap = a.closest('.xt-nav-dd');
-            if(wrap){
-              var b = wrap.querySelector('button');
-              if(b) b.classList.add('active');
+  <script>
+    (function(){
+      // active link highlight + expand tree
+      var cur = (location.pathname.split('/').pop() || 'dashboard.php');
+      var links = document.querySelectorAll('.sidebar-menu a[data-active]');
+      links.forEach(function(a){
+        if(a.getAttribute('data-active') === cur){
+          a.classList.add('active');
+          var li = a.closest('.nav-item');
+          var parentTree = a.closest('.nav-treeview');
+          if(parentTree){
+            var parentItem = parentTree.closest('.nav-item');
+            if(parentItem){
+              parentItem.classList.add('menu-open');
+              var parentLink = parentItem.querySelector(':scope > .nav-link');
+              if(parentLink) parentLink.classList.add('active');
             }
           }
+        }
+      });
+
+      // password modal
+      function showPass(open){
+        var o = document.getElementById('xtPassOverlay');
+        if(!o) return;
+        if(open){ o.classList.add('open'); o.setAttribute('aria-hidden','false'); }
+        else { o.classList.remove('open'); o.setAttribute('aria-hidden','true'); }
+      }
+      var gear = document.getElementById('xtGear');
+      var close = document.getElementById('xtPassClose');
+      var cancel = document.getElementById('xtPassCancel');
+      if(gear) gear.addEventListener('click', function(){ showPass(true); });
+      if(close) close.addEventListener('click', function(){ showPass(false); });
+      if(cancel) cancel.addEventListener('click', function(){ showPass(false); });
+      var overlay = document.getElementById('xtPassOverlay');
+      if(overlay) overlay.addEventListener('click', function(e){ if(e.target === overlay) showPass(false); });
+
+      // ajax submit for password
+      var form = document.getElementById('xtPassForm');
+      if(form){
+        form.addEventListener('submit', function(e){
+          e.preventDefault();
+          var msg = document.getElementById('xtPassMsg');
+          if(msg){ msg.style.display='none'; msg.textContent=''; msg.className='xt-modal-msg'; }
+          var fd = new FormData(form);
+          fetch(form.getAttribute('action') || 'change_password.php', { method:'POST', body: fd, credentials:'same-origin' })
+            .then(function(r){ return r.json().catch(function(){ return null; }); })
+            .then(function(j){
+              if(!msg) return;
+              if(j && j.ok){
+                msg.textContent = j.message || 'Password updated.';
+                msg.classList.add('ok');
+                msg.style.display='block';
+                setTimeout(function(){ showPass(false); }, 800);
+                form.reset();
+              }else{
+                msg.textContent = (j && (j.error || j.message)) ? (j.error || j.message) : 'Update failed.';
+                msg.classList.add('err');
+                msg.style.display='block';
+              }
+            })
+            .catch(function(){
+              if(msg){ msg.textContent='Update failed.'; msg.classList.add('err'); msg.style.display='block'; }
+            });
         });
+      }
 
-        // password modal
-        var gear = document.getElementById('xtGear');
-        var passOverlay = document.getElementById('xtPassOverlay');
-        var passClose = document.getElementById('xtPassClose');
-        var passCancel = document.getElementById('xtPassCancel');
-        var passForm = document.getElementById('xtPassForm');
-        var passMsg = document.getElementById('xtPassMsg');
+      // notifications badge
+      function refreshAdminNotifs(){
+        try{
+          fetch('notif_count.php', {credentials:'same-origin'})
+            .then(function(r){ return r.json(); })
+            .then(function(j){
+              var b = document.getElementById('xtNotifBadge');
+              if(!b) return;
+              // compat: older code used {count}, current endpoint returns {unread}
+              var raw = (j && typeof j.unread !== 'undefined') ? j.unread : ((j && typeof j.count !== 'undefined') ? j.count : 0);
+              var n = parseInt(raw, 10) || 0;
+              if(n > 0){ b.textContent = n; b.style.display='inline-flex'; }
+              else { b.style.display='none'; }
+            })
+            .catch(function(){});
+        }catch(e){}
+      }
+      refreshAdminNotifs();
+      setInterval(refreshAdminNotifs, 15000);
 
-        function openPass(){
-          if(!passOverlay) return;
-          passOverlay.classList.add('open');
-          passOverlay.setAttribute('aria-hidden','false');
-          if(passMsg) { passMsg.textContent=''; passMsg.classList.remove('ok','err'); }
-          if(passForm) { passForm.reset(); }
-          // focus first input
-          var first = passForm ? passForm.querySelector('input[name="current_password"]') : null;
-          if(first) setTimeout(function(){ first.focus(); }, 0);
-        }
-        function closePass(){
-          if(!passOverlay) return;
-          passOverlay.classList.remove('open');
-          passOverlay.setAttribute('aria-hidden','true');
-        }
+      // health pill
+      function xtSetDot(dot, cls){ if(!dot) return; dot.className = cls + ' me-2'; }
+      function refreshHealthPill(){
+        try{
+          fetch('ajax/system_health_live.php?_=' + Date.now(), {credentials:'same-origin'})
+            .then(function(r){ return r.json(); })
+            .then(function(j){
+              var dot = document.getElementById('xtHealthDot');
+              var txt = document.getElementById('xtHealthText');
+              if(!txt) return;
+              if(j && j.ok){
+                // compat: older endpoint returned flat {cpu,ram,disk,db}; current endpoint returns {load,mem,disk,db}
+                var cpuTxt = '--';
+                if(typeof j.cpu !== 'undefined') cpuTxt = j.cpu;
+                else if(j.load && j.load.length) cpuTxt = (parseFloat(j.load[0]) || 0).toFixed(2);
 
-        if(gear){
-          gear.addEventListener('click', function(ev){
-            ev.preventDefault();
-            closeNav();
-            openPass();
-          });
-        }
-        if(passClose){ passClose.addEventListener('click', function(){ closePass(); }); }
-        if(passCancel){ passCancel.addEventListener('click', function(){ closePass(); }); }
-        if(passOverlay){
-          passOverlay.addEventListener('click', function(ev){ if(ev.target === passOverlay){ closePass(); } });
-        }
-        document.addEventListener('keydown', function(ev){ if(ev.key === 'Escape') closePass(); });
+                var ramTxt = '--';
+                if(typeof j.ram !== 'undefined') ramTxt = j.ram;
+                else if(j.mem && j.mem.ok && typeof j.mem.pct !== 'undefined') ramTxt = String(j.mem.pct) + '%';
 
-        if(passForm){
-          passForm.addEventListener('submit', function(ev){
-            ev.preventDefault();
-            if(passMsg){ passMsg.textContent=''; passMsg.classList.remove('ok','err'); }
-            var fd = new FormData(passForm);
-            fd.append('ajax','1');
-            fd.set('change_password','1');
-            fetch('change_password.php', { method:'POST', body: fd, credentials:'same-origin' })
-              .then(function(r){ return r.json(); })
-              .then(function(data){
-                if(data && data.ok){
-                  if(passMsg){ passMsg.textContent = data.message || 'Password updated.'; passMsg.classList.add('ok'); }
-                  setTimeout(function(){ closePass(); }, 700);
-                } else {
-                  if(passMsg){ passMsg.textContent = (data && (data.error||data.message)) ? (data.error||data.message) : 'Password update failed.'; passMsg.classList.add('err'); }
-                }
-              })
-              .catch(function(){
-                if(passMsg){ passMsg.textContent='Request failed.'; passMsg.classList.add('err'); }
-              });
-          });
-        }
-      })();
-    </script>
+                var diskTxt = '--';
+                if(typeof j.disk === 'string' || typeof j.disk === 'number') diskTxt = j.disk;
+                else if(j.disk && j.disk.ok && typeof j.disk.pct !== 'undefined') diskTxt = String(j.disk.pct) + '%';
 
-    <script>
-      (function(){
-        // Fetch unread admin notifications count and show badge.
-        function refreshAdminNotifs(){
-          try {
-            fetch('notif_count.php', {credentials:'same-origin'})
-              .then(function(r){ return r.json(); })
-              .then(function(d){
-                var badge = document.getElementById('xtNotifBadge');
-                if(!badge) return;
-                var n = 0;
-                if(d && typeof d.unread !== 'undefined') n = parseInt(d.unread, 10) || 0;
-                if(n > 0){
-                  badge.textContent = String(n);
-                  badge.style.display = 'inline-flex';
-                } else {
-                  badge.style.display = 'none';
-                }
-              })
-              .catch(function(){});
-          } catch(e) {}
-        }
-        refreshAdminNotifs();
-      })();
-    </script>
-
-    <script>
-      (function(){
-        function fmt2(n){
-          if(n === null || typeof n === "undefined") return "--";
-          var x = parseFloat(n);
-          if(!isFinite(x)) return "--";
-          return x.toFixed(2);
-        }
-        function setDot(dot, cls){
-          if(!dot) return;
-          dot.classList.remove("dot-green","dot-yellow","dot-red");
-          dot.classList.add(cls);
-        }
-        function refreshHealthPill(){
-          try {
-            fetch("ajax/system_health_live.php?_=" + Date.now(), {credentials:"same-origin"})
-              .then(function(r){ return r.json(); })
-              .then(function(d){
-                var pill = document.getElementById("xtHealthPill");
-                var dot  = document.getElementById("xtHealthDot");
-                var txt  = document.getElementById("xtHealthText");
-                if(!pill || !dot || !txt) return;
-
-                if(!d || !d.ok){
-                  txt.textContent = "CPU -- | RAM -- | DISK -- | DB --";
-                  xtSetDot(dot, "dot-red");
-                  return;
-                }
-
-                var load1 = (d.load && typeof d.load[0] !== "undefined") ? d.load[0] : null;
-                var ramPct = (d.mem && d.mem.ok) ? d.mem.pct : null;
-                var diskPct = (d.disk && d.disk.ok) ? d.disk.pct : null;
-                var dbOk = (d.db && typeof d.db.ok !== "undefined") ? !!d.db.ok : false;
-
-                var dbTxt = dbOk ? "OK" : "DOWN";
-                var cpuTxt = (load1 === null) ? "--" : fmt2(load1);
-                var ramTxt = (ramPct === null) ? "--" : String(ramPct);
-                var diskTxt = (diskPct === null) ? "--" : String(diskPct);
-
-                txt.textContent = "CPU " + cpuTxt + " | RAM " + ramTxt + "% | DISK " + diskTxt + "% | DB " + dbTxt;
-
-                // Simple status coloring: green ok, yellow warn, red critical/down
-                var status = "dot-green";
-                if(!dbOk) status = "dot-red";
-                if(ramPct !== null && ramPct >= 90) status = "dot-red";
-                if(diskPct !== null && diskPct >= 90) status = "dot-red";
-                if(status !== "dot-red"){
-                  if((ramPct !== null && ramPct >= 80) || (diskPct !== null && diskPct >= 80)) status = "dot-yellow";
-                }
-                xtSetDot(dot, status);
-              })
-              .catch(function(){
-                var dot  = document.getElementById("xtHealthDot");
-                var txt  = document.getElementById("xtHealthText");
-                if(txt) txt.textContent = "CPU -- | RAM -- | DISK -- | DB --";
-                xtSetDot(dot, "dot-red");
-              });
-          } catch(e) {}
-        }
-
-        refreshHealthPill();
-        setInterval(refreshHealthPill, 15000);
-      })();
-    </script>
-
-
-    <!-- Content wrapper (opened here, closed by each page) -->
-    <div class="container">
-
-                <script>
-// Live connections pill (XUI-style)
-            function xtSetDot(dot, cls){ if(!dot) return; dot.className = cls; }
-            var xtPrevLiveCount = null;
-
-            function xtRefreshLive(){
-              fetch("ajax/live_connections_live.php", {credentials:"same-origin"})
-                .then(function(r){ return r.json(); })
-                .then(function(d){
-                  var dot = document.getElementById("xtLiveDot");
-                  var txt = document.getElementById("xtLiveText");
-                  var tr  = document.getElementById("xtLiveTrend");
-                  if(!dot || !txt || !tr) return;
-
-                  if(!d || !d.ok){
-                    txt.textContent = "LIVE --";
-                    tr.textContent = "";
-                    xtSetDot(dot, "dot-red");
-                    return;
+                var dbTxt = '--';
+                if(typeof j.db === 'string' || typeof j.db === 'number') dbTxt = j.db;
+                else if(j.db && typeof j.db.ok !== 'undefined'){
+                  if(j.db.ok){
+                    dbTxt = (j.db.threads !== '' && typeof j.db.threads !== 'undefined') ? ('T' + j.db.threads) : 'OK';
+                  }else{
+                    dbTxt = 'DOWN';
                   }
+                }
 
-                  var c = parseInt(d.count, 10);
-                  if(isNaN(c)) c = 0;
+                txt.textContent = 'CPU ' + cpuTxt + ' | RAM ' + ramTxt + ' | DISK ' + diskTxt + ' | DB ' + dbTxt;
 
-                  txt.textContent = "LIVE " + c;
+                // derive status if not provided
+                var status = (j.status || null);
+                if(!status){
+                  var memPct  = (j.mem && j.mem.ok) ? parseInt(j.mem.pct || 0, 10) : 0;
+                  var diskPct = (j.disk && j.disk.ok) ? parseInt(j.disk.pct || 0, 10) : 0;
+                  var dbOk    = !(j.db && typeof j.db.ok !== 'undefined') ? true : !!j.db.ok;
 
-                  if(xtPrevLiveCount === null){
-                    tr.textContent = "";
-                  } else if(c > xtPrevLiveCount){
-                    var delta = c - xtPrevLiveCount;
-                    tr.textContent = " ↑" + delta;
-                    tr.className = "xt-trend xt-trend-up";
-                  } else if(c < xtPrevLiveCount){
-                    var delta2 = xtPrevLiveCount - c;
-                    tr.textContent = " ↓" + delta2;
-                    tr.className = "xt-trend xt-trend-down";
-                  } else {
-                    tr.textContent = " ↔";
-                    tr.className = "xt-trend xt-trend-flat";
-                  }
+                  status = 'ok';
+                  if(!dbOk || memPct >= 95 || diskPct >= 95) status = 'bad';
+                  else if(memPct >= 85 || diskPct >= 85) status = 'warn';
+                }
 
-                  xtPrevLiveCount = c;
-                  xtSetDot(dot, "dot-green");
-                })
-                .catch(function(){
-                  var dot = document.getElementById("xtLiveDot");
-                  var txt = document.getElementById("xtLiveText");
-                  var tr  = document.getElementById("xtLiveTrend");
-                  if(txt) txt.textContent = "LIVE --";
-                  if(tr) tr.textContent = "";
-                  if(dot) xtSetDot(dot, "dot-red");
-                });
+                if(status === 'ok') xtSetDot(dot,'dot-green');
+                else if(status === 'warn') xtSetDot(dot,'dot-yellow');
+                else xtSetDot(dot,'dot-red');
+              }else{
+                txt.textContent = 'CPU -- | RAM -- | DISK -- | DB --';
+                xtSetDot(dot,'dot-red');
+              }
+            })
+            .catch(function(){
+              var dot = document.getElementById('xtHealthDot');
+              var txt = document.getElementById('xtHealthText');
+              if(txt) txt.textContent = 'CPU -- | RAM -- | DISK -- | DB --';
+              xtSetDot(dot,'dot-red');
+            });
+        }catch(e){}
+      }
+      refreshHealthPill();
+      setInterval(refreshHealthPill, 15000);
+
+      // live pill
+      var xtPrevLiveCount = null;
+      function xtRefreshLive(){
+        fetch('ajax/live_connections_live.php', {credentials:'same-origin'})
+          .then(function(r){ return r.json(); })
+          .then(function(j){
+            var dot = document.getElementById('xtLiveDot');
+            var txt = document.getElementById('xtLiveText');
+            var tr  = document.getElementById('xtLiveTrend');
+            if(!txt) return;
+            if(j && j.ok){
+              var n = parseInt(j.live || 0, 10);
+              txt.textContent = 'LIVE ' + n;
+              if(xtPrevLiveCount !== null){
+                if(n > xtPrevLiveCount) tr.textContent = '↑';
+                else if(n < xtPrevLiveCount) tr.textContent = '↓';
+                else tr.textContent = '';
+              }
+              xtPrevLiveCount = n;
+              xtSetDot(dot, (n>0?'dot-green':'dot-yellow'));
+            }else{
+              txt.textContent = 'LIVE --';
+              if(tr) tr.textContent = '';
+              xtSetDot(dot,'dot-red');
             }
+          })
+          .catch(function(){
+            var dot = document.getElementById('xtLiveDot');
+            var txt = document.getElementById('xtLiveText');
+            var tr  = document.getElementById('xtLiveTrend');
+            if(txt) txt.textContent = 'LIVE --';
+            if(tr) tr.textContent = '';
+            xtSetDot(dot,'dot-red');
+          });
+      }
+      xtRefreshLive();
+      setInterval(xtRefreshLive, 5000);
+    })();
+  </script>
 
-            xtRefreshLive();
-            setInterval(xtRefreshLive, 5000);
-
-
-    </script>
+  <!-- Content wrapper (opened here, closed by each page) -->
+  <main class="app-main">
+    <div class="container-fluid py-3">

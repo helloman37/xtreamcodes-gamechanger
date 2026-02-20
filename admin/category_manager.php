@@ -381,9 +381,10 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
 
   <meta charset="utf-8">
   <title>Category / Channel Manager</title>
-  <link rel="stylesheet" href="panel.css">
+  <link rel="stylesheet" href="assets/adminlte4/css/adminlte.min.css">
+  <link rel="stylesheet" href="panel.css?v=<?php echo @filemtime(__DIR__ . '/panel.css') ?: 1; ?>">
 </head>
-<body>
+<body class="layout-fixed sidebar-expand-lg bg-body-tertiary">
 <?= $topbar ?>
 
 <div class="card">
@@ -396,64 +397,74 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
 
 <div class="grid12">
   <!-- Categories column -->
-<div class="card">
-  <h3>Categories</h3>
-  <form method="post" class="row" style="gap:8px;align-items:center;flex-wrap:wrap;">
-    <input type="text" name="name" placeholder="New category name" required style="max-width:360px;">
-    <button class="btn" name="add_cat" value="1">Add</button>
-    <button class="btn gray" name="rebuild_cat_order" value="1" title="Rebuild numeric sort_order (10,20,30...) without changing the current visible order">Rebuild Order</button>
+<div class="card cat-box">
+  <div class="cat-box-head">
+    <div class="card-title">Categories</div>
+    <form method="post" class="cat-box-actions">
+      <button class="btn gray btn-small" name="rebuild_cat_order" value="1" title="Rebuild numeric sort_order (10,20,30...) without changing the current visible order"><?= gc_svg_icon('repeat') ?> Rebuild Order</button>
+    </form>
+  </div>
+
+  <form method="post" class="cat-add">
+    <div class="cat-add-group">
+      <input type="text" name="name" placeholder="New category name" required>
+      <button class="btn btn-small" name="add_cat" value="1"><?= gc_svg_icon('check') ?> Add</button>
+    </div>
   </form>
 
-  <div class="cat-list">
+  <div class="cat-list cat-list-compact">
     <?php foreach($cats as $c): ?>
       <?php $isSelected = ((int)$c['id'] === (int)$selected); ?>
-      <div class="cat-item <?= $isSelected ? 'active' : '' ?>">
-        <div class="cat-head">
-          <div class="cat-title">
-            <a href="category_manager.php?category_id=<?=$c['id']?>" class="cat-link">
-              <?=e($c['name'])?>
-            </a>
-            <?php if(!empty($c['is_adult'])): ?>
-              <span class="pill bad" style="margin-left:6px;">Adult</span>
-            <?php endif; ?>
+      <div class="cat-row <?= $isSelected ? 'active' : '' ?>">
+        <div class="cat-row-top">
+          <div class="cat-row-left">
+            <a href="category_manager.php?category_id=<?=$c['id']?>" class="cat-link"><?=e($c['name'])?></a>
+            <div class="cat-row-meta">
+              <?php if(!empty($c['is_adult'])): ?>
+                <span class="pill bad">Adult</span>
+              <?php endif; ?>
+              <span class="muted"><?=$c['cnt']?> channel(s)</span>
+            </div>
           </div>
-          <span class="muted"><?=$c['cnt']?> channel(s)</span>
-        </div>
 
-        <div class="cat-controls">
-          <form method="post" class="cat-form" style="gap:6px;">
+          <form method="post" class="cat-move">
             <input type="hidden" name="category_id" value="<?=$c['id']?>">
             <input type="hidden" name="move_cat" value="1">
-            <button class="btn gray btn-small" name="dir" value="up" <?= ((int)$c['id'] === $uncat_id) ? 'disabled' : '' ?> title="Move up"><?= gc_svg_icon('chevron-up') ?></button>
-            <button class="btn gray btn-small" name="dir" value="down" <?= ((int)$c['id'] === $uncat_id) ? 'disabled' : '' ?> title="Move down"><?= gc_svg_icon('chevron-down') ?></button>
+            <button class="btn gray btn-small cat-iconbtn" name="dir" value="up" <?= ((int)$c['id'] === $uncat_id) ? 'disabled' : '' ?> title="Move up"><?= gc_svg_icon('chevron-up') ?></button>
+            <button class="btn gray btn-small cat-iconbtn" name="dir" value="down" <?= ((int)$c['id'] === $uncat_id) ? 'disabled' : '' ?> title="Move down"><?= gc_svg_icon('chevron-down') ?></button>
           </form>
+        </div>
 
-          <form method="post" class="cat-form">
+        <div class="cat-row-controls">
+          <form method="post" class="cat-edit">
             <input type="hidden" name="category_id" value="<?=$c['id']?>">
-            <input type="text" name="new_name" value="<?=e($c['name'])?>" placeholder="Rename"
-              <?= ((int)$c['id'] === $uncat_id) ? 'disabled' : '' ?> >
-            <input type="number" name="sort_order" value="<?= (int)($c['sort_order'] ?? 0) ?>" title="Sort order (lower shows first)" style="width:92px;" <?= ((int)$c['id'] === $uncat_id) ? 'readonly' : '' ?> >
-            <label class="cat-adult" title="Mark category as Adult">
-              <input type="checkbox" name="cat_is_adult" value="1" <?= !empty($c['is_adult']) ? 'checked' : '' ?>> Adult
+            <input type="text" name="new_name" value="<?=e($c['name'])?>" placeholder="Name" <?= ((int)$c['id'] === $uncat_id) ? 'disabled' : '' ?> >
+            <input class="cat-sort" type="number" name="sort_order" value="<?= (int)($c['sort_order'] ?? 0) ?>" title="Sort order (lower shows first)" <?= ((int)$c['id'] === $uncat_id) ? 'readonly' : '' ?> >
+            <label class="cat-switch" title="Mark category as Adult">
+              <input type="checkbox" class="toggle" name="cat_is_adult" value="1" <?= !empty($c['is_adult']) ? 'checked' : '' ?> <?= ((int)$c['id'] === $uncat_id) ? 'disabled' : '' ?>> Adult
             </label>
-            <button class="btn gray btn-small" name="save_cat" value="1">Save</button>
+            <button class="btn btn-small" name="save_cat" value="1"><?= gc_svg_icon('check') ?> Save</button>
           </form>
 
-          <?php if((int)$c['id'] === $uncat_id): ?>
-            <form method="post" class="cat-form" onsubmit="return confirm('Delete ALL Uncategorized channels?');">
+          <?php if((int)$c['id'] !== $uncat_id): ?>
+            <form method="post" class="cat-del" onsubmit="return confirm('Delete this category? All channels in this category will be deleted too.');">
               <input type="hidden" name="category_id" value="<?=$c['id']?>">
-              <button class="btn danger btn-small" name="purge_uncat" value="1">Purge Channels</button>
-            </form>
-          <?php else: ?>
-            <form method="post" class="cat-form" onsubmit="return confirm('Delete this category? All channels in this category will be deleted too.');">
-              <input type="hidden" name="category_id" value="<?=$c['id']?>">
-              <button class="btn danger btn-small" name="del_cat" value="1">Delete</button>
+              <button class="btn danger btn-small cat-iconbtn" name="del_cat" value="1"><?= gc_svg_icon('x') ?></button>
             </form>
           <?php endif; ?>
         </div>
       </div>
     <?php endforeach; ?>
   </div>
+
+  <?php if($uncat_id > 0): ?>
+    <div class="cat-box-foot">
+      <form method="post" onsubmit="return confirm('Delete ALL Uncategorized channels?');">
+        <input type="hidden" name="category_id" value="<?=$uncat_id?>">
+        <button class="btn danger btn-small" name="purge_uncat" value="1"><?= gc_svg_icon('alert') ?> Purge Uncategorized Channels</button>
+      </form>
+    </div>
+  <?php endif; ?>
 </div>
 
 <!-- Channels column -->

@@ -166,7 +166,8 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
 
   <meta charset="utf-8">
   <title>Channel Health Checker</title>
-  <link rel="stylesheet" href="panel.css">
+  <link rel="stylesheet" href="assets/adminlte4/css/adminlte.min.css">
+  <link rel="stylesheet" href="panel.css?v=<?php echo @filemtime(__DIR__ . '/panel.css') ?: 1; ?>">
   <style>
     .progress-wrap{margin-top:10px}
     .progress-meta{display:flex; justify-content:space-between; gap:10px; align-items:center; flex-wrap:wrap; margin-top:8px}
@@ -191,7 +192,7 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
     .inline-input{width:auto; min-width:90px}
   </style>
 </head>
-<body>
+<body class="layout-fixed sidebar-expand-lg bg-body-tertiary">
 <?= $topbar ?>
 
 <div class="card">

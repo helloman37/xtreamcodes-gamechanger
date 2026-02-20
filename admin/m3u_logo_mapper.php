@@ -194,12 +194,13 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
   <meta charset="utf-8">
   <title>M3U Logo Mapper</title>
-  <link rel="stylesheet" href="panel.css">
+  <link rel="stylesheet" href="assets/adminlte4/css/adminlte.min.css">
+  <link rel="stylesheet" href="panel.css?v=<?php echo @filemtime(__DIR__ . '/panel.css') ?: 1; ?>">
   <style>
     .hint{font-size:12px;color:var(--muted);margin-top:6px}
   </style>
 </head>
-<body>
+<body class="layout-fixed sidebar-expand-lg bg-body-tertiary">
 <?= $topbar ?>
 
   <div class="card">

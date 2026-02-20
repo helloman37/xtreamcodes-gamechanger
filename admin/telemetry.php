@@ -109,7 +109,8 @@ function pill(string $t, string $kind=''): string {
 
   <meta charset="utf-8">
   <title>Telemetry</title>
-  <link rel="stylesheet" href="panel.css">
+  <link rel="stylesheet" href="assets/adminlte4/css/adminlte.min.css">
+  <link rel="stylesheet" href="panel.css?v=<?php echo @filemtime(__DIR__ . '/panel.css') ?: 1; ?>">
   <style>
     .grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px}
     .pill{display:inline-block;padding:4px 10px;border-radius:999px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);font-size:12px;white-space:nowrap}
@@ -125,7 +126,7 @@ function pill(string $t, string $kind=''): string {
     @media(max-width:900px){.grid{grid-template-columns:1fr}}
   </style>
 </head>
-<body>
+<body class="layout-fixed sidebar-expand-lg bg-body-tertiary">
 <?= $topbar ?>
 
 <div class="card">

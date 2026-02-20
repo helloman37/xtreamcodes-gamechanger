@@ -449,7 +449,8 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
 
   <meta charset="utf-8">
   <title>Import M3U</title>
-  <link rel="stylesheet" href="panel.css">
+  <link rel="stylesheet" href="assets/adminlte4/css/adminlte.min.css">
+  <link rel="stylesheet" href="panel.css?v=<?php echo @filemtime(__DIR__ . '/panel.css') ?: 1; ?>">
   <style>
     .m3u-order-list{list-style:none;padding:0;margin:0;border:1px solid rgba(0,0,0,.12);border-radius:10px;overflow:hidden;}
     .m3u-order-list li{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid rgba(0,0,0,.06);cursor:grab;user-select:none;}
@@ -463,7 +464,7 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
     .m3u-mini-btn:hover{filter:brightness(.98);}
   </style>
 </head>
-<body>
+<body class="layout-fixed sidebar-expand-lg bg-body-tertiary">
 <?= $topbar ?>
 
 <div class="card">

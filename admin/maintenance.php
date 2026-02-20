@@ -28,7 +28,7 @@ $default_tpl = <<<'HTML'
     .pill{display:inline-block;margin-top:14px;padding:8px 12px;border-radius:999px;background:rgba(108,162,255,.18);border:1px solid rgba(108,162,255,.30);color:#cfe1ff;font-size:13px}
   </style>
 </head>
-<body>
+<body class="layout-fixed sidebar-expand-lg bg-body-tertiary">
   <div class="wrap">
     <div class="card">
       <div class="top">
@@ -96,7 +96,8 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
 
   <meta charset="utf-8">
   <title>Admin Panel - Maintenance</title>
-  <link rel="stylesheet" href="panel.css">
+  <link rel="stylesheet" href="assets/adminlte4/css/adminlte.min.css">
+  <link rel="stylesheet" href="panel.css?v=<?php echo @filemtime(__DIR__ . '/panel.css') ?: 1; ?>">
   <style>
     textarea.code {
       font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;

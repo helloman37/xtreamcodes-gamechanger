@@ -414,7 +414,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
   <meta charset="utf-8">
   <title>M3U TVG Matcher</title>
-  <link rel="stylesheet" href="panel.css">
+  <link rel="stylesheet" href="assets/adminlte4/css/adminlte.min.css">
+  <link rel="stylesheet" href="panel.css?v=<?php echo @filemtime(__DIR__ . '/panel.css') ?: 1; ?>">
   <style>
     .badge{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;font-weight:900;border:1px solid var(--line);background:#fff;}
     .badge.ok{border-color:rgba(34,197,94,.25);background:rgba(34,197,94,.10);}
@@ -426,7 +427,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     @media (max-width:900px){.two{grid-template-columns:1fr;}}
   </style>
 </head>
-<body>
+<body class="layout-fixed sidebar-expand-lg bg-body-tertiary">
 <?= $topbar ?>
 
 <!-- container is opened by topbar.html -->
