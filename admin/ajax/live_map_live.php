@@ -148,29 +148,9 @@ try {
 
 $sessions = count($rows);
 
-// Group by IP.
-$byIp = [];
-foreach ($rows as $r) {
-  $nip = _lm_normalize_ip((string)($r['ip'] ?? ''));
-  if ($nip === '') continue;
-  if (!isset($byIp[$nip])) {
-    $byIp[$nip] = [
-      'ip' => $nip,
-      'sessions' => 0,
-      'types' => [],
-      'items' => [],
-    ];
-  }
-  $byIp[$nip]['sessions']++;
-  $t = (string)($r['stream_type'] ?? '');
-  if ($t !== '') {
-    $byIp[$nip]['types'][$t] = ($byIp[$nip]['types'][$t] ?? 0) + 1;
-  }
-}
+$sessions = count($rows);
 
-$uniqueIps = count($byIp);
-
-// Resolve geo.
+// Pins per session (connection).
 $pins = [];
 $lookups = 0;
 
@@ -178,14 +158,17 @@ $lookups = 0;
 $ttl_ok = 7 * 24 * 3600;
 $ttl_fail = 24 * 3600;
 
-foreach ($byIp as $ip => $info) {
+foreach ($rows as $r) {
+
+  $ip = _lm_normalize_ip((string)($r['ip'] ?? ''));
+  if ($ip === '') continue;
+
   // Private/reserved IPs cannot be geolocated.
-  if (!_lm_is_public_ip($ip)) {
-    continue;
-  }
+  if (!_lm_is_public_ip($ip)) continue;
 
   $geo = _lm_cache_get($pdo, $ip);
   $stale = true;
+
   if ($geo && !empty($geo['updated_at'])) {
     $ts = strtotime((string)$geo['updated_at']);
     if ($ts) {
@@ -195,8 +178,7 @@ foreach ($byIp as $ip => $info) {
     }
   }
 
-  // If no cache or stale, do lookup (cap per request to avoid dogpiling).
-  $liveGeo = null;
+  // Throttle live lookups.
   if ((!$geo || $stale) && $lookups < 40) {
     $liveGeo = _lm_geo_lookup_ipwhois($ip);
     $lookups++;
@@ -204,12 +186,13 @@ foreach ($byIp as $ip => $info) {
     $geo = array_merge($geo ?: [], $liveGeo);
   }
 
-  // Use whatever we have (cache +/or live).
   $lat = isset($geo['lat']) ? (float)$geo['lat'] : null;
   $lon = isset($geo['lon']) ? (float)$geo['lon'] : null;
+
   if ($lat === null || $lon === null) continue;
   if (abs($lat) < 0.00001 && abs($lon) < 0.00001) continue;
 
+  $t = (string)($r['stream_type'] ?? '');
   $pins[] = [
     'ip' => $ip,
     'lat' => $lat,
@@ -218,8 +201,8 @@ foreach ($byIp as $ip => $info) {
     'region' => $geo['region'] ?? null,
     'country' => $geo['country'] ?? null,
     'isp' => $geo['isp'] ?? null,
-    'sessions' => (int)$info['sessions'],
-    'types' => $info['types'],
+    'sessions' => 1,
+    'types' => ($t !== '' ? [ $t => 1 ] : []),
   ];
 }
 

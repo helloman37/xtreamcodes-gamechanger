@@ -21,6 +21,10 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
 
   <style>
     .lm-top{ display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
@@ -100,9 +104,9 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
   var layers = { light: cartoLight, dark: cartoDark, neon: cartoDark };
   layers.neon.addTo(map);
 
-  var markers = L.layerGroup().addTo(map);
-
-  function setTheme(t){
+  var markers = L.markerClusterGroup({spiderfyOnMaxZoom:true, showCoverageOnHover:false, zoomToBoundsOnClick:true});
+map.addLayer(markers);
+function setTheme(t){
     // swap base tiles
     Object.keys(layers).forEach(function(k){
       try{ map.removeLayer(layers[k]); }catch(e){}
