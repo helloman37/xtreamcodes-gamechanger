@@ -153,6 +153,7 @@ $sessions = count($rows);
 // Pins per session (connection).
 $pins = [];
 $lookups = 0;
+$ipSet = []; // track unique public IPs seen in current window
 
 // Cache TTLs
 $ttl_ok = 7 * 24 * 3600;
@@ -165,6 +166,9 @@ foreach ($rows as $r) {
 
   // Private/reserved IPs cannot be geolocated.
   if (!_lm_is_public_ip($ip)) continue;
+
+  // Unique IP counter (for stats only)
+  $ipSet[$ip] = true;
 
   $geo = _lm_cache_get($pdo, $ip);
   $stale = true;
@@ -205,6 +209,8 @@ foreach ($rows as $r) {
     'types' => ($t !== '' ? [ $t => 1 ] : []),
   ];
 }
+
+$uniqueIps = count($ipSet);
 
 echo json_encode([
   'ok' => true,
