@@ -60,9 +60,9 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
     <div class="lm-kv">
       <label>Theme</label>
       <select id="lmTheme">
-        <option value="neon">Neon Blue</option>
-        <option value="dark">Dark</option>
-        <option value="light">Light</option>
+                <option value="dark" selected>Dark</option>
+        <option value="satellite">Satellite</option>
+
       </select>
     </div>
     <div class="lm-kv">
@@ -101,8 +101,13 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
     attribution: '&copy; OpenStreetMap &copy; CARTO'
   });
 
-  var layers = { light: cartoLight, dark: cartoDark, neon: cartoDark };
-  layers.neon.addTo(map);
+  var esriSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    maxZoom: 19,
+    attribution: 'Tiles &copy; Esri — Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community'
+  });
+
+  var layers = { dark: cartoDark, satellite: esriSat };
+  layers.dark.addTo(map);
 
   var markers = L.markerClusterGroup({spiderfyOnMaxZoom:true, showCoverageOnHover:false, zoomToBoundsOnClick:true});
 map.addLayer(markers);
@@ -111,7 +116,7 @@ function setTheme(t){
     Object.keys(layers).forEach(function(k){
       try{ map.removeLayer(layers[k]); }catch(e){}
     });
-    (layers[t] || layers.neon).addTo(map);
+    (layers[t] || layers.dark).addTo(map);
 
     // neon filter only when requested
     var wrap = document.getElementById('lmMapWrap');
