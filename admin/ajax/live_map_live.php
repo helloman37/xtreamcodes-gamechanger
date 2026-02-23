@@ -77,6 +77,9 @@ function _lm_cache_put(PDO $pdo, string $ip, array $geo): void {
 
 function _lm_geo_lookup_ipwhois(string $ip): array {
   $url = 'https://ipwho.is/' . rawurlencode($ip);
+  $raw = '';
+
+  // Try file_get_contents first (simple/shared-host friendly).
   $ctx = stream_context_create([
     'http' => [
       'method' => 'GET',
@@ -88,8 +91,26 @@ function _lm_geo_lookup_ipwhois(string $ip): array {
       'verify_peer_name' => true,
     ]
   ]);
-  $raw = @file_get_contents($url, false, $ctx);
-  if (!$raw) return ['status'=>'fail','message'=>'lookup_failed'];
+  $raw = (string)(@file_get_contents($url, false, $ctx) ?: '');
+
+  // Fallback to cURL if allow_url_fopen is disabled or the stream wrapper fails.
+  if ($raw === '' && function_exists('curl_init')) {
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+      CURLOPT_RETURNTRANSFER => true,
+      CURLOPT_FOLLOWLOCATION => true,
+      CURLOPT_CONNECTTIMEOUT => 4,
+      CURLOPT_TIMEOUT => 4,
+      CURLOPT_USERAGENT => 'XTREAMui/1.0',
+      CURLOPT_SSL_VERIFYPEER => true,
+      CURLOPT_SSL_VERIFYHOST => 2,
+    ]);
+    $out = curl_exec($ch);
+    curl_close($ch);
+    if (is_string($out)) $raw = $out;
+  }
+
+  if ($raw === '') return ['status'=>'fail','message'=>'lookup_failed'];
   $j = json_decode($raw, true);
   if (!is_array($j)) return ['status'=>'fail','message'=>'bad_json'];
   if (!empty($j['success'])) {

@@ -791,7 +791,39 @@ function check_stream_url(string $url, int $timeout=8): array {
 /* ---------- SECURITY + LOGGING HELPERS ---------- */
 
 function get_client_ip(): string {
-  return $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+  // Prefer real client IP when behind proxies/CDNs.
+  // Order matters: if a provider sets a dedicated header, use it.
+  $candidates = [];
+
+  if (!empty($_SERVER['HTTP_CF_CONNECTING_IP']))   $candidates[] = $_SERVER['HTTP_CF_CONNECTING_IP'];
+  if (!empty($_SERVER['HTTP_TRUE_CLIENT_IP']))     $candidates[] = $_SERVER['HTTP_TRUE_CLIENT_IP'];
+  if (!empty($_SERVER['HTTP_X_REAL_IP']))          $candidates[] = $_SERVER['HTTP_X_REAL_IP'];
+  if (!empty($_SERVER['HTTP_X_FORWARDED_FOR']))    $candidates[] = $_SERVER['HTTP_X_FORWARDED_FOR'];
+  if (!empty($_SERVER['REMOTE_ADDR']))             $candidates[] = $_SERVER['REMOTE_ADDR'];
+
+  $first_valid = '';
+
+  foreach ($candidates as $raw) {
+    $raw = trim((string)$raw);
+    if ($raw === '') continue;
+
+    // Take first from XFF list
+    if (strpos($raw, ',') !== false) $raw = trim(explode(',', $raw, 2)[0]);
+    // Strip [IPv6]:port
+    if (preg_match('/^\[(.+)\]:(\d+)$/', $raw, $m)) $raw = $m[1];
+    // Strip IPv4:port
+    if (preg_match('/^(\d{1,3}(?:\.\d{1,3}){3}):(\d+)$/', $raw, $m)) $raw = $m[1];
+    $raw = trim($raw);
+
+    if (!filter_var($raw, FILTER_VALIDATE_IP)) continue;
+    if ($first_valid === '') $first_valid = $raw;
+
+    // Prefer public IPs
+    $is_public = (bool)filter_var($raw, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE);
+    if ($is_public) return $raw;
+  }
+
+  return $first_valid !== '' ? $first_valid : '0.0.0.0';
 }
 
 function strict_device_id_enabled(): bool {
