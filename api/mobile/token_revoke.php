@@ -14,8 +14,18 @@ if ($token_id <= 0) _gc_json(['ok'=>false,'error'=>'bad_token_id'], 400);
 
 $admin_id = (int)$ctx['admin_id'];
 
-$pdo->prepare("UPDATE mobile_tokens SET revoked_at=NOW() WHERE id=? AND admin_id=?")->execute([$token_id, $admin_id]);
+$cols = _gc_table_cols($pdo, 'mobile_tokens');
 
-_gc_mobile_audit($pdo, $admin_id, (int)$ctx['id'], 'token_revoke', ['token_id'=>$token_id]);
+if (isset($cols['revoked_at'])) {
+  $pdo->prepare("UPDATE mobile_tokens SET revoked_at=NOW() WHERE id=? AND admin_id=?")->execute([$token_id, $admin_id]);
+} else {
+  // schema doesn't support revoke timestamp; just expire it now
+  $pdo->prepare("UPDATE mobile_tokens SET expires_at=NOW() WHERE id=? AND admin_id=?")->execute([$token_id, $admin_id]);
+}
+
+// best-effort audit (function may live in helpers)
+if (function_exists('_gc_mobile_audit')) {
+  _gc_mobile_audit($pdo, $admin_id, (int)$ctx['id'], 'token_revoke', ['token_id'=>$token_id]);
+}
 
 _gc_json(['ok'=>true,'token_id'=>$token_id]);

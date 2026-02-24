@@ -7,7 +7,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 $u = trim($_POST['username'] ?? '');
 $p = (string)($_POST['password'] ?? '');
-$device = trim($_POST['device'] ?? '');
+$device_name = trim($_POST['device'] ?? '');
+$device_id = trim($_POST['device_id'] ?? '');
 
 if ($u === '' || $p === '') _gc_json(['ok'=>false,'error'=>'missing_credentials'], 400);
 
@@ -48,9 +49,41 @@ try {
   $expires_days = 30;
   $ip = $_SERVER['REMOTE_ADDR'] ?? null;
 
-  $pdo->prepare("INSERT INTO mobile_tokens (admin_id, token_hash, device_name, last_seen, last_ip, expires_at)
-                 VALUES (?,?,?,?,?, (NOW() + INTERVAL $expires_days DAY))")
-      ->execute([(int)$admin['id'], $hash, ($device !== '' ? $device : null), date('Y-m-d H:i:s'), $ip]);
+  $cols = _gc_table_cols($pdo, 'mobile_tokens');
+
+  $fields = ['admin_id', 'token_hash', 'expires_at'];
+  $values = [(int)$admin['id'], $hash];
+  $placeholders = ['?', '?', '(NOW() + INTERVAL ' . (int)$expires_days . ' DAY)'];
+
+  if (isset($cols['device_id'])) {
+    $fields[] = 'device_id';
+    $values[] = ($device_id !== '' ? $device_id : null);
+    $placeholders[] = '?';
+  }
+  if (isset($cols['device_name'])) {
+    $fields[] = 'device_name';
+    $values[] = ($device_name !== '' ? $device_name : null);
+    $placeholders[] = '?';
+  }
+  if (isset($cols['last_used_at'])) {
+    $fields[] = 'last_used_at';
+    $placeholders[] = 'NOW()';
+  } elseif (isset($cols['last_seen'])) {
+    $fields[] = 'last_seen';
+    $placeholders[] = 'NOW()';
+  }
+  if (isset($cols['last_ip'])) {
+    $fields[] = 'last_ip';
+    $values[] = $ip;
+    $placeholders[] = '?';
+  }
+  if (isset($cols['revoked_at'])) {
+    $fields[] = 'revoked_at';
+    $placeholders[] = 'NULL';
+  }
+
+  $sql = "INSERT INTO mobile_tokens (" . implode(',', $fields) . ") VALUES (" . implode(',', $placeholders) . ")";
+  $pdo->prepare($sql)->execute($values);
 
   _gc_json([
     'ok' => true,
