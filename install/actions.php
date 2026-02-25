@@ -57,15 +57,25 @@ function iptv_preflight(): array {
   return ['ok'=>$allOk, 'checks'=>$checks];
 }
 
-function iptv_pdo(array $cfg): PDO {
-  $dsn = sprintf('mysql:host=%s;dbname=%s;charset=%s', $cfg['host'], $cfg['name'], $cfg['charset'] ?? 'utf8mb4');
-  $pdo = new PDO($dsn, $cfg['user'], $cfg['pass'], [
+function iptv_pdo(?array $cfg): PDO {
+  if (!is_array($cfg)) {
+    throw new RuntimeException('Database config is missing (installer session lost).');
+  }
+  foreach (['host','name','user'] as $k) {
+    if (!isset($cfg[$k]) || trim((string)$cfg[$k]) === '') {
+      throw new RuntimeException('Database config missing: ' . $k);
+    }
+  }
+  $charset = (string)($cfg['charset'] ?? 'utf8mb4');
+  $dsn = sprintf('mysql:host=%s;dbname=%s;charset=%s', $cfg['host'], $cfg['name'], $charset);
+  $pdo = new PDO($dsn, (string)$cfg['user'], (string)($cfg['pass'] ?? ''), [
     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
     PDO::MYSQL_ATTR_MULTI_STATEMENTS => false,
   ]);
   return $pdo;
 }
+
 
 /**
  * Split SQL into statements safely-ish (handles strings + comments).

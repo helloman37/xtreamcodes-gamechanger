@@ -1,7 +1,20 @@
 <?php
 declare(strict_types=1);
 
+// -----------------------------------------------------------------------------
+// Session bootstrap (installer relies on sessions across steps).
+// Some hosts use a non-writable default session.save_path; we pin it to /cache/sessions
+// when possible so the installer doesn't "forget" Step 1 values.
+// -----------------------------------------------------------------------------
+$installRoot = dirname(__DIR__);
+$sessionDir  = $installRoot . '/cache/sessions';
+if (!is_dir($sessionDir)) { @mkdir($sessionDir, 0777, true); }
+if (is_dir($sessionDir) && is_writable($sessionDir)) {
+  @ini_set('session.save_path', $sessionDir);
+}
+@session_name('iptv_install_session');
 session_start();
+
 require __DIR__ . '/actions.php';
 
 $root = iptv_install_root();
@@ -84,6 +97,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       $mode = (string)($_POST['mode'] ?? 'builtin');
       $_SESSION['mode'] = $mode;
 
+      if (!isset($_SESSION['db']) || !is_array($_SESSION['db'])) {
+        throw new RuntimeException('Installer session lost. Go back to Step 1 and re-enter your database details.');
+      }
+
+
       $pdo = iptv_pdo($_SESSION['db']);
 
       $log = [];
@@ -150,6 +168,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if ($action === 'finish') {
+      if (!isset($_SESSION['db']) || !is_array($_SESSION['db'])) {
+        throw new RuntimeException('Installer session lost. Go back to Step 1 and re-enter your database details.');
+      }
+
       $cfgPath = $root . '/config.php';
       $vals = [
         'db' => $_SESSION['db'],
