@@ -341,6 +341,8 @@ header('Content-Disposition: attachment; filename="playlist_'.$username.'.m3u"')
 
 echo "#EXTM3U\n";
 
+$u_out = gc_user_obfuscate($username);
+
 foreach ($channels as $c) {
   $group = $c['group_title'] ? ' group-title="'.e($c['group_title']).'"' : '';
   $tvgId = $c['tvg_id'] ? ' tvg-id="'.e($c['tvg_id']).'"' : '';
@@ -361,12 +363,12 @@ foreach ($channels as $c) {
 
   if ($link_type === 'direct_protected') {
     // stream proxy URL (querystring)
-    $hidden = $stream_site_url."/stream/index.php?u=".rawurlencode($username)."&p=".rawurlencode($p_empty)."&id=".$c['id'];
+    $hidden = $stream_site_url."/stream/index.php?u=".rawurlencode($u_out)."&p=".rawurlencode($p_empty)."&id=".$c['id'];
     $hidden .= "&exp=".$exp."&token=".$token;
 
   } elseif ($link_type === 'standard_protected') {
     // /live/u/p/id.ext (legacy password in path)
-    $hidden = $stream_site_url."/live/".rawurlencode($username)."/".rawurlencode($password)."/".$c['id'].".".$ext;
+    $hidden = $stream_site_url."/live/".rawurlencode($u_out)."/".rawurlencode($password)."/".$c['id'].".".$ext;
     $hidden .= "?exp=".$exp."&token=".$token;
 
   } elseif ($link_type === 'auto') {
@@ -375,12 +377,12 @@ foreach ($channels as $c) {
       echo $c['stream_url']."\n";
       continue;
     }
-    $hidden = $stream_site_url."/stream/index.php?u=".rawurlencode($username)."&p=".rawurlencode($p_empty)."&id=".$c['id'];
+    $hidden = $stream_site_url."/stream/index.php?u=".rawurlencode($u_out)."&p=".rawurlencode($p_empty)."&id=".$c['id'];
     $hidden .= "&exp=".$exp."&token=".$token;
 
   } else { // token_protected (recommended)
     // /live/u/token/id.ext?exp=...
-    $hidden = $stream_site_url."/live/".rawurlencode($username)."/".rawurlencode($token)."/".$c['id'].".".$ext;
+    $hidden = $stream_site_url."/live/".rawurlencode($u_out)."/".rawurlencode($token)."/".$c['id'].".".$ext;
     $hidden .= "?exp=".$exp;
   }
 

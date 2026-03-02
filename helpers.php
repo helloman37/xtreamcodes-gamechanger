@@ -1117,6 +1117,60 @@ function random_hex_token(int $bytes=16): string {
 }
 
 
+/* ---------- USERNAME OBFUSCATION (optional) ----------
+   This hides usernames in /live/ URLs while keeping server-side auth intact.
+   Format: u_{base64url(iv+ciphertext)} where ciphertext = AES-256-CTR(username)
+*/
+function gc_base64url_encode(string $bin): string {
+  return rtrim(strtr(base64_encode($bin), '+/', '-_'), '=');
+}
+
+function gc_base64url_decode(string $s): string {
+  $s = strtr($s, '-_', '+/');
+  $pad = strlen($s) % 4;
+  if ($pad) $s .= str_repeat('=', 4 - $pad);
+  $out = base64_decode($s, true);
+  return ($out === false) ? '' : $out;
+}
+
+function gc_user_obfuscate(string $username): string {
+  $username = (string)$username;
+  if ($username === '') return $username;
+  // If OpenSSL isn't available, fall back to a reversible base64url wrapper.
+  if (!function_exists('openssl_encrypt')) {
+    return 'u64_' . gc_base64url_encode($username);
+  }
+  $cfg = require __DIR__ . '/config.php';
+  $key = hash('sha256', (string)($cfg['secret_key'] ?? ''), true); // 32 bytes
+  $iv  = random_bytes(16);
+  $cipher = openssl_encrypt($username, 'aes-256-ctr', $key, OPENSSL_RAW_DATA, $iv);
+  if ($cipher === false) {
+    return 'u64_' . gc_base64url_encode($username);
+  }
+  return 'u_' . gc_base64url_encode($iv . $cipher);
+}
+
+function gc_user_deobfuscate(string $maybe): string {
+  $maybe = (string)$maybe;
+  if ($maybe === '') return '';
+  if (strpos($maybe, 'u64_') === 0) {
+    $raw = gc_base64url_decode(substr($maybe, 4));
+    return $raw !== '' ? $raw : '';
+  }
+  if (strpos($maybe, 'u_') !== 0) return $maybe; // not obfuscated
+  $blob = gc_base64url_decode(substr($maybe, 2));
+  if ($blob === '' || strlen($blob) < 17) return '';
+  $iv = substr($blob, 0, 16);
+  $cipher = substr($blob, 16);
+  if (!function_exists('openssl_decrypt')) return '';
+  $cfg = require __DIR__ . '/config.php';
+  $key = hash('sha256', (string)($cfg['secret_key'] ?? ''), true);
+  $plain = openssl_decrypt($cipher, 'aes-256-ctr', $key, OPENSSL_RAW_DATA, $iv);
+  return ($plain === false) ? '' : (string)$plain;
+}
+
+
+
 function make_token(string $username, int $item_id, int $exp, string $type='live'): string {
   $config = require __DIR__ . '/config.php';
   $data = $type . '|' . $username . '|' . $item_id . '|' . $exp;
