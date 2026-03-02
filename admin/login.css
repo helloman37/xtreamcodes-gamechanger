@@ -1,0 +1,172 @@
+/* Xtream-style login page (Admin/Reseller). */
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  font-family: "Helvetica Neue", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  background: #0b0f14;
+}
+
+/* Fullscreen background */
+.login-bg {
+  min-height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0b0f14 url('login-bg.jpg') center / cover no-repeat fixed;
+  position: relative;
+  padding: 40px 18px;
+}
+
+/* Blur + darken like the reference */
+.login-bg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.28);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* Vignette */
+.login-bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, rgba(0,0,0,0.04) 0%, rgba(0,0,0,0.58) 100%);
+}
+
+.login-wrap {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 520px;
+}
+
+.login-card {
+  background: #ffffff;
+  border-radius: 2px;
+  box-shadow: 0 18px 46px rgba(0,0,0,0.48);
+  overflow: hidden;
+}
+
+.brand {
+  text-align: center;
+  padding: 32px 18px 10px;
+}
+
+.gc {
+  text-align: center;
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: #666;
+  text-transform: uppercase;
+}
+
+.xtream-logo {
+  display: inline-flex;
+  align-items: flex-end;
+  line-height: 1;
+}
+
+.xtream-logo .x {
+  font-weight: 800;
+  font-size: 56px;
+  color: #c4001d;
+  letter-spacing: -1px;
+}
+
+.xtream-logo .tream {
+  font-weight: 700;
+  font-size: 44px;
+  color: #111;
+  letter-spacing: 1.2px;
+  margin-left: 2px;
+}
+
+.xtream-logo .ui {
+  font-weight: 700;
+  font-size: 12px;
+  color: #777;
+  vertical-align: super;
+  margin-left: 3px;
+  position: relative;
+  top: -16px;
+}
+
+.subhead {
+  text-align: center;
+  font-size: 12px;
+  letter-spacing: 1px;
+  font-weight: 700;
+  color: #666;
+  background: linear-gradient(#f7f8f9, #f1f3f5);
+  border-top: 1px solid #e2e7eb;
+  border-bottom: 1px solid #e2e7eb;
+  padding: 14px 18px;
+}
+
+.form {
+  padding: 24px 38px 32px;
+}
+
+label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #555;
+  margin: 14px 0 6px;
+}
+
+input[type="text"],
+input[type="password"] {
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid #d9dee3;
+  border-radius: 3px;
+  font-size: 13px;
+  outline: none;
+  box-sizing: border-box;
+  background: #fff;
+}
+
+input::placeholder {
+  color: #b1bac2;
+}
+
+input:focus {
+  border-color: #aab4bf;
+  box-shadow: 0 0 0 3px rgba(160, 175, 190, 0.18);
+}
+
+.btn {
+  margin-top: 16px;
+  width: 100%;
+  padding: 11px 14px;
+  border: 1px solid #c94a23;
+  border-radius: 2px;
+  background: #e35a2a;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn:hover {
+  filter: brightness(0.97);
+}
+
+/* flash_show now renders top-right toasts; don't style the toast host as an inline box */
+.flash-wrap #iptvToastHost{
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+
+@media (max-width: 520px) {
+  .form { padding: 22px 18px 28px; }
+}
