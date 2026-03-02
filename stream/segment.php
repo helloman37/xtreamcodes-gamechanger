@@ -82,7 +82,16 @@ $enf = (bool)($cfg['enforce_subscription_on_segments'] ?? true);
 if ($enf) {
   $pdo = db();
   $st = $pdo->prepare("SELECT id FROM users WHERE username=? AND status='active' LIMIT 1");
-  $st->execute([$u]);
+  try {
+    $st->execute([$u]);
+  } catch (PDOException $e) {
+    if (strpos($e->getMessage(), 'Illegal mix of collations') !== false) {
+      $st = $pdo->prepare("SELECT id FROM users WHERE username=CONVERT(? USING latin1) AND status='active' LIMIT 1");
+      $st->execute([$u]);
+    } else {
+      throw $e;
+    }
+  }
   $uid = (int)($st->fetch(PDO::FETCH_ASSOC)['id'] ?? 0);
   if ($uid > 0) {
     $ttl2 = (int)($cfg['sub_cache_ttl'] ?? 60);
@@ -102,7 +111,16 @@ if ($enf) {
 if ($token !== '' && $exp > 0 && !verify_token($u, $id, $exp, $token, $type)) {
   $pdo = db();
   $st = $pdo->prepare("SELECT id FROM users WHERE username=? AND status='active' LIMIT 1");
-  $st->execute([$u]);
+  try {
+    $st->execute([$u]);
+  } catch (PDOException $e) {
+    if (strpos($e->getMessage(), 'Illegal mix of collations') !== false) {
+      $st = $pdo->prepare("SELECT id FROM users WHERE username=CONVERT(? USING latin1) AND status='active' LIMIT 1");
+      $st->execute([$u]);
+    } else {
+      throw $e;
+    }
+  }
   $uid = (int)($st->fetch(PDO::FETCH_ASSOC)['id'] ?? 0);
   if ($uid > 0) {
     $cfg2 = require __DIR__ . '/../config.php';
@@ -150,7 +168,16 @@ if ($device_fp==='' && strict_device_id_enabled()) { http_response_code(403); ex
 
 /* user */
 $st = $pdo->prepare("SELECT * FROM users WHERE username=? AND status='active' LIMIT 1");
-$st->execute([$u]);
+  try {
+    $st->execute([$u]);
+  } catch (PDOException $e) {
+    if (strpos($e->getMessage(), 'Illegal mix of collations') !== false) {
+      $st = $pdo->prepare("SELECT * FROM users WHERE username=CONVERT(? USING latin1) AND status='active' LIMIT 1");
+      $st->execute([$u]);
+    } else {
+      throw $e;
+    }
+  }
 $user = $st->fetch(PDO::FETCH_ASSOC);
 if (!$user) {
   $fv = _seg_fail_video_url($pdo, $type, 'invalid_login');

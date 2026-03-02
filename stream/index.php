@@ -159,7 +159,17 @@ if ($device_fp==='' && strict_device_id_enabled()) {
 
 /* user */
 $st = $pdo->prepare("SELECT * FROM users WHERE username=? AND status='active' LIMIT 1");
-$st->execute([$u]);
+try {
+  $st->execute([$u]);
+} catch (PDOException $e) {
+  if (strpos($e->getMessage(), 'Illegal mix of collations') !== false) {
+    // Legacy DBs may have users.username as latin1_swedish_ci.
+    $st = $pdo->prepare("SELECT * FROM users WHERE username=CONVERT(? USING latin1) AND status='active' LIMIT 1");
+    $st->execute([$u]);
+  } else {
+    throw $e;
+  }
+}
 $user = $st->fetch(PDO::FETCH_ASSOC);
 if (!$user) {
   telemetry_reason('user_not_found', ['username'=>$u]);

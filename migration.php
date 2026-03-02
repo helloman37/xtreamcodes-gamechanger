@@ -38,6 +38,27 @@ function _idx_exists(PDO $pdo, string $table, string $indexName): bool {
   return (int)($row['c'] ?? 0) > 0;
 }
 
+
+function _table_collation(PDO $pdo, string $table): ?string {
+  $db = _db_name($pdo);
+  if (!$db) return null;
+  $st = $pdo->prepare('SELECT TABLE_COLLATION c FROM information_schema.TABLES WHERE TABLE_SCHEMA=? AND TABLE_NAME=? LIMIT 1');
+  $st->execute([$db, $table]);
+  $row = $st->fetch(PDO::FETCH_ASSOC);
+  return $row['c'] ?? null;
+}
+
+function _ensure_utf8mb4_table(PDO $pdo, string $table): void {
+  if (!_table_exists($pdo, $table)) return;
+  $coll = _table_collation($pdo, $table);
+  if ($coll && stripos($coll, 'utf8mb4') === 0) return;
+  try {
+    $pdo->exec("ALTER TABLE `$table` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci");
+  } catch (Throwable $e) {
+    // ignore (shared hosts may block ALTER)
+  }
+}
+
 function _ensure_col(PDO $pdo, string $table, string $col, string $ddl): void {
   if (!_col_exists($pdo, $table, $col)) {
     $pdo->exec("ALTER TABLE `$table` ADD COLUMN $ddl");
@@ -57,6 +78,17 @@ function db_migrate(PDO $pdo): void {
   static $done = false;
   if ($done) return;
   $done = true;
+
+  // --- Fix legacy collations (latin1 -> utf8mb4) for auth tables ---
+  try {
+    $db = _db_name($pdo);
+    if ($db) $pdo->exec("ALTER DATABASE `$db` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci");
+  } catch (Throwable $e) {
+    // ignore
+  }
+  _ensure_utf8mb4_table($pdo, 'users');
+  _ensure_utf8mb4_table($pdo, 'admins');
+  _ensure_utf8mb4_table($pdo, 'resellers');
 
   // --- New tables ---
   $pdo->exec("
