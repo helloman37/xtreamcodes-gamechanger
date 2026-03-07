@@ -1255,6 +1255,63 @@ function system_setting_set(PDO $pdo, string $key, ?string $value): void {
 
 
 
+function gc_payment_settings(PDO $pdo): array {
+  $paypal_secret_enc = (string)system_setting_get($pdo, 'paypal_secret_enc', '');
+  $stripe_secret_enc = (string)system_setting_get($pdo, 'stripe_secret_enc', '');
+  $stripe_webhook_secret_enc = (string)system_setting_get($pdo, 'stripe_webhook_secret_enc', '');
+
+  $paypal_client = trim((string)system_setting_get($pdo, 'paypal_client_id', defined('PAYPAL_CLIENT_ID') ? (string)PAYPAL_CLIENT_ID : ''));
+  $paypal_secret = trim($paypal_secret_enc !== '' ? iptv_decrypt($paypal_secret_enc) : (defined('PAYPAL_SECRET') ? (string)PAYPAL_SECRET : ''));
+  $paypal_sandbox = (system_setting_get($pdo, 'paypal_sandbox', (defined('PAYPAL_SANDBOX') && PAYPAL_SANDBOX) ? '1' : '0') === '1');
+  $paypal_enabled = (system_setting_get($pdo, 'paypal_enabled', ($paypal_client !== '' && $paypal_secret !== '') ? '1' : '0') === '1');
+
+  $cashapp_cashtag = trim((string)system_setting_get($pdo, 'cashapp_cashtag', defined('CASHAPP_CASHTAG') ? (string)CASHAPP_CASHTAG : ''));
+  if ($cashapp_cashtag !== '' && $cashapp_cashtag[0] !== '$') $cashapp_cashtag = '$' . $cashapp_cashtag;
+  $cashapp_enabled = (system_setting_get($pdo, 'cashapp_enabled', $cashapp_cashtag !== '' ? '1' : '0') === '1');
+
+  $stripe_publishable = trim((string)system_setting_get($pdo, 'stripe_publishable_key', defined('STRIPE_PUBLISHABLE_KEY') ? (string)STRIPE_PUBLISHABLE_KEY : ''));
+  $stripe_secret = trim($stripe_secret_enc !== '' ? iptv_decrypt($stripe_secret_enc) : (defined('STRIPE_SECRET_KEY') ? (string)STRIPE_SECRET_KEY : ''));
+  $stripe_webhook_secret = trim($stripe_webhook_secret_enc !== '' ? iptv_decrypt($stripe_webhook_secret_enc) : (defined('STRIPE_WEBHOOK_SECRET') ? (string)STRIPE_WEBHOOK_SECRET : ''));
+  $stripe_mode = strtolower(trim((string)system_setting_get($pdo, 'stripe_mode', defined('STRIPE_MODE') ? (string)STRIPE_MODE : 'test')));
+  if (!in_array($stripe_mode, ['test','live'], true)) $stripe_mode = 'test';
+  $stripe_enabled = (system_setting_get($pdo, 'stripe_enabled', ($stripe_publishable !== '' && $stripe_secret !== '') ? '1' : '0') === '1');
+
+  return [
+    'paypal' => [
+      'enabled' => $paypal_enabled,
+      'client_id' => $paypal_client,
+      'secret' => $paypal_secret,
+      'sandbox' => $paypal_sandbox,
+      'configured' => ($paypal_client !== '' && $paypal_secret !== ''),
+      'secret_is_set' => ($paypal_secret !== ''),
+    ],
+    'cashapp' => [
+      'enabled' => $cashapp_enabled,
+      'cashtag' => $cashapp_cashtag,
+      'configured' => ($cashapp_cashtag !== '' && $cashapp_cashtag !== '$'),
+    ],
+    'stripe' => [
+      'enabled' => $stripe_enabled,
+      'publishable_key' => $stripe_publishable,
+      'secret_key' => $stripe_secret,
+      'webhook_secret' => $stripe_webhook_secret,
+      'mode' => $stripe_mode,
+      'configured' => ($stripe_publishable !== '' && $stripe_secret !== ''),
+      'secret_is_set' => ($stripe_secret !== ''),
+      'webhook_secret_is_set' => ($stripe_webhook_secret !== ''),
+    ],
+  ];
+}
+
+function gc_payment_provider_is_available(PDO $pdo, string $provider): bool {
+  $provider = strtolower(trim($provider));
+  $settings = gc_payment_settings($pdo);
+  if (!isset($settings[$provider])) return false;
+  return !empty($settings[$provider]['enabled']) && !empty($settings[$provider]['configured']);
+}
+
+
+
 
 
 /* ---------- GOOGLE RECAPTCHA ---------- */

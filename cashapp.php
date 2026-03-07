@@ -1,7 +1,6 @@
 <?php
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/helpers.php';
-require_once __DIR__ . '/config.php';
 session_start();
 $pdo=db();
 
@@ -17,8 +16,8 @@ $st=$pdo->prepare("SELECT * FROM orders WHERE id=?");
 $st->execute([$orderId]);
 $order=$st->fetch();
 if(!$order) die("Order not found");
-$cashtag = defined('CASHAPP_CASHTAG') ? trim(CASHAPP_CASHTAG) : '';
-if($cashtag && $cashtag[0] !== '$') $cashtag='$'.$cashtag;
+$payCfg = gc_payment_settings($pdo);
+$cashtag = trim((string)($payCfg['cashapp']['cashtag'] ?? ''));
 if($cashtag && $cashtag[0] !== '$') $cashtag='$'.$cashtag;
 $payUrl = $cashtag ? "https://cash.app/".rawurlencode($cashtag) : "https://cash.app/";
 $qrUrl = "https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=".urlencode($payUrl);

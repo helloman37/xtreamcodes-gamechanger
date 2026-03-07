@@ -6,13 +6,18 @@
 // The installer writes config.local.php which overrides these defaults.
 // -----------------------------------------------------------------------------
 
-// PayPal REST API (storefront)
+// Payment gateway legacy fallbacks.
+// New installs should manage gateways from Admin -> Payment Gateways.
 if (!defined('PAYPAL_CLIENT_ID')) define('PAYPAL_CLIENT_ID', '');
 if (!defined('PAYPAL_SECRET')) define('PAYPAL_SECRET', '');
 if (!defined('PAYPAL_SANDBOX')) define('PAYPAL_SANDBOX', true);
 
-// CashApp storefront (owner cashtag)
-if (!defined('CASHAPP_CASHTAG')) define('CASHAPP_CASHTAG', '$');
+if (!defined('CASHAPP_CASHTAG')) define('CASHAPP_CASHTAG', '');
+
+if (!defined('STRIPE_PUBLISHABLE_KEY')) define('STRIPE_PUBLISHABLE_KEY', '');
+if (!defined('STRIPE_SECRET_KEY')) define('STRIPE_SECRET_KEY', '');
+if (!defined('STRIPE_WEBHOOK_SECRET')) define('STRIPE_WEBHOOK_SECRET', '');
+if (!defined('STRIPE_MODE')) define('STRIPE_MODE', 'test');
 
 $defaults = [
   'db' => [

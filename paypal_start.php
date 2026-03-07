@@ -9,6 +9,11 @@ $st=$pdo->prepare("SELECT * FROM orders WHERE id=?");
 $st->execute([$orderId]);
 $order=$st->fetch();
 if(!$order) die("Order not found");
+if (!gc_payment_provider_is_available($pdo, 'paypal')) {
+  flash_set('PayPal is not enabled or not configured yet.', 'error');
+  header('Location: checkout.php?plan=' . (int)($order['plan_id'] ?? 0));
+  exit;
+}
 
 $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? "https" : "http";
 $baseUrl = $scheme."://".$_SERVER['HTTP_HOST'].dirname($_SERVER['SCRIPT_NAME']);

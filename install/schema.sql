@@ -24,6 +24,7 @@ CREATE TABLE plans (
   price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
   duration_days INT NOT NULL DEFAULT 30,
   max_streams INT NOT NULL DEFAULT 1,
+  stripe_price_id VARCHAR(190) DEFAULT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -34,6 +35,13 @@ CREATE TABLE subscriptions (
   starts_at DATETIME NOT NULL,
   ends_at DATETIME NOT NULL,
   status ENUM('active','expired','cancelled') DEFAULT 'active',
+  payment_provider VARCHAR(50) DEFAULT NULL,
+  external_customer_id VARCHAR(190) DEFAULT NULL,
+  external_subscription_id VARCHAR(190) DEFAULT NULL,
+  external_price_id VARCHAR(190) DEFAULT NULL,
+  auto_renew TINYINT(1) NOT NULL DEFAULT 0,
+  renews_at DATETIME DEFAULT NULL,
+  INDEX idx_subs_external_subscription (external_subscription_id),
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   FOREIGN KEY (plan_id) REFERENCES plans(id) ON DELETE CASCADE
 );
@@ -149,9 +157,19 @@ CREATE TABLE IF NOT EXISTS orders (
   provider ENUM('paypal','cashapp','stripe') NOT NULL,
   provider_txn VARCHAR(190) NOT NULL,
   status ENUM('pending','paid','failed','refunded') NOT NULL DEFAULT 'pending',
+  billing_type ENUM('one_time','subscription') NOT NULL DEFAULT 'one_time',
+  stripe_customer_id VARCHAR(190) DEFAULT NULL,
+  stripe_subscription_id VARCHAR(190) DEFAULT NULL,
+  stripe_invoice_id VARCHAR(190) DEFAULT NULL,
+  stripe_price_id VARCHAR(190) DEFAULT NULL,
+  pending_username VARCHAR(50) DEFAULT NULL,
+  pending_password_hash VARCHAR(255) DEFAULT NULL,
+  pending_password_enc TEXT DEFAULT NULL,
+  pending_allow_adult TINYINT(1) NOT NULL DEFAULT 0,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   paid_at TIMESTAMP NULL,
-  UNIQUE KEY uniq_provider_txn (provider, provider_txn)
+  UNIQUE KEY uniq_provider_txn (provider, provider_txn),
+  INDEX idx_orders_stripe_subscription (stripe_subscription_id)
 );
 
 
@@ -173,3 +191,11 @@ ALTER TABLE plans ADD COLUMN is_trial TINYINT(1) DEFAULT 0;
 -- Example 7-day trial plan (price 0)
 INSERT INTO plans (name, price, duration_days, max_streams, is_trial)
 VALUES ('Trial (7 Days)', 0.00, 7, 1, 1);
+
+
+CREATE TABLE IF NOT EXISTS payment_webhook_events (
+  provider VARCHAR(50) NOT NULL,
+  event_id VARCHAR(190) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (provider, event_id)
+);

@@ -64,10 +64,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'charset' => 'utf8mb4',
       ];
       $base_url = rtrim(trim((string)($_POST['base_url'] ?? '')), '/');
-      $paypal_client = trim((string)($_POST['paypal_client'] ?? ''));
-      $paypal_secret = trim((string)($_POST['paypal_secret'] ?? ''));
-      $paypal_sandbox = isset($_POST['paypal_sandbox']) ? '1' : '0';
-      $cashapp = trim((string)($_POST['cashapp'] ?? '$'));
       $server_stack = trim((string)($_POST['server_stack'] ?? 'apache'));
       $php_fpm = trim((string)($_POST['php_fpm'] ?? ''));
 
@@ -83,10 +79,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
       $_SESSION['db'] = $db;
       $_SESSION['base_url'] = $base_url;
-      $_SESSION['paypal_client'] = $paypal_client;
-      $_SESSION['paypal_secret'] = $paypal_secret;
-      $_SESSION['paypal_sandbox'] = $paypal_sandbox;
-      $_SESSION['cashapp'] = $cashapp;
       $_SESSION['server_stack'] = $server_stack;
       $_SESSION['php_fpm'] = $php_fpm;
 
@@ -286,8 +278,8 @@ $baseUrl = (string)($_SESSION['base_url'] ?? '');
               </div>
 
             <?php elseif ($step === 1): ?>
-              <h2>Connection + Base URL + Payments</h2>
-              <p>Enter your database credentials and site URL. PayPal + CashApp are optional.</p>
+              <h2>Connection + Base URL</h2>
+              <p>Enter your database credentials and site URL. Payment gateways are configured later inside the admin panel.</p>
 
               <form class="form" method="post" action="index.php?step=1">
                 <input type="hidden" name="action" value="step1" />
@@ -336,33 +328,6 @@ $baseUrl = (string)($_SESSION['base_url'] ?? '');
                     <label>PHP-FPM socket</label>
                     <input name="php_fpm" placeholder="unix:/run/php/php8.2-fpm.sock" value="<?= h($_SESSION['php_fpm'] ?? '') ?>">
                     <div class="help">Leave blank to auto-guess from your PHP version.</div>
-                  </div>
-                </div>
-
-
-                <h2 style="margin-top:0">Optional storefront</h2>
-                <p class="small">These get written into <code>config.php</code>. You can leave them blank.</p>
-                <div class="row">
-                  <div class="field">
-                    <label>PayPal Client ID</label>
-                    <input name="paypal_client" value="<?= h($_SESSION['paypal_client'] ?? '') ?>" placeholder="optional">
-                  </div>
-                  <div class="field">
-                    <label>PayPal Secret</label>
-                    <input name="paypal_secret" value="<?= h($_SESSION['paypal_secret'] ?? '') ?>" placeholder="optional">
-                  </div>
-                </div>
-                <div class="row">
-                  <div class="field">
-                    <label>PayPal Sandbox?</label>
-                    <select name="paypal_sandbox">
-                      <option value="1" <?= (($_SESSION['paypal_sandbox'] ?? '1') === '1') ? 'selected' : '' ?>>Yes (sandbox)</option>
-                      <option value="0" <?= (($_SESSION['paypal_sandbox'] ?? '1') === '0') ? 'selected' : '' ?>>No (live)</option>
-                    </select>
-                  </div>
-                  <div class="field">
-                    <label>CashApp Cashtag</label>
-                    <input name="cashapp" value="<?= h($_SESSION['cashapp'] ?? '$') ?>" placeholder="$yourtag">
                   </div>
                 </div>
 

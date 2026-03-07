@@ -13,11 +13,19 @@ try {
 
 session_start();
 
+$availableProviders = [];
 $planId=(int)($_GET['plan'] ?? 0);
 $planSt=$pdo->prepare("SELECT * FROM plans WHERE id=?");
 $planSt->execute([$planId]);
 $plan=$planSt->fetch();
 if(!$plan){ die("Invalid plan"); }
+
+$availableProviders = [];
+foreach (['paypal','stripe','cashapp'] as $gcProv) {
+  if (!gc_payment_provider_is_available($pdo, $gcProv)) continue;
+  if ($gcProv === 'stripe' && trim((string)($plan['stripe_price_id'] ?? '')) === '') continue;
+  $availableProviders[] = $gcProv;
+}
 
 // if customer already logged in, preload their account
 $loggedInUser = null;
@@ -41,7 +49,7 @@ if ($loggedInUser && !empty($loggedInUser['id'])) {
 }
 
 if($_SERVER['REQUEST_METHOD']==='POST'){
-  $provider=$_POST['provider'] ?? 'paypal';
+  $provider=strtolower(trim((string)($_POST['provider'] ?? 'paypal')));
   $want_adult = isset($_POST['allow_adult']) ? 1 : 0;
 
   if($loggedInUser){
@@ -62,11 +70,17 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
     $userId = null;
   }
 
+  if (!in_array($provider, $availableProviders, true)) {
+    flash_set('That payment method is not available right now.', 'error');
+    header('Location: checkout.php?plan='.(int)$planId);
+    exit;
+  }
+
   // create pending order
   $tmpTxn="pending_".bin2hex(random_bytes(8));
-  $stmt=$pdo->prepare("INSERT INTO orders (user_id,email, plan_id, amount, currency, provider, provider_txn, status)
-                       VALUES (?,?,?,?, ?, ?, ?, 'pending')");
-  $stmt->execute([$userId,$email,$planId,$plan['price'],'USD',$provider,$tmpTxn]);
+  $stmt=$pdo->prepare("INSERT INTO orders (user_id,email, plan_id, amount, currency, provider, provider_txn, status, billing_type, stripe_price_id, pending_username, pending_password_hash, pending_password_enc, pending_allow_adult)
+                       VALUES (?,?,?,?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?)");
+  $stmt->execute([$userId,$email,$planId,$plan['price'],'USD',$provider,$tmpTxn, ($provider==='stripe' ? 'subscription' : 'one_time'), ($provider==='stripe' ? (string)($plan['stripe_price_id'] ?? '') : null), (!$loggedInUser ? $username : null), (!$loggedInUser ? $password_hash : null), (!$loggedInUser ? $password_enc : null), $want_adult]);
   $orderId=$pdo->lastInsertId();
 
   // store onboarding data only if user not logged in yet
@@ -83,6 +97,8 @@ if($_SERVER['REQUEST_METHOD']==='POST'){
 
   if($provider==='cashapp'){
     header("Location: cashapp.php?order=".$orderId);
+  } elseif ($provider==='stripe') {
+    header("Location: stripe_start.php?order=".$orderId);
   } else {
     header("Location: paypal_start.php?order=".$orderId);
   }
@@ -140,14 +156,25 @@ require_once __DIR__ . '/gc_public_top.php';
     <div class="card pad checkout-card">
       <h3 style="margin:0 0 10px;">Choose Payment</h3>
 
+      <?php if ($availableProviders): ?>
       <div style="display:grid; grid-template-columns: 1fr; gap:10px;">
-        <button class="btn primary" type="submit" name="provider" value="paypal" style="width:100%;">Pay with PayPal</button>
-        <button class="btn" type="submit" name="provider" value="cashapp" style="width:100%;">Pay with CashApp</button>
+        <?php if (in_array('paypal', $availableProviders, true)): ?>
+          <button class="btn primary" type="submit" name="provider" value="paypal" style="width:100%;">Pay with PayPal</button>
+        <?php endif; ?>
+        <?php if (in_array('stripe', $availableProviders, true)): ?>
+          <button class="btn" type="submit" name="provider" value="stripe" style="width:100%;">Pay with Stripe</button>
+        <?php endif; ?>
+        <?php if (in_array('cashapp', $availableProviders, true)): ?>
+          <button class="btn" type="submit" name="provider" value="cashapp" style="width:100%;">Pay with Cash App</button>
+        <?php endif; ?>
       </div>
 
       <div class="muted" style="margin-top:12px;font-size:12px;line-height:1.35;">
-        CashApp payments require manual verification. PayPal activates automatically.
+        PayPal activates automatically after a successful checkout. Stripe runs as a recurring subscription when this plan has a Stripe Price ID. Cash App remains manual verification.
       </div>
+      <?php else: ?>
+        <div class="notice">No payment gateways are enabled yet. Ask the admin to configure them in Admin &rarr; Payment Gateways.</div>
+      <?php endif; ?>
     </div>
 
   </div>

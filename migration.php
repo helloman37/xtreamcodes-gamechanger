@@ -221,6 +221,44 @@ function db_migrate(PDO $pdo): void {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   ");
 
+
+  // --- Storefront / recurring billing columns ---
+  try { _ensure_col($pdo, 'plans', 'stripe_price_id', "`stripe_price_id` VARCHAR(190) NULL DEFAULT NULL"); } catch (Throwable $e) {}
+
+  foreach ([
+    ['billing_type', "`billing_type` ENUM('one_time','subscription') NOT NULL DEFAULT 'one_time'"],
+    ['stripe_customer_id', "`stripe_customer_id` VARCHAR(190) NULL DEFAULT NULL"],
+    ['stripe_subscription_id', "`stripe_subscription_id` VARCHAR(190) NULL DEFAULT NULL"],
+    ['stripe_invoice_id', "`stripe_invoice_id` VARCHAR(190) NULL DEFAULT NULL"],
+    ['stripe_price_id', "`stripe_price_id` VARCHAR(190) NULL DEFAULT NULL"],
+    ['pending_username', "`pending_username` VARCHAR(50) NULL DEFAULT NULL"],
+    ['pending_password_hash', "`pending_password_hash` VARCHAR(255) NULL DEFAULT NULL"],
+    ['pending_password_enc', "`pending_password_enc` TEXT NULL"],
+    ['pending_allow_adult', "`pending_allow_adult` TINYINT(1) NOT NULL DEFAULT 0"],
+  ] as [$col, $ddl]) { try { _ensure_col($pdo, 'orders', $col, $ddl); } catch (Throwable $e) {} }
+  try { _ensure_index($pdo, 'orders', 'idx_orders_stripe_subscription', "INDEX `idx_orders_stripe_subscription` (`stripe_subscription_id`)"); } catch (Throwable $e) {}
+  try { _ensure_index($pdo, 'orders', 'idx_orders_user_status', "INDEX `idx_orders_user_status` (`user_id`,`status`)"); } catch (Throwable $e) {}
+
+  foreach ([
+    ['payment_provider', "`payment_provider` VARCHAR(50) NULL DEFAULT NULL"],
+    ['external_customer_id', "`external_customer_id` VARCHAR(190) NULL DEFAULT NULL"],
+    ['external_subscription_id', "`external_subscription_id` VARCHAR(190) NULL DEFAULT NULL"],
+    ['external_price_id', "`external_price_id` VARCHAR(190) NULL DEFAULT NULL"],
+    ['auto_renew', "`auto_renew` TINYINT(1) NOT NULL DEFAULT 0"],
+    ['renews_at', "`renews_at` DATETIME NULL DEFAULT NULL"],
+  ] as [$col, $ddl]) { try { _ensure_col($pdo, 'subscriptions', $col, $ddl); } catch (Throwable $e) {} }
+  try { _ensure_index($pdo, 'subscriptions', 'idx_subs_external_subscription', "INDEX `idx_subs_external_subscription` (`external_subscription_id`)"); } catch (Throwable $e) {}
+  try { _ensure_index($pdo, 'subscriptions', 'idx_subs_user_status', "INDEX `idx_subs_user_status` (`user_id`,`status`)"); } catch (Throwable $e) {}
+
+  $pdo->exec("
+    CREATE TABLE IF NOT EXISTS payment_webhook_events (
+      provider VARCHAR(50) NOT NULL,
+      event_id VARCHAR(190) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (provider, event_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  ");
+
   // XMLTV sources (upstream EPG providers). Used by xmltv.php proxy mode and importer.
   $pdo->exec("
     CREATE TABLE IF NOT EXISTS epg_sources (

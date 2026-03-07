@@ -35,15 +35,16 @@ $trial_enabled = system_setting_get($pdo, 'trial_enabled', '1');
    CREATE PLAN
 ---------------------------- */
 if (isset($_POST['plan_create'])) {
-  $pdo->prepare("INSERT INTO plans (name, price, duration_days, max_streams, max_devices, reseller_credits_cost)
-                 VALUES (?,?,?,?,?,?)")
+  $pdo->prepare("INSERT INTO plans (name, price, duration_days, max_streams, max_devices, reseller_credits_cost, stripe_price_id)
+                 VALUES (?,?,?,?,?,?,?)")
       ->execute([
         trim($_POST['name'] ?? ''),
         (float)($_POST['price'] ?? 0),
         (int)($_POST['duration_days'] ?? 30),
         (int)($_POST['max_streams'] ?? 1),
         (int)($_POST['max_devices'] ?? 2),
-        (int)($_POST['reseller_credits_cost'] ?? 1)
+        (int)($_POST['reseller_credits_cost'] ?? 1),
+        trim((string)($_POST['stripe_price_id'] ?? '')) ?: null
       ]);
   flash_set("Plan created", "success");
   header("Location: plans_subs.php"); exit;
@@ -55,7 +56,7 @@ if (isset($_POST['plan_create'])) {
 if (isset($_POST['plan_update'])) {
   $plan_id = (int)$_POST['plan_id'];
   $pdo->prepare("UPDATE plans
-                 SET name=?, price=?, duration_days=?, max_streams=?, max_devices=?, reseller_credits_cost=?
+                 SET name=?, price=?, duration_days=?, max_streams=?, max_devices=?, reseller_credits_cost=?, stripe_price_id=?
                  WHERE id=?")
       ->execute([
         trim($_POST['name'] ?? ''),
@@ -64,6 +65,7 @@ if (isset($_POST['plan_update'])) {
         (int)($_POST['max_streams'] ?? 1),
         (int)($_POST['max_devices'] ?? 2),
         (int)($_POST['reseller_credits_cost'] ?? 1),
+        trim((string)($_POST['stripe_price_id'] ?? '')) ?: null,
         $plan_id
       ]);
 
@@ -227,6 +229,13 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
       </div>
     </div>
 
+    <div class="row">
+      <div>
+        <label>Stripe Price ID</label>
+        <input name="stripe_price_id" value="" placeholder="price_...">
+      </div>
+    </div>
+
     <div style="margin-top:12px;">
       <button>Create Plan</button>
     </div>
@@ -243,7 +252,7 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
       <th>Name</th>
       <th>Price</th>
       <th>Days</th>
-      <th>Max Streams</th><th>Max Devices</th><th>Reseller Cost</th>
+      <th>Max Streams</th><th>Max Devices</th><th>Reseller Cost</th><th>Stripe Price ID</th>
       <th>Actions</th>
     </tr>
 
