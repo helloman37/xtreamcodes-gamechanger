@@ -208,17 +208,59 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
   <link rel="stylesheet" href="assets/xui/css/xui.min.css">
   <link rel="stylesheet" href="panel.css?v=<?php echo @filemtime(__DIR__ . '/panel.css') ?: 1; ?>">
   <style>
-    .pkg-group-wrap { display:flex; flex-direction:column; gap:12px; }
-    .pkg-group { border:1px solid #1f2937; border-radius:12px; overflow:hidden; background:#0b1220; }
-    .pkg-group-head { display:flex; align-items:center; gap:10px; padding:10px 12px; border-bottom:1px solid #1f2937; background:#0f172a; }
-    .pkg-group-head .title { font-weight:700; flex:1; }
-    .pkg-items { max-height:280px; overflow:auto; }
+    .pkg-toolbar { display:flex; gap:10px; flex-wrap:wrap; align-items:end; margin-bottom:12px; }
+    .pkg-toolbar .picker { min-width:260px; max-width:420px; }
+    .pkg-group-wrap { display:flex; flex-direction:column; gap:14px; }
+    .pkg-group { border:1px solid var(--line); border-radius:14px; overflow:hidden; background:#fff; box-shadow:0 8px 18px rgba(15,23,42,.05); }
+    .pkg-group.is-hidden { display:none; }
+    .pkg-group-head { display:flex; align-items:center; gap:12px; padding:12px 14px; border-bottom:1px solid var(--line); background:linear-gradient(180deg,#f8fbff 0%, #f3f7ff 100%); }
+    .pkg-group-head label { display:flex; gap:10px; align-items:center; flex:1; margin:0; color:var(--text); }
+    .pkg-group-head .title { font-weight:800; flex:1; color:var(--text); }
+    .pkg-group-head .pill { background:#e8efff; color:#335cff; border:1px solid #cdd8ff; }
+    .pkg-items { max-height:360px; overflow:auto; background:#fff; }
+    .pkg-items > label { display:flex; gap:10px; align-items:center; padding:8px 12px; border-bottom:1px solid var(--line) !important; color:var(--text); font-weight:700; }
+    .pkg-items > label:last-child { border-bottom:0 !important; }
+    .pkg-items > label:hover { background:#f8fbff; }
+    .pkg-items input[type="checkbox"], .pkg-group-head input[type="checkbox"] { transform:scale(1.08); }
     .pkg-tools { display:flex; gap:8px; flex-wrap:wrap; }
     .pkg-tools button { padding:6px 10px; }
+    .pkg-item-name { flex:1; color:var(--text); font-weight:700; }
+    .pkg-item-code { min-width:58px; opacity:.85; }
     .danger-inline { display:inline-flex; margin:0; }
-    .btn-danger { background:#7f1d1d; color:#fff; border:1px solid #991b1b; }
+    .btn-danger { background:#b91c1c; color:#fff; border:1px solid #991b1b; box-shadow:0 6px 16px rgba(185,28,28,.24); }
     .btn-danger:hover { filter:brightness(1.07); }
-    .muted-mini { opacity:.8; font-size:12px; }
+    .muted-mini { color:var(--muted); font-size:12px; font-weight:700; }
+    .pkg-empty { padding:14px; color:var(--muted); }
+    .pkg-summary-table { width:100%; table-layout:fixed; }
+    .pkg-summary-table col.pkg-col-name { width:36%; }
+    .pkg-summary-table col.pkg-col-count { width:12%; }
+    .pkg-summary-table col.pkg-col-users { width:12%; }
+    .pkg-summary-table col.pkg-col-actions { width:16%; }
+    .pkg-summary-table th,
+    .pkg-summary-table td { vertical-align:middle; }
+    .pkg-summary-table th:nth-child(2),
+    .pkg-summary-table th:nth-child(3),
+    .pkg-summary-table th:nth-child(4),
+    .pkg-summary-table th:nth-child(5),
+    .pkg-summary-table td:nth-child(2),
+    .pkg-summary-table td:nth-child(3),
+    .pkg-summary-table td:nth-child(4),
+    .pkg-summary-table td:nth-child(5) { text-align:center; }
+    .pkg-summary-table th:last-child,
+    .pkg-summary-table td:last-child { text-align:right; }
+    .pkg-summary-table td:first-child { font-weight:800; }
+    .pkg-summary-table td:nth-child(2),
+    .pkg-summary-table td:nth-child(3),
+    .pkg-summary-table td:nth-child(4),
+    .pkg-summary-table td:nth-child(5) { font-weight:800; }
+    .pkg-actions { display:flex; gap:8px; flex-wrap:wrap; align-items:center; justify-content:flex-end; }
+    @media (max-width: 900px) {
+      .pkg-summary-table { table-layout:auto; }
+      .pkg-summary-table col { width:auto !important; }
+      .pkg-actions { justify-content:flex-start; }
+      .pkg-summary-table th:last-child,
+      .pkg-summary-table td:last-child { text-align:left; }
+    }
   </style>
 </head>
 <body class="layout-fixed sidebar-expand-lg bg-body-tertiary">
@@ -241,8 +283,16 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
 <br>
 
 <div class="card">
-  <table>
-    <tr><th>Package</th><th>Live</th><th>Movies</th><th>Series</th><th>Users</th><th></th></tr>
+  <table class="pkg-summary-table">
+    <colgroup>
+      <col class="pkg-col-name">
+      <col class="pkg-col-count">
+      <col class="pkg-col-count">
+      <col class="pkg-col-count">
+      <col class="pkg-col-users">
+      <col class="pkg-col-actions">
+    </colgroup>
+    <tr><th>Package</th><th>Live</th><th>Movies</th><th>Series</th><th>Users</th><th>Actions</th></tr>
     <?php foreach($packages as $p): ?>
       <tr>
         <td><?=e($p['name'])?></td>
@@ -250,13 +300,15 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
         <td><?= (int)$p['movie_count'] ?></td>
         <td><?= (int)$p['series_count'] ?></td>
         <td><?= (int)$p['user_count'] ?></td>
-        <td style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-          <a class="btn gray" href="packages.php?package_id=<?=$p['id']?>">Edit</a>
-          <form method="post" class="danger-inline" onsubmit="return confirm('Delete this bouquet/package and remove all linked users/content?');">
-            <input type="hidden" name="delete_package" value="1">
-            <input type="hidden" name="package_id" value="<?=$p['id']?>">
-            <button class="btn-danger" type="submit">Delete</button>
-          </form>
+        <td>
+          <div class="pkg-actions">
+            <a class="btn gray" href="packages.php?package_id=<?=$p['id']?>">Edit</a>
+            <form method="post" class="danger-inline" onsubmit="return confirm('Delete this bouquet/package and remove all linked users/content?');">
+              <input type="hidden" name="delete_package" value="1">
+              <input type="hidden" name="package_id" value="<?=$p['id']?>">
+              <button class="btn-danger" type="submit">Delete</button>
+            </form>
+          </div>
         </td>
       </tr>
     <?php endforeach; ?>
@@ -282,14 +334,24 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
     <input type="hidden" name="save_package_channels" value="1">
     <input type="hidden" name="package_id" value="<?=$selected['id']?>">
 
-    <div class="pkg-tools" style="margin-bottom:12px;">
-      <button type="button" data-check-scope="live" data-check-state="1">Select All Live</button>
-      <button type="button" data-check-scope="live" data-check-state="0" class="gray">Clear All Live</button>
+    <div class="pkg-toolbar">
+      <div class="pkg-tools">
+        <button type="button" data-check-scope="live" data-check-state="1">Select All Live</button>
+        <button type="button" data-check-scope="live" data-check-state="0" class="gray">Clear All Live</button>
+      </div>
+      <div class="picker">
+        <label>Live category</label>
+        <select class="pkg-category-picker" data-scope="live">
+          <?php $live_first = true; foreach($channels_by_group as $group => $group_channels): $slug = pkg_slug($group); ?>
+            <option value="<?=$slug?>" <?=$live_first ? 'selected' : ''?>><?=e($group)?> (<?=count($group_channels)?>)</option>
+          <?php $live_first = false; endforeach; ?>
+        </select>
+      </div>
     </div>
 
     <div class="pkg-group-wrap">
-      <?php foreach($channels_by_group as $group => $group_channels): $slug = pkg_slug($group); ?>
-        <div class="pkg-group">
+      <?php $live_first = true; foreach($channels_by_group as $group => $group_channels): $slug = pkg_slug($group); ?>
+        <div class="pkg-group <?= $live_first ? '' : 'is-hidden' ?>" data-scope="live" data-group="<?=$slug?>">
           <div class="pkg-group-head">
             <label style="display:flex;gap:10px;align-items:center;flex:1;">
               <input type="checkbox" class="group-master" data-target="live-<?=$slug?>">
@@ -300,16 +362,16 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
           </div>
           <div class="pkg-items">
             <?php foreach($group_channels as $c): ?>
-              <label style="display:flex;gap:10px;align-items:center;padding:6px 10px;border-bottom:1px solid #0b1220;">
+              <label>
                 <input type="checkbox" class="live-checkbox live-<?=$slug?>" name="channel_ids[]" value="<?=$c['id']?>" <?= in_array((int)$c['id'],$selected_ids,true) ? 'checked' : '' ?>>
-                <span class="code" style="min-width:50px;opacity:.8;">#<?=$c['id']?></span>
-                <span style="flex:1;"><?=e($c['name'])?></span>
+                <span class="code pkg-item-code">#<?=$c['id']?></span>
+                <span class="pkg-item-name"><?=e($c['name'])?></span>
                 <span class="pill <?= $c['is_adult'] ? 'bad':'good' ?>"><?= $c['is_adult'] ? 'ADULT':'OK' ?></span>
               </label>
             <?php endforeach; ?>
           </div>
         </div>
-      <?php endforeach; ?>
+      <?php $live_first = false; endforeach; ?>
     </div>
 
     <div style="margin-top:12px;">
@@ -327,15 +389,25 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
     <?php if (!$movies): ?>
       <p class="muted">No movies table/data found (or VOD module not installed).</p>
     <?php else: ?>
-      <div class="pkg-tools" style="margin-bottom:12px;">
-        <button type="button" data-check-scope="movie" data-check-state="1">Select All Movies</button>
-        <button type="button" data-check-scope="movie" data-check-state="0" class="gray">Clear All Movies</button>
+      <div class="pkg-toolbar">
+        <div class="pkg-tools">
+          <button type="button" data-check-scope="movie" data-check-state="1">Select All Movies</button>
+          <button type="button" data-check-scope="movie" data-check-state="0" class="gray">Clear All Movies</button>
+        </div>
+        <div class="picker">
+          <label>Movie category</label>
+          <select class="pkg-category-picker" data-scope="movie">
+            <?php $movie_first = true; foreach($movies_by_group as $group => $group_movies): $slug = pkg_slug($group); ?>
+              <option value="<?=$slug?>" <?=$movie_first ? 'selected' : ''?>><?=e($group)?> (<?=count($group_movies)?>)</option>
+            <?php $movie_first = false; endforeach; ?>
+          </select>
+        </div>
       </div>
       <div class="pkg-group-wrap">
-        <?php foreach($movies_by_group as $group => $group_movies): $slug = pkg_slug($group); ?>
-          <div class="pkg-group">
+        <?php $movie_first = true; foreach($movies_by_group as $group => $group_movies): $slug = pkg_slug($group); ?>
+          <div class="pkg-group <?= $movie_first ? '' : 'is-hidden' ?>" data-scope="movie" data-group="<?=$slug?>">
             <div class="pkg-group-head">
-              <label style="display:flex;gap:10px;align-items:center;flex:1;">
+              <label>
                 <input type="checkbox" class="group-master" data-target="movie-<?=$slug?>">
                 <span class="title"><?=e($group)?></span>
                 <span class="pill"><?=count($group_movies)?> movies</span>
@@ -344,16 +416,16 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
             </div>
             <div class="pkg-items">
               <?php foreach($group_movies as $m): ?>
-                <label style="display:flex;gap:10px;align-items:center;padding:6px 10px;border-bottom:1px solid #0b1220;">
+                <label>
                   <input type="checkbox" class="movie-checkbox movie-<?=$slug?>" name="movie_ids[]" value="<?=$m['id']?>" <?= in_array((int)$m['id'],$selected_movie_ids,true) ? 'checked' : '' ?>>
-                  <span class="code" style="min-width:50px;opacity:.8;">#<?=$m['id']?></span>
-                  <span style="flex:1;"><?=e($m['name'])?></span>
+                  <span class="code pkg-item-code">#<?=$m['id']?></span>
+                  <span class="pkg-item-name"><?=e($m['name'])?></span>
                   <span class="pill <?= $m['is_adult'] ? 'bad':'good' ?>"><?= $m['is_adult'] ? 'ADULT':'OK' ?></span>
                 </label>
               <?php endforeach; ?>
             </div>
           </div>
-        <?php endforeach; ?>
+        <?php $movie_first = false; endforeach; ?>
       </div>
       <div style="margin-top:12px;">
         <button>Save Movies</button>
@@ -371,15 +443,25 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
     <?php if (!$series_list): ?>
       <p class="muted">No series table/data found (or Series module not installed).</p>
     <?php else: ?>
-      <div class="pkg-tools" style="margin-bottom:12px;">
-        <button type="button" data-check-scope="series" data-check-state="1">Select All Series</button>
-        <button type="button" data-check-scope="series" data-check-state="0" class="gray">Clear All Series</button>
+      <div class="pkg-toolbar">
+        <div class="pkg-tools">
+          <button type="button" data-check-scope="series" data-check-state="1">Select All Series</button>
+          <button type="button" data-check-scope="series" data-check-state="0" class="gray">Clear All Series</button>
+        </div>
+        <div class="picker">
+          <label>Series category</label>
+          <select class="pkg-category-picker" data-scope="series">
+            <?php $series_first = true; foreach($series_by_group as $group => $group_series): $slug = pkg_slug($group); ?>
+              <option value="<?=$slug?>" <?=$series_first ? 'selected' : ''?>><?=e($group)?> (<?=count($group_series)?>)</option>
+            <?php $series_first = false; endforeach; ?>
+          </select>
+        </div>
       </div>
       <div class="pkg-group-wrap">
-        <?php foreach($series_by_group as $group => $group_series): $slug = pkg_slug($group); ?>
-          <div class="pkg-group">
+        <?php $series_first = true; foreach($series_by_group as $group => $group_series): $slug = pkg_slug($group); ?>
+          <div class="pkg-group <?= $series_first ? '' : 'is-hidden' ?>" data-scope="series" data-group="<?=$slug?>">
             <div class="pkg-group-head">
-              <label style="display:flex;gap:10px;align-items:center;flex:1;">
+              <label>
                 <input type="checkbox" class="group-master" data-target="series-<?=$slug?>">
                 <span class="title"><?=e($group)?></span>
                 <span class="pill"><?=count($group_series)?> series</span>
@@ -388,16 +470,16 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
             </div>
             <div class="pkg-items">
               <?php foreach($group_series as $s): ?>
-                <label style="display:flex;gap:10px;align-items:center;padding:6px 10px;border-bottom:1px solid #0b1220;">
+                <label>
                   <input type="checkbox" class="series-checkbox series-<?=$slug?>" name="series_ids[]" value="<?=$s['id']?>" <?= in_array((int)$s['id'],$selected_series_ids,true) ? 'checked' : '' ?>>
-                  <span class="code" style="min-width:50px;opacity:.8;">#<?=$s['id']?></span>
-                  <span style="flex:1;"><?=e($s['name'])?></span>
+                  <span class="code pkg-item-code">#<?=$s['id']?></span>
+                  <span class="pkg-item-name"><?=e($s['name'])?></span>
                   <span class="pill <?= $s['is_adult'] ? 'bad':'good' ?>"><?= $s['is_adult'] ? 'ADULT':'OK' ?></span>
                 </label>
               <?php endforeach; ?>
             </div>
           </div>
-        <?php endforeach; ?>
+        <?php $series_first = false; endforeach; ?>
       </div>
       <div style="margin-top:12px;">
         <button>Save Series</button>
@@ -473,9 +555,35 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
     document.querySelectorAll(selector).forEach(function(el){ el.checked = checked; });
   }
 
+  function syncGroupMaster(master) {
+    var boxes = document.querySelectorAll('.' + master.dataset.target);
+    if (!boxes.length) return;
+    var checkedCount = 0;
+    boxes.forEach(function(box){ if (box.checked) checkedCount++; });
+    master.checked = checkedCount === boxes.length;
+    master.indeterminate = checkedCount > 0 && checkedCount < boxes.length;
+  }
+
+  function showOnlySelectedGroup(scope, slug) {
+    document.querySelectorAll('.pkg-group[data-scope="' + scope + '"]').forEach(function(group){
+      group.classList.toggle('is-hidden', group.dataset.group !== slug);
+    });
+  }
+
   document.querySelectorAll('.group-master').forEach(function(master){
+    syncGroupMaster(master);
     master.addEventListener('change', function(){
       setChecked('.' + master.dataset.target, master.checked);
+      syncGroupMaster(master);
+    });
+  });
+
+  document.querySelectorAll('.live-checkbox, .movie-checkbox, .series-checkbox').forEach(function(box){
+    box.addEventListener('change', function(){
+      var className = Array.from(box.classList).find(function(cls){ return /^(live|movie|series)-/.test(cls); });
+      if (!className) return;
+      var master = document.querySelector('.group-master[data-target="' + className + '"]');
+      if (master) syncGroupMaster(master);
     });
   });
 
@@ -486,7 +594,15 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
       setChecked('.' + scope + '-checkbox', checked);
       document.querySelectorAll('.group-master[data-target^="' + scope + '-"]').forEach(function(master){
         master.checked = checked;
+        master.indeterminate = false;
       });
+    });
+  });
+
+  document.querySelectorAll('.pkg-category-picker').forEach(function(select){
+    showOnlySelectedGroup(select.dataset.scope, select.value);
+    select.addEventListener('change', function(){
+      showOnlySelectedGroup(select.dataset.scope, select.value);
     });
   });
 })();
