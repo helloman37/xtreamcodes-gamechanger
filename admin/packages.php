@@ -6,6 +6,24 @@ require_admin();
 $pdo = db();
 ensure_categories($pdo);
 
+function pkg_group_items(array $items, string $labelKey): array {
+  $out = [];
+  foreach ($items as $item) {
+    $label = trim((string)($item[$labelKey] ?? ''));
+    if ($label === '') $label = 'Uncategorized';
+    if (!isset($out[$label])) $out[$label] = [];
+    $out[$label][] = $item;
+  }
+  ksort($out, SORT_NATURAL | SORT_FLAG_CASE);
+  return $out;
+}
+
+function pkg_slug(string $value): string {
+  $value = strtolower(trim($value));
+  $value = preg_replace('/[^a-z0-9]+/', '-', $value) ?? '';
+  return trim($value, '-') ?: 'group';
+}
+
 $package_id = (int)($_GET['package_id'] ?? 0);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -14,6 +32,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($name !== '') {
       $pdo->prepare("INSERT IGNORE INTO packages (name) VALUES (?)")->execute([$name]);
       flash_set("Package created", "success");
+    }
+    header("Location: packages.php");
+    exit;
+  }
+
+  if (isset($_POST['delete_package'])) {
+    $pid = (int)($_POST['package_id'] ?? 0);
+    if ($pid > 0) {
+      $pdo->beginTransaction();
+      try {
+        $pdo->prepare("DELETE FROM package_channels WHERE package_id=?")->execute([$pid]);
+        $pdo->prepare("DELETE FROM package_movies WHERE package_id=?")->execute([$pid]);
+        $pdo->prepare("DELETE FROM package_series WHERE package_id=?")->execute([$pid]);
+        $pdo->prepare("DELETE FROM user_packages WHERE package_id=?")->execute([$pid]);
+        $pdo->prepare("DELETE FROM packages WHERE id=?")->execute([$pid]);
+        $pdo->commit();
+        flash_set("Package deleted", "success");
+      } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        flash_set("Could not delete package", "error");
+      }
     }
     header("Location: packages.php");
     exit;
@@ -48,6 +87,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     flash_set("User packages saved", "success");
     header("Location: packages.php?package_id=".$package_id);
+    exit;
+  }
+
+  if (isset($_POST['remove_user_from_package'])) {
+    $uid = (int)($_POST['user_id'] ?? 0);
+    $pid = (int)($_POST['package_id'] ?? 0);
+    if ($uid > 0 && $pid > 0) {
+      $pdo->prepare("DELETE FROM user_packages WHERE user_id=? AND package_id=?")->execute([$uid, $pid]);
+      flash_set("User removed from package", "success");
+    }
+    header("Location: packages.php?package_id=".$pid);
     exit;
   }
 
@@ -98,6 +148,7 @@ $selected = null;
 $selected_ids = [];
 $selected_movie_ids = [];
 $selected_series_ids = [];
+$selected_package_users = [];
 if ($package_id > 0) {
   $st = $pdo->prepare("SELECT * FROM packages WHERE id=?");
   $st->execute([$package_id]);
@@ -115,6 +166,10 @@ if ($package_id > 0) {
     $st = $pdo->prepare("SELECT series_id FROM package_series WHERE package_id=?");
     $st->execute([$package_id]);
     $selected_series_ids = array_map(fn($r)=>(int)$r['series_id'], $st->fetchAll());
+
+    $st = $pdo->prepare("SELECT u.id,u.username,u.status FROM user_packages up JOIN users u ON u.id=up.user_id WHERE up.package_id=? ORDER BY u.username");
+    $st->execute([$package_id]);
+    $selected_package_users = $st->fetchAll();
   }
 }
 
@@ -133,6 +188,10 @@ try {
 } catch (Throwable $e) { $series_list = []; }
 $users = $pdo->query("SELECT id,username,status FROM users ORDER BY username")->fetchAll();
 
+$channels_by_group = pkg_group_items($channels, 'grp');
+$movies_by_group = pkg_group_items($movies, 'cat_name');
+$series_by_group = pkg_group_items($series_list, 'cat_name');
+
 $topbar = file_get_contents(__DIR__ . '/topbar.html');
 $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'), $topbar);
 ?>
@@ -148,6 +207,19 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
   <title>Packages</title>
   <link rel="stylesheet" href="assets/xui/css/xui.min.css">
   <link rel="stylesheet" href="panel.css?v=<?php echo @filemtime(__DIR__ . '/panel.css') ?: 1; ?>">
+  <style>
+    .pkg-group-wrap { display:flex; flex-direction:column; gap:12px; }
+    .pkg-group { border:1px solid #1f2937; border-radius:12px; overflow:hidden; background:#0b1220; }
+    .pkg-group-head { display:flex; align-items:center; gap:10px; padding:10px 12px; border-bottom:1px solid #1f2937; background:#0f172a; }
+    .pkg-group-head .title { font-weight:700; flex:1; }
+    .pkg-items { max-height:280px; overflow:auto; }
+    .pkg-tools { display:flex; gap:8px; flex-wrap:wrap; }
+    .pkg-tools button { padding:6px 10px; }
+    .danger-inline { display:inline-flex; margin:0; }
+    .btn-danger { background:#7f1d1d; color:#fff; border:1px solid #991b1b; }
+    .btn-danger:hover { filter:brightness(1.07); }
+    .muted-mini { opacity:.8; font-size:12px; }
+  </style>
 </head>
 <body class="layout-fixed sidebar-expand-lg bg-body-tertiary">
 <?= $topbar ?>
@@ -178,7 +250,14 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
         <td><?= (int)$p['movie_count'] ?></td>
         <td><?= (int)$p['series_count'] ?></td>
         <td><?= (int)$p['user_count'] ?></td>
-        <td><a class="btn gray" href="packages.php?package_id=<?=$p['id']?>">Edit</a></td>
+        <td style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          <a class="btn gray" href="packages.php?package_id=<?=$p['id']?>">Edit</a>
+          <form method="post" class="danger-inline" onsubmit="return confirm('Delete this bouquet/package and remove all linked users/content?');">
+            <input type="hidden" name="delete_package" value="1">
+            <input type="hidden" name="package_id" value="<?=$p['id']?>">
+            <button class="btn-danger" type="submit">Delete</button>
+          </form>
+        </td>
       </tr>
     <?php endforeach; ?>
   </table>
@@ -187,22 +266,49 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
 <?php if($selected): ?>
 <br>
 <div class="card">
-  <h2>Edit Package: <?=e($selected['name'])?></h2>
-  <p class="muted">Users with NO packages assigned can see ALL content (default open). As soon as you assign 1+ packages to a user, they only see items included in those packages (Live + Movies + Series).</p>
+  <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap;">
+    <div>
+      <h2>Edit Package: <?=e($selected['name'])?></h2>
+      <p class="muted">Users with NO packages assigned can see ALL content (default open). As soon as you assign 1+ packages to a user, they only see items included in those packages (Live + Movies + Series).</p>
+    </div>
+    <form method="post" class="danger-inline" onsubmit="return confirm('Delete this bouquet/package and remove all linked users/content?');">
+      <input type="hidden" name="delete_package" value="1">
+      <input type="hidden" name="package_id" value="<?=$selected['id']?>">
+      <button class="btn-danger" type="submit">Delete This Package</button>
+    </form>
+  </div>
 
   <form method="post">
     <input type="hidden" name="save_package_channels" value="1">
     <input type="hidden" name="package_id" value="<?=$selected['id']?>">
 
-    <div style="max-height:520px;overflow:auto;border:1px solid #1f2937;border-radius:12px;padding:10px;">
-      <?php foreach($channels as $c): ?>
-        <label style="display:flex;gap:10px;align-items:center;padding:6px;border-bottom:1px solid #0b1220;">
-          <input type="checkbox" name="channel_ids[]" value="<?=$c['id']?>" <?= in_array((int)$c['id'],$selected_ids,true) ? 'checked' : '' ?>>
-          <span class="code" style="min-width:50px;opacity:.8;">#<?=$c['id']?></span>
-          <span style="flex:1;"><?=e($c['name'])?></span>
-          <span class="pill <?= $c['is_adult'] ? 'bad':'good' ?>"><?= $c['is_adult'] ? 'ADULT':'OK' ?></span>
-          <span class="pill"><?=e($c['grp'])?></span>
-        </label>
+    <div class="pkg-tools" style="margin-bottom:12px;">
+      <button type="button" data-check-scope="live" data-check-state="1">Select All Live</button>
+      <button type="button" data-check-scope="live" data-check-state="0" class="gray">Clear All Live</button>
+    </div>
+
+    <div class="pkg-group-wrap">
+      <?php foreach($channels_by_group as $group => $group_channels): $slug = pkg_slug($group); ?>
+        <div class="pkg-group">
+          <div class="pkg-group-head">
+            <label style="display:flex;gap:10px;align-items:center;flex:1;">
+              <input type="checkbox" class="group-master" data-target="live-<?=$slug?>">
+              <span class="title"><?=e($group)?></span>
+              <span class="pill"><?=count($group_channels)?> channels</span>
+            </label>
+            <span class="muted-mini">check header to toggle whole category</span>
+          </div>
+          <div class="pkg-items">
+            <?php foreach($group_channels as $c): ?>
+              <label style="display:flex;gap:10px;align-items:center;padding:6px 10px;border-bottom:1px solid #0b1220;">
+                <input type="checkbox" class="live-checkbox live-<?=$slug?>" name="channel_ids[]" value="<?=$c['id']?>" <?= in_array((int)$c['id'],$selected_ids,true) ? 'checked' : '' ?>>
+                <span class="code" style="min-width:50px;opacity:.8;">#<?=$c['id']?></span>
+                <span style="flex:1;"><?=e($c['name'])?></span>
+                <span class="pill <?= $c['is_adult'] ? 'bad':'good' ?>"><?= $c['is_adult'] ? 'ADULT':'OK' ?></span>
+              </label>
+            <?php endforeach; ?>
+          </div>
+        </div>
       <?php endforeach; ?>
     </div>
 
@@ -221,15 +327,32 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
     <?php if (!$movies): ?>
       <p class="muted">No movies table/data found (or VOD module not installed).</p>
     <?php else: ?>
-      <div style="max-height:520px;overflow:auto;border:1px solid #1f2937;border-radius:12px;padding:10px;">
-        <?php foreach($movies as $m): ?>
-          <label style="display:flex;gap:10px;align-items:center;padding:6px;border-bottom:1px solid #0b1220;">
-            <input type="checkbox" name="movie_ids[]" value="<?=$m['id']?>" <?= in_array((int)$m['id'],$selected_movie_ids,true) ? 'checked' : '' ?>>
-            <span class="code" style="min-width:50px;opacity:.8;">#<?=$m['id']?></span>
-            <span style="flex:1;"><?=e($m['name'])?></span>
-            <span class="pill <?= $m['is_adult'] ? 'bad':'good' ?>"><?= $m['is_adult'] ? 'ADULT':'OK' ?></span>
-            <span class="pill"><?=e($m['cat_name'])?></span>
-          </label>
+      <div class="pkg-tools" style="margin-bottom:12px;">
+        <button type="button" data-check-scope="movie" data-check-state="1">Select All Movies</button>
+        <button type="button" data-check-scope="movie" data-check-state="0" class="gray">Clear All Movies</button>
+      </div>
+      <div class="pkg-group-wrap">
+        <?php foreach($movies_by_group as $group => $group_movies): $slug = pkg_slug($group); ?>
+          <div class="pkg-group">
+            <div class="pkg-group-head">
+              <label style="display:flex;gap:10px;align-items:center;flex:1;">
+                <input type="checkbox" class="group-master" data-target="movie-<?=$slug?>">
+                <span class="title"><?=e($group)?></span>
+                <span class="pill"><?=count($group_movies)?> movies</span>
+              </label>
+              <span class="muted-mini">check header to toggle whole category</span>
+            </div>
+            <div class="pkg-items">
+              <?php foreach($group_movies as $m): ?>
+                <label style="display:flex;gap:10px;align-items:center;padding:6px 10px;border-bottom:1px solid #0b1220;">
+                  <input type="checkbox" class="movie-checkbox movie-<?=$slug?>" name="movie_ids[]" value="<?=$m['id']?>" <?= in_array((int)$m['id'],$selected_movie_ids,true) ? 'checked' : '' ?>>
+                  <span class="code" style="min-width:50px;opacity:.8;">#<?=$m['id']?></span>
+                  <span style="flex:1;"><?=e($m['name'])?></span>
+                  <span class="pill <?= $m['is_adult'] ? 'bad':'good' ?>"><?= $m['is_adult'] ? 'ADULT':'OK' ?></span>
+                </label>
+              <?php endforeach; ?>
+            </div>
+          </div>
         <?php endforeach; ?>
       </div>
       <div style="margin-top:12px;">
@@ -248,15 +371,32 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
     <?php if (!$series_list): ?>
       <p class="muted">No series table/data found (or Series module not installed).</p>
     <?php else: ?>
-      <div style="max-height:520px;overflow:auto;border:1px solid #1f2937;border-radius:12px;padding:10px;">
-        <?php foreach($series_list as $s): ?>
-          <label style="display:flex;gap:10px;align-items:center;padding:6px;border-bottom:1px solid #0b1220;">
-            <input type="checkbox" name="series_ids[]" value="<?=$s['id']?>" <?= in_array((int)$s['id'],$selected_series_ids,true) ? 'checked' : '' ?>>
-            <span class="code" style="min-width:50px;opacity:.8;">#<?=$s['id']?></span>
-            <span style="flex:1;"><?=e($s['name'])?></span>
-            <span class="pill <?= $s['is_adult'] ? 'bad':'good' ?>"><?= $s['is_adult'] ? 'ADULT':'OK' ?></span>
-            <span class="pill"><?=e($s['cat_name'])?></span>
-          </label>
+      <div class="pkg-tools" style="margin-bottom:12px;">
+        <button type="button" data-check-scope="series" data-check-state="1">Select All Series</button>
+        <button type="button" data-check-scope="series" data-check-state="0" class="gray">Clear All Series</button>
+      </div>
+      <div class="pkg-group-wrap">
+        <?php foreach($series_by_group as $group => $group_series): $slug = pkg_slug($group); ?>
+          <div class="pkg-group">
+            <div class="pkg-group-head">
+              <label style="display:flex;gap:10px;align-items:center;flex:1;">
+                <input type="checkbox" class="group-master" data-target="series-<?=$slug?>">
+                <span class="title"><?=e($group)?></span>
+                <span class="pill"><?=count($group_series)?> series</span>
+              </label>
+              <span class="muted-mini">check header to toggle whole category</span>
+            </div>
+            <div class="pkg-items">
+              <?php foreach($group_series as $s): ?>
+                <label style="display:flex;gap:10px;align-items:center;padding:6px 10px;border-bottom:1px solid #0b1220;">
+                  <input type="checkbox" class="series-checkbox series-<?=$slug?>" name="series_ids[]" value="<?=$s['id']?>" <?= in_array((int)$s['id'],$selected_series_ids,true) ? 'checked' : '' ?>>
+                  <span class="code" style="min-width:50px;opacity:.8;">#<?=$s['id']?></span>
+                  <span style="flex:1;"><?=e($s['name'])?></span>
+                  <span class="pill <?= $s['is_adult'] ? 'bad':'good' ?>"><?= $s['is_adult'] ? 'ADULT':'OK' ?></span>
+                </label>
+              <?php endforeach; ?>
+            </div>
+          </div>
         <?php endforeach; ?>
       </div>
       <div style="margin-top:12px;">
@@ -264,6 +404,32 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
       </div>
     <?php endif; ?>
   </form>
+</div>
+
+<br>
+<div class="card">
+  <h2>Users In This Package</h2>
+  <?php if (!$selected_package_users): ?>
+    <p class="muted">No users assigned to this package yet.</p>
+  <?php else: ?>
+    <table>
+      <tr><th>User</th><th>Status</th><th></th></tr>
+      <?php foreach($selected_package_users as $u): ?>
+        <tr>
+          <td><?=e($u['username'])?></td>
+          <td><?=e($u['status'])?></td>
+          <td>
+            <form method="post" class="danger-inline" onsubmit="return confirm('Remove this user from the package?');">
+              <input type="hidden" name="remove_user_from_package" value="1">
+              <input type="hidden" name="package_id" value="<?=$selected['id']?>">
+              <input type="hidden" name="user_id" value="<?=$u['id']?>">
+              <button class="btn-danger" type="submit">Remove User</button>
+            </form>
+          </td>
+        </tr>
+      <?php endforeach; ?>
+    </table>
+  <?php endif; ?>
 </div>
 
 <br>
@@ -284,7 +450,7 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
         <label>Packages (multi-select)</label>
         <select name="package_ids[]" multiple size="6" style="width:100%;">
           <?php foreach($packages as $p): ?>
-            <option value="<?=$p['id']?>"><?=e($p['name'])?></option>
+            <option value="<?=$p['id']?>" <?= (int)$p['id'] === (int)$selected['id'] ? 'selected' : '' ?>><?=e($p['name'])?></option>
           <?php endforeach; ?>
         </select>
       </div>
@@ -301,5 +467,29 @@ $topbar = str_replace('{{USERNAME}}', e($_SESSION['admin_username'] ?? 'Admin'),
 </div><!-- container -->
 </main>
 </div><!-- app -->
+<script>
+(function(){
+  function setChecked(selector, checked) {
+    document.querySelectorAll(selector).forEach(function(el){ el.checked = checked; });
+  }
+
+  document.querySelectorAll('.group-master').forEach(function(master){
+    master.addEventListener('change', function(){
+      setChecked('.' + master.dataset.target, master.checked);
+    });
+  });
+
+  document.querySelectorAll('[data-check-scope]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var scope = btn.getAttribute('data-check-scope');
+      var checked = btn.getAttribute('data-check-state') === '1';
+      setChecked('.' + scope + '-checkbox', checked);
+      document.querySelectorAll('.group-master[data-target^="' + scope + '-"]').forEach(function(master){
+        master.checked = checked;
+      });
+    });
+  });
+})();
+</script>
 </body>
 </html>
